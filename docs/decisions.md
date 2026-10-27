@@ -254,7 +254,7 @@ to APPROVAL (D004), and the NOTIFY revert step could not be shown.
 ## D010 — Revert window in seconds, with a demo-only override
 
 - **Date:** 2026-10-27
-- **Status:** Accepted (2026-10-27)
+- **Status:** Accepted (2026-10-27) · Amended by D011 (2026-10-27)
 
 **Context.** The default 6 h window is too long to show live. A shorter
 window should not leak into normal operation by accident.
@@ -270,8 +270,49 @@ window should not leak into normal operation by accident.
   log with the configured value and the override value.
 
 **Consequences.**
-- The demo can show a window that expires within seconds.
+- The demo can show a window that expires within seconds of simulated time.
 - A production run cannot silently use a shortened window.
 - Because the window is measured on the simulated clock (D007), the clock's
-  speed factor also shortens it in real time. The override is for the case
-  where the demo must show an expiry while the clock is paused.
+  speed factor also shortens it in real time.
+- *Corrected by D011.* The override shortens the window in simulated time.
+  It does not make the window run while the clock is paused: a paused clock
+  means a paused window. To show the expiry in the demo, resume the clock.
+  The original text said the override was for showing an expiry while the
+  clock is paused, which contradicts D007.
+
+---
+
+## D011 — Revert countdown in the UI: the backend decides, the UI only displays
+
+- **Date:** 2026-10-27
+- **Status:** Accepted (2026-10-27)
+
+**Context.** The revert window is measured on the simulated clock (D007).
+When that clock is paused, a frozen countdown can look like a broken revert
+to the jury. A second, wall-clock countdown that reached zero while the
+backend still accepted the revert would be an actual contradiction.
+
+**Decision.**
+- The simulated clock is the only source of truth. The backend sends
+  `revert_deadline` (simulated time) and `revert_open` (boolean) with every
+  revertible task.
+- The UI never computes expiry. It only displays what the backend sends,
+  and it enables or disables the revert button only from `revert_open`.
+- The revert card is labelled "Ventana en reloj simulado". It shows the
+  remaining simulated time and a decorative real-time estimate
+  (remaining ÷ speed factor, e.g. "≈ 52 s reales a ×360"), marked in the UI
+  as an estimate.
+- While the clock is paused, the counter is frozen and the card says
+  "Reloj simulado en pausa: la ventana no avanza".
+- After expiry, the card says "Ventana cerrada" and the revert button is
+  disabled with the reason visible.
+- In the demo, the expiry is shown by resuming or speeding up the clock.
+
+**Consequences.**
+- There is one clock, and tests stay deterministic.
+- The displayed estimate can never contradict the backend, because it
+  decides nothing.
+- **Required test:**
+  - With the simulated clock paused before `revert_deadline`, a revert is
+    accepted no matter how much wall-clock time has passed.
+  - After resuming the clock past `revert_deadline`, a revert returns 409.
