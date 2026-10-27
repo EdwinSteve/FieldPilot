@@ -7,9 +7,9 @@ UV       := uv --directory $(BACKEND)
 help: ## List available targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-14s %s\n", $$1, $$2}'
 
-install: ## Install backend (uv) and frontend (npm) dependencies
-	$(UV) sync
-	npm --prefix $(FRONTEND) install
+install: ## Install exact locked dependencies (uv.lock, package-lock.json)
+	$(UV) sync --locked
+	npm --prefix $(FRONTEND) ci
 
 dev: ## Run backend (:8000) and frontend (:5173) together
 	$(MAKE) -j2 dev-backend dev-frontend
