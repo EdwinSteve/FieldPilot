@@ -295,19 +295,60 @@ channel for decisions, and the code has no `print` statements.
 
 ```python
 class Clock(Protocol):
-    def now(self) -> datetime: ...
+    def now(self) -> datetime: ...                 # aware UTC
 
-class SimClock(Clock):                    # start + speed factor, or manual advance
-    def advance(self, delta: timedelta) -> None: ...
+class SimClock(Clock):                             # pure; wall time is injected
+    def __init__(self, state: SimClockState, wall: Callable[[], datetime]) -> None: ...
+    def pause(self) -> bool: ...                   # each returns True only if it changed something
+    def resume(self) -> bool: ...
+    def set_speed(self, factor: float) -> bool: ... # factor > 0
+    def advance(self, delta: timedelta) -> bool: ...# delta >= 0; zero is a no-op
+    state: SimClockState                           # re-based anchors, ready to persist
 
 class SensorSource(Protocol):
-    def read(self, zone_id: int, at: datetime) -> Sequence[SensorReading]: ...
+    def read(self, zone_id: int, at: datetime) -> ZoneSnapshot: ...
 
-class FieldSimulator(SensorSource):
-    def apply_irrigation(self, zone_id: int, volume_mm: float) -> None: ...
-    def inject(self, scenario: Scenario) -> None: ...   # DROUGHT, HEAVY_RAIN
-    def step(self, delta: timedelta) -> None: ...       # water balance, temperature
+class ValveController(Protocol):
+    def open(self, zone_id: int, target_mm: float, rate_mm_per_h: float, at: datetime) -> None: ...
+    def close(self, zone_id: int, at: datetime) -> float: ...   # mm actually applied (D007)
+    def status(self, zone_id: int, at: datetime) -> ValveStatus: ...
+
+class Scenario(Protocol):                          # DroughtScenario, HeavyRainScenario
+    name: str; start: datetime; end: datetime
+    def apply(self, weather: IntervalWeather, start: datetime, end: datetime) -> IntervalWeather: ...
+
+class FieldSimulator(SensorSource, ValveController):
+    def advance_to(self, at: datetime) -> None: ... # whole 15-min substeps on a fixed grid
+    def inject(self, scenario: Scenario) -> None: ...
+    def active_scenarios(self, at: datetime) -> tuple[Scenario, ...]: ...
 ```
+
+`SimClock` computes `sim_anchor + (wall − wall_anchor) × speed`, or returns
+`sim_anchor` while paused. Every operation re-anchors first, so `now()` has
+no jumps and never moves backwards. `services/clock.py` persists the state
+and logs every effective change as a `clock_changed` event. A no-op writes
+nothing.
+
+The physics in `water_balance.py` is pure. Rain and irrigation add water;
+ET (ET₀ × Kc) removes it. Excess above field capacity drains, computed from
+the content at the start of each substep. The content stays between the
+wilting point and saturation.
+
+**Determinism.** Three rules keep the simulator deterministic:
+
+- The integration grid is anchored at the start time, so one `advance_to`
+  call gives the same result as many.
+- Irrigation is accounted exactly per run (rate × elapsed time, capped at
+  the target), independent of the grid.
+- Sensor noise is seeded from (seed, zone, grid time), so neither reading
+  history nor call pattern changes any value.
+
+**Time guards.** Time never goes backwards, and a scenario cannot start in
+the already-simulated past.
+
+**State.** The actuator (step 6) depends only on `ValveController`. The
+simulator's state lives in memory (D014). `services/simulation.py` records
+readings and logs `scenario_injected` events.
 
 ### 4.7 Phenology (`app/phenology`)
 
@@ -480,7 +521,8 @@ float rounding. Every datetime column is aware UTC (§4.10).
 `Event.kind` takes one of these values: `proposal`, `gate_verdict`,
 `execution_requested`, `execution`, `execution_failed`, `revert`,
 `revert_refused`, `approval`, `rejection`, `notification`,
-`emergency_stop`, `stage_transition`, `agent_tool_call`, `config_override`.
+`emergency_stop`, `stage_transition`, `agent_tool_call`, `config_override`,
+`clock_changed`, `scenario_injected`.
 
 Task lifecycle (`domain/task_transitions.py`). A task is created as
 `pending_approval` or `scheduled`, and these are the allowed transitions:
