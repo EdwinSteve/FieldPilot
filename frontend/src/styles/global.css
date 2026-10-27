@@ -1,0 +1,32 @@
+:root {
+  --color-bg: #f7f6f2;
+  --color-text: #1f2a1f;
+  --color-online: #2e7d32;
+  --color-offline: #c62828;
+  --color-muted: #6b6b6b;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+body {
+  margin: 0;
+}
+
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.backend-status--checking {
+  color: var(--color-muted);
+}
+
+.backend-status--online {
+  color: var(--color-online);
+}
+
+.backend-status--offline {
+  color: var(--color-offline);
+}

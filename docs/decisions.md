@@ -83,3 +83,118 @@ reports in Spanish for the farmer.
 - The product still meets its user, a Spanish-speaking farmer, in their own
   language.
 - Adding another report language later needs no structural change.
+
+---
+
+## D004 — Safety violations always downgrade to APPROVAL; there is no "drop" outcome
+
+- **Date:** 2026-10-27
+- **Status:** Proposed
+
+**Context.** Rule 3 says that any action exceeding a safety limit is
+downgraded to APPROVAL and is never silently dropped or executed. The demo,
+however, describes a "rain-blocked irrigation", and the emergency stop must
+block every action.
+
+**Decision.**
+- The gate has only three outcomes: `EXECUTE`, `EXECUTE_AND_NOTIFY` and
+  `AWAIT_APPROVAL`. Every rule violation, including rain forecast and the
+  emergency stop, produces `AWAIT_APPROVAL`. The task records the rule and
+  the reason.
+- In the demo, "rain-blocked" means that autonomous execution was blocked.
+  The irrigation waits as a pending approval that shows the rain rule.
+- While the emergency stop is active, approving a task returns 409 and the
+  task stays pending. The actuator also refuses to execute anything.
+- An explicit approval is a conscious override by the farmer of the limits
+  shown on the approval card. Approval re-checks only the emergency stop.
+
+**Consequences.**
+- No proposal is ever lost.
+- The farmer keeps the final say over quantitative limits, such as the 25 mm
+  example in the README.
+- Nothing can bypass the emergency stop.
+
+---
+
+## D005 — Mandatory-approval action types are enforced in config and verified at startup
+
+- **Date:** 2026-10-27
+- **Status:** Proposed
+
+**Context.** Rule 5 puts the default levels in `config/autonomy.yaml`. If
+that file were edited by mistake, fertilizer could become autonomous.
+
+**Decision.**
+- The levels live only in `config/autonomy.yaml`.
+- The loader holds a fixed set of mandatory-approval types: fertilizer,
+  agrochemical, planting date change, harvest timing, product listing, price
+  change and chemical injection.
+- The app refuses to start if any of these types is not set to `approval`.
+- Approved fertilizer and agrochemical tasks become manual tasks for the
+  farmer. The actuator never runs them.
+- `CHEMICAL_INJECTION` exists in the enum but has no actuator command.
+  Approving it returns 422 (not supported) and logs the attempt.
+
+**Consequences.** Moving these types to a weaker level would need a change in
+two places, one of them in code. That makes an accidental weakening unlikely.
+
+---
+
+## D006 — Stage autonomy mapping can only make the level stricter
+
+- **Date:** 2026-10-27
+- **Status:** Proposed
+
+**Context.** The crop catalog has a per-stage autonomy mapping, and
+`autonomy.yaml` has per-action defaults. The brief does not say which one
+wins when they differ.
+
+**Decision.** The effective requested level is the stricter of the two:
+`strictest(default_level, stage_level)`. The order of strictness is
+`APPROVAL > NOTIFY > AUTONOMOUS`.
+
+**Consequences.** Crop data cannot relax a safety-relevant default.
+
+---
+
+## D007 — NOTIFY revert semantics
+
+- **Date:** 2026-10-27
+- **Status:** Proposed
+
+**Context.** A NOTIFY action executes immediately but must be revertible
+within a window. Irrigation water that has already been applied cannot be
+removed.
+
+**Decision.**
+- The revert window is `revert_window_hours` in `autonomy.yaml` (default 6).
+  It is measured on the injected simulation clock.
+- **Executing** a NOTIFY task means committing it: the task enters the
+  calendar as `SCHEDULED` or runs right away.
+- **Reverting** within the window works as follows:
+  - A scheduled task that has not run is cancelled.
+  - A calendar shift is moved back to its original date.
+  - An irrigation that is still running is stopped. The volume already
+    applied is recorded in the event log.
+- A revert after the window, or of a fully applied irrigation, returns 409.
+  The refused attempt is logged with its reason.
+
+**Consequences.** The revert button is honest: it never claims to undo
+something that cannot be undone.
+
+---
+
+## D008 — Add `POST /tasks/{id}/reject`
+
+- **Date:** 2026-10-27
+- **Status:** Proposed
+
+**Context.** The brief lists an approve endpoint but no reject endpoint.
+Without one, the farmer could only ignore a pending task.
+
+**Decision.** Add `POST /tasks/{id}/reject` with an optional reason. It sets
+the task to `REJECTED` and logs a `rejection` event.
+
+**Consequences.**
+- Every pending approval has an explicit end state.
+- The event log records the farmer's "no" as clearly as a "yes".
