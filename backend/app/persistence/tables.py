@@ -30,6 +30,7 @@ class PlotRow(SQLModel, table=True):
     longitude: float
     area_ha: float
     created_at: datetime = _utc()
+    utc_offset_hours: float
 
 
 class ZoneRow(SQLModel, table=True):
@@ -69,6 +70,7 @@ class CropCycleRow(SQLModel, table=True):
     crop: str
     sowing_date: date
     accumulated_gdd: float
+    gdd_updated_through: date | None = None
     status: str
 
 

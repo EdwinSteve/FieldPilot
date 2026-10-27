@@ -80,6 +80,7 @@ class EventKind(StrEnum):
     CONFIG_OVERRIDE = "config_override"
     CLOCK_CHANGED = "clock_changed"
     SCENARIO_INJECTED = "scenario_injected"
+    PHENOLOGY_GAP = "phenology_gap"
 
 
 # Event kinds that close an EXECUTION_REQUESTED with the same idempotency key.

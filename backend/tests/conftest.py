@@ -3,6 +3,7 @@
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from sqlalchemy import Engine
@@ -11,6 +12,7 @@ from app.domain.enums import ActionType, AutonomyLevel, EventKind, TaskStatus
 from app.domain.models import CropCycle, Event, Plot, Task, Zone
 from app.persistence.db import create_db_engine, init_schema
 from app.persistence.unit_of_work import SqlUnitOfWork
+from app.phenology.catalog import CropSpec, load_crop_catalog
 
 T0 = datetime(2026, 10, 27, 6, 0, tzinfo=UTC)
 
@@ -40,7 +42,9 @@ class FieldIds:
 def field(uow: Callable[[], SqlUnitOfWork]) -> FieldIds:
     """A stored plot with one zone and an active maize cycle."""
     with uow() as u:
-        plot = u.plots.add(Plot("Demo farm", 4.6, -74.1, 2.0, created_at=T0))
+        plot = u.plots.add(
+            Plot("Demo farm", 2.93, -75.28, 2.0, created_at=T0, utc_offset_hours=-5.0)
+        )
         assert plot.id is not None
         zone = u.zones.add(Zone(plot.id, "Zone 2", 0.5, 32.0, valve_id="valve-2"))
         cycle = u.cycles.add(CropCycle(plot.id, "maize", date(2026, 10, 1)))
@@ -83,3 +87,13 @@ def make_event(
 
 def later(minutes: int) -> datetime:
     return T0 + timedelta(minutes=minutes)
+
+
+CROPS_DIR = Path(__file__).resolve().parents[2] / "config" / "crops"
+SAFETY_MAX_MOISTURE_PCT_FC = 85.0
+
+
+@pytest.fixture(scope="session")
+def maize() -> CropSpec:
+    """The real maize catalog shipped in config/crops."""
+    return load_crop_catalog(CROPS_DIR, SAFETY_MAX_MOISTURE_PCT_FC)["maize"]
