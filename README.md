@@ -210,7 +210,7 @@ passes its tests. Design decisions are logged in
 [`docs/decisions.md`](docs/decisions.md).
 
 - [x] 1. Scaffold: backend, frontend, Makefile, architecture and decision docs
-- [ ] 2. Domain models and SQLite persistence
+- [x] 2. Domain models and SQLite persistence
 - [ ] 3. Field simulator with accelerated clock and scenarios
 - [ ] 4. Phenology engine (maize)
 - [ ] 5. Safety rules and autonomy gate

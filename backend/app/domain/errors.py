@@ -1,0 +1,18 @@
+"""Domain errors. The API layer maps them to HTTP status codes in one place."""
+
+
+class DomainError(Exception):
+    """Base class for expected, business-level failures."""
+
+
+class NotFoundError(DomainError):
+    """The requested entity does not exist."""
+
+    def __init__(self, entity: str, entity_id: int) -> None:
+        super().__init__(f"{entity} {entity_id} not found")
+        self.entity = entity
+        self.entity_id = entity_id
+
+
+class InvalidTransitionError(DomainError):
+    """A state change that the lifecycle does not allow."""
