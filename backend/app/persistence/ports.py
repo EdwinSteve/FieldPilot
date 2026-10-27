@@ -114,21 +114,37 @@ class SimClockStateRepository(Protocol):
 
 
 class UnitOfWork(Protocol):
-    """One transaction. Nothing is persisted unless `commit()` is called."""
+    """One transaction. Nothing is persisted unless `commit()` is called.
 
-    plots: PlotRepository
-    zones: ZoneRepository
-    sensors: SensorRepository
-    readings: ReadingRepository
-    cycles: CropCycleRepository
-    stages: StageRepository
-    tasks: TaskRepository
-    decisions: DecisionRepository
-    events: EventRepository
-    notifications: NotificationRepository
-    reports: ReportRepository
-    control: ControlStateRepository
-    sim_clock: SimClockStateRepository
+    Repositories are read-only properties: services use them, never replace them.
+    """
+
+    @property
+    def plots(self) -> PlotRepository: ...
+    @property
+    def zones(self) -> ZoneRepository: ...
+    @property
+    def sensors(self) -> SensorRepository: ...
+    @property
+    def readings(self) -> ReadingRepository: ...
+    @property
+    def cycles(self) -> CropCycleRepository: ...
+    @property
+    def stages(self) -> StageRepository: ...
+    @property
+    def tasks(self) -> TaskRepository: ...
+    @property
+    def decisions(self) -> DecisionRepository: ...
+    @property
+    def events(self) -> EventRepository: ...
+    @property
+    def notifications(self) -> NotificationRepository: ...
+    @property
+    def reports(self) -> ReportRepository: ...
+    @property
+    def control(self) -> ControlStateRepository: ...
+    @property
+    def sim_clock(self) -> SimClockStateRepository: ...
 
     def __enter__(self) -> Self: ...
     def __exit__(
