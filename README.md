@@ -161,8 +161,8 @@ sequenceDiagram
     A->>S: Read moisture, forecast, NDVI
     S-->>A: Moisture 38 % · rain 8 mm expected tomorrow
     A->>G: Propose irrigation 15 mm today (autonomous)
-    G-->>A: Blocked by rule: forecast rain 8 mm > 5 mm limit
-    A->>F: Skipping today. Rain expected tomorrow. Logged.
+    G-->>A: Pending approval: forecast rain 8 mm > 5 mm limit
+    A->>F: Not irrigating on its own today: rain expected. Awaiting your approval.
 
     Note over S,A: Drought scenario injected overnight
     S-->>A: Moisture 21 % · no rain forecast
@@ -170,7 +170,7 @@ sequenceDiagram
     G-->>V: Approved, within daily cap · valve zone 2 opens
     A->>F: Irrigating zone 2 now. 15 mm applied.
 
-    A->>G: Propose extra irrigation 10 mm (notify)
+    A->>G: Propose extra irrigation 10 mm for tomorrow (notify)
     G-->>F: Notice: extra irrigation scheduled, revert within 6 h
     F->>G: Revert
     G-->>A: Reverted, task removed from calendar
