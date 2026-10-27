@@ -452,3 +452,161 @@ closed.
 - **Required test (step 11):** the task stays `SCHEDULED` until an
   `advance()` crosses `scheduled_for`, with no `execution` event before
   then (D009).
+
+---
+
+## D017 — Agronomic sources for the maize catalog, verified before commit
+
+- **Date:** 2026-10-27
+- **Status:** Accepted (2026-10-27)
+
+**Context.** The first proposal cited degree-days and Kc values from memory.
+Those values had to be checked against their sources before the catalog
+was committed.
+
+**Decision.**
+- Every numeric field in `config/crops/*.yaml` names a source declared in
+  the same file, with its citation, URL, verification status and
+  verification date. The loader rejects any field without a known source.
+- **Degree-days:** cumulative GDD from Abendroth et al. (2011), PMR 1009,
+  as tabulated in Ohio State AGF-0101 Table 1. The values are in °F·day
+  with the Modified 86/50 °F method and were converted by dividing by 1.8.
+  The rows used, verified on 2026-10-27, are:
+  - VE: 100 °F·day → 55.6 °C·day
+  - VT/R1: 1420 → 788.9
+  - R2: 1686 → 936.7
+  - R5: 2324 → 1291.1
+  - R6: 2650 → 1472.2
+- **Kc:** FAO-56 Table 12, "Maize, Field (grain)". Kc mid 1.20 and Kc end
+  0.60 were verified. Kc ini 0.30 is **partially verified**: it is read
+  from the cereals group value, and the online table layout was garbled.
+- **Values without an agronomic source** are marked as such. Moisture
+  targets and nutrient amounts are `demo_value`. The 20 °C·day start of
+  germination is a `project_convention`, because the sources define no
+  boundary between sowing and germination.
+- The catalog declares `reviewed_by_agronomist: false`. Tests check that
+  it is not presented as reviewed and that demo values are never labelled
+  verified.
+
+**Correction recorded for transparency.** The values first proposed from
+memory were wrong. For example, flowering was set at 700 °C·day, while the
+source gives 788.9. Verification caught this before the commit, and tests
+now pin every threshold to its published value.
+
+**Consequences.**
+- Every number can be traced to its origin.
+- Before the demo, a team member should re-read the source pages linked in
+  the YAML to confirm them.
+
+---
+
+## D018 — The phenology day is the plot's local calendar day
+
+- **Date:** 2026-10-27
+- **Status:** Accepted (2026-10-27)
+
+**Context.** The daily minimum and maximum temperature define each day's
+GDD. In Neiva (UTC−5), the UTC day ends at 19:00 local time, so a UTC day
+would mix two different nights.
+
+**Decision.**
+- `Plot.utc_offset_hours` is required, with no default, so a plot can
+  never silently fall back to UTC.
+- A day's readings are those in `[local midnight, next local midnight)`,
+  computed by `local_day_window`.
+- A day is processed only after it has ended in simulated time.
+
+**Consequences.** A test places a minimum at 22:00 local time, which is the
+next day in UTC, and checks that it is counted in its local day.
+
+---
+
+## D019 — Phenology never invents data; gaps are recorded, not filled
+
+- **Date:** 2026-10-27
+- **Status:** Accepted (2026-10-27)
+
+**Context.** A day can have no temperature readings, for example because a
+sensor was down. Filling the day from the forecast or from averages would
+move stages and the calendar on data that was never measured.
+
+**Decision.**
+- A day without readings raises `MissingDataError` and writes nothing.
+- The next day with data counts **only its own GDD**. The skipped days are
+  logged in one `phenology_gap` event, which says their degree-days were
+  not counted and stage dates may lag.
+- Data that arrives later for a gap day is not back-filled. Days are
+  counted once, in order, so totals never change after the fact.
+- Processing is idempotent: a day at or before `gdd_updated_through`
+  changes nothing.
+
+**Consequences.**
+- Stage estimates err on the late side after a gap, and the reason is
+  visible in the event log.
+- Tests cover the failing day, the following day and a late arrival.
+
+---
+
+## D020 — The maize catalog is a reference that must be calibrated locally
+
+- **Date:** 2026-10-27
+- **Status:** Accepted (2026-10-27)
+
+**Context.** The degree-days come from US Corn Belt hybrids, and the FAO-56
+Kc values assume standard conditions: a subhumid climate, RHmin of about
+45 % and wind of about 2 m/s. The target region, Neiva in Huila (about
+430 m, a warm climate), differs on both counts.
+
+**Decision.**
+- **The catalog values are a reference that must be calibrated with local
+  data before any real use.** That applies to hybrid-specific GDD, local
+  Kc and local agronomic advice on moisture and nutrients.
+- This limitation is stated in the YAML (`calibration_note`), in the
+  README and here.
+- The architecture already allows calibration: a calibrated crop is a new
+  YAML file with its own sources, and no code changes.
+
+**Consequences.**
+- The demo shows the mechanism, and the jury can see exactly which numbers
+  would change in the field.
+- As a rough check, a typical Neiva day (22/34 °C) gives 16 °C·day, so
+  maturity takes about 92 days. That is plausible for a warm lowland site,
+  but it is not a validated prediction.
+
+---
+
+## D021 — FAO-56 Kc ini (0.30) stays "partially verified" until checked in the original table
+
+- **Date:** 2026-10-27
+- **Status:** Accepted (2026-10-27)
+
+**Context.** A reviewer reading the full FAO-56 Table 12 must not find a
+gap between the catalog and the source. A second check on 2026-10-27
+confirmed two things. The "Maize, Field (grain)" row has no Kc ini of its
+own, and FAO-56 states that a group's single Kc ini value represents the
+whole group. The cereals group header reads 0.3 in the online text, but
+that column may be rendered from an image, so the value was not confirmed
+against the original table.
+
+**Options considered.**
+1. Confirm 0.30 against the complete source.
+2. Replace it with a value verified for the sowing stage.
+3. Keep it and say explicitly that it is partially verified.
+
+**Decision.** Option 3, until a person checks the original:
+- The YAML keeps `verification: partially_verified`, with a note that
+  explains the inheritance and the uncertainty.
+- The README says, in its own bullet, that Kc ini is only partially
+  verified.
+- No other verified value replaces it. No sowing-stage Kc was found in a
+  verified source, and Kc ini depends on wetting frequency: FAO-56 gives a
+  range of 0.1 to 1.15.
+
+**How to close it.** Open FAO-56 Table 12 in the original publication (the
+PDF or the printed paper) and read the cereals group Kc ini.
+- If it is 0.3, set `verification: verified` and a new `verified_on`, and
+  update this entry to Option 1.
+- If it differs, change the value; the catalog test will show the change.
+
+**Consequences.** The only partially verified number is labelled as such in
+every place a reviewer would look.

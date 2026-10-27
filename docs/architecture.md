@@ -356,22 +356,61 @@ readings and logs `scenario_injected` events.
 @dataclass(frozen=True)
 class StageSpec:
     name: str
-    gdd_start: float
-    water_need_mm_per_day: float
-    nutrient_need: Mapping[str, float]               # kg/ha, e.g. {"N": 60}
-    autonomy: Mapping[ActionType, AutonomyLevel]     # stage mapping
+    display_name: Mapping[str, str]                  # {"en": ..., "es": ...}
+    gdd_start: float                                 # °C·day
+    kc_start: float; kc_end: float                   # FAO-56 Kc, linear within the stage
+    moisture_target: MoistureTarget                  # low/high, % of field capacity
+    nutrient_need_kg_ha: Mapping[str, float]         # e.g. {"N": 60}
+    autonomy: Mapping[ActionType, AutonomyLevel]     # may only tighten (D006)
+    sources: Mapping[str, str]                       # field -> source key
+    def level_for(self, action_type: ActionType) -> AutonomyLevel | None: ...
 
 @dataclass(frozen=True)
 class CropSpec:
     name: str
-    base_temp_c: float
-    upper_temp_c: float
+    base_temp_c: float; upper_temp_c: float          # 10 / 30 °C cutoff
+    maturity_gdd: float
     stages: tuple[StageSpec, ...]
+    sources: Mapping[str, Source]                    # citation, url, verification
+    reviewed_by_agronomist: bool
+    calibration_note: str
 
-def load_crop_catalog(path: Path) -> Mapping[str, CropSpec]: ...
-def daily_gdd(t_min: float, t_max: float, crop: CropSpec) -> float: ...  # pure
-def stage_for(gdd: float, crop: CropSpec) -> StageSpec: ...              # pure
+def load_crop_catalog(directory: Path, max_moisture_pct_fc: float) -> CropCatalog: ...
+def daily_gdd(t_min: float, t_max: float, crop: CropSpec) -> float: ...
+def stage_for(gdd: float, crop: CropSpec) -> StageSpec: ...
+def transitions_between(gdd_before: float, gdd_after: float, crop: CropSpec) -> tuple[StageSpec, ...]: ...
+def crop_coefficient_at(gdd: float, crop: CropSpec) -> float: ...
+def project_stage_dates(gdd: float, today: date, expected_daily_gdd: float, crop: CropSpec) -> Mapping[str, date]: ...
+def local_day_window(day: date, utc_offset_hours: float) -> tuple[datetime, datetime]: ...
 ```
+
+Every function above is pure.
+
+**Catalog validation.** Every numeric field in the YAML names a source
+declared in the same file (D017). The loader checks the following and stops
+the app at startup if any check fails:
+
+- every source exists;
+- stages start at 0 and strictly increase;
+- stage names are unique;
+- Kc is in [0, 2];
+- for moisture, `0 < low < high ≤` the safety limit, which is passed in
+  rather than duplicated;
+- base temperature is below the upper temperature;
+- maturity comes after the last stage starts.
+
+**Daily update.** `services/phenology.py` (`PhenologyService.update_cycle`)
+counts one finished **local** day (D018):
+
+1. It takes the minimum and maximum temperature from that day's readings.
+2. It adds the day's GDD to the cycle.
+3. For each stage crossed, it closes the open `Stage`, opens the next one,
+   and logs a `stage_transition` event.
+
+All of this runs in one transaction. The update is idempotent through
+`CropCycle.gdd_updated_through`. A day without data raises
+`MissingDataError` and writes nothing. The next day with data counts only
+itself and logs a `phenology_gap` event that lists the skipped days (D019).
 
 ### 4.8 Agent (`app/agent`)
 
@@ -501,11 +540,11 @@ erDiagram
 
 | Table | Key fields |
 |---|---|
-| **Plot** | id, name, latitude, longitude, area_ha, created_at |
+| **Plot** | id, name, latitude, longitude, area_ha, utc_offset_hours (local day, D018), created_at |
 | **Zone** | id, plot_id, name, area_ha, field_capacity_pct, valve_id |
 | **Sensor** | id, zone_id, kind (`soil_moisture`, `temperature`, `humidity`), unit |
 | **Reading** | id, sensor_id, value, recorded_at |
-| **CropCycle** | id, plot_id, crop, sowing_date, accumulated_gdd, status (`active`, `completed`) |
+| **CropCycle** | id, plot_id, crop, sowing_date, accumulated_gdd, gdd_updated_through?, status (`active`, `completed`) |
 | **Stage** | id, cycle_id, name, started_at, ended_at, gdd_at_start |
 | **Task** | id, cycle_id, zone_id?, action_type, params (JSON), scheduled_for, status, effective_level, rationale, estimated_cost_minor?, estimated_cost_currency?, revert_deadline?, created_at, updated_at |
 | **Decision** | id, task_id, requested_level, effective_level, outcome, violations (JSON), reason, inputs (JSON snapshot of the `SafetyContext`), created_at |
@@ -522,7 +561,7 @@ float rounding. Every datetime column is aware UTC (§4.10).
 `execution_requested`, `execution`, `execution_failed`, `revert`,
 `revert_refused`, `approval`, `rejection`, `notification`,
 `emergency_stop`, `stage_transition`, `agent_tool_call`, `config_override`,
-`clock_changed`, `scenario_injected`.
+`clock_changed`, `scenario_injected`, `phenology_gap`.
 
 Task lifecycle (`domain/task_transitions.py`). A task is created as
 `pending_approval` or `scheduled`, and these are the allowed transitions:
