@@ -78,6 +78,8 @@ class EventKind(StrEnum):
     STAGE_TRANSITION = "stage_transition"
     AGENT_TOOL_CALL = "agent_tool_call"
     CONFIG_OVERRIDE = "config_override"
+    CLOCK_CHANGED = "clock_changed"
+    SCENARIO_INJECTED = "scenario_injected"
 
 
 # Event kinds that close an EXECUTION_REQUESTED with the same idempotency key.

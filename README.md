@@ -211,7 +211,7 @@ passes its tests. Design decisions are logged in
 
 - [x] 1. Scaffold: backend, frontend, Makefile, architecture and decision docs
 - [x] 2. Domain models and SQLite persistence
-- [ ] 3. Field simulator with accelerated clock and scenarios
+- [x] 3. Field simulator with accelerated clock and scenarios
 - [ ] 4. Phenology engine (maize)
 - [ ] 5. Safety rules and autonomy gate
 - [ ] 6. Simulated actuator and NOTIFY revert window
