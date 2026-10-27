@@ -373,3 +373,82 @@ water twice.
 - Step 2 provides the key, the uniqueness constraint and
   `find_unclosed_execution_requests()`, with tests. The reconciliation
   service and `Actuator.lookup` come in step 6.
+
+---
+
+## D014 — Simulator state lives in memory; what the user sees after a restart
+
+- **Date:** 2026-10-27
+- **Status:** Accepted (2026-10-27)
+
+**Context.** Persisting the full simulator state (water balance, active
+scenarios, valve runs) would add schema and code that only the demo needs.
+
+**Decision.**
+- Soil moisture is rebuilt at startup from the latest stored `Reading` of
+  each zone.
+- Active scenarios and valve runs live only in memory and are lost on
+  restart. Nothing resumes on its own.
+- An irrigation interrupted by a restart is closed by D013 reconciliation.
+- **The UI shows active scenarios only from the simulator**
+  (`FieldSimulator.active_scenarios(now)`), never from a stored copy or the
+  event log.
+- After a restart during a drought, the UI shows no active scenario,
+  because none is being applied. The event log still shows the earlier
+  `scenario_injected` event and its window.
+- When a `scenario_injected` window that is still open in the log has no
+  matching active scenario in the simulator, the UI shows a notice:
+  "El simulador se reinició; el escenario «sequía» ya no se está aplicando".
+  It never shows "sequía" as if it were still active.
+
+**Consequences.**
+- The UI can never claim an effect the simulator is not applying.
+- Re-injecting the scenario is an explicit, logged action.
+
+---
+
+## D015 — Soil moisture units: volumetric content vs. percent of field capacity
+
+- **Date:** 2026-10-27
+- **Status:** Accepted (2026-10-27)
+
+**Context.** Sensors report volumetric water content (%). The safety limit
+"do not irrigate above 85 %" is relative to field capacity. Comparing a raw
+reading of, say, 30 % with the 85 % limit would never trigger the rule.
+
+**Decision.**
+- Readings are stored as volumetric content (`soil_moisture_vwc`).
+- Rules use the percent of field capacity, computed only by
+  `domain/units.pct_of_field_capacity(vwc, field_capacity_vwc)`.
+- `ZoneSnapshot` carries both values, and so does the UI.
+
+**Consequences.** A single conversion point removes a whole class of unit
+errors.
+
+---
+
+## D016 — The demo moves time with controlled `advance()`
+
+- **Date:** 2026-10-27
+- **Status:** Accepted (2026-10-27)
+
+**Context.** Two goals pull in different directions. The NOTIFY extra
+irrigation for the next day (D009) must be reverted before it runs. The
+revert window, measured on the simulated clock, must be visibly open or
+closed.
+
+**Decision.**
+- The demo and the end-to-end test keep the clock paused and move time with
+  explicit `ClockService.advance()` calls. These are deterministic and
+  logged as `clock_changed`.
+- `advance()` only moves the clock. The simulator integrates every skipped
+  15-minute substep on its next `advance_to`, so no physics is skipped.
+  The revert window is a deadline comparison and needs no substeps.
+
+**Consequences.**
+- **Required test (step 11):** after the NOTIFY task is created, advancing
+  by less than the revert window lets the revert succeed, and advancing
+  past it makes the revert fail with 409.
+- **Required test (step 11):** the task stays `SCHEDULED` until an
+  `advance()` crosses `scheduled_for`, with no `execution` event before
+  then (D009).
