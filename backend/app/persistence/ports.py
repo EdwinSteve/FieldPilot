@@ -1,0 +1,140 @@
+"""Repository and unit-of-work interfaces.
+
+Services depend on these protocols, never on SQL implementations, so they
+can be tested with fakes and the storage can change without touching them.
+"""
+
+from collections.abc import Sequence
+from datetime import datetime
+from types import TracebackType
+from typing import Protocol, Self
+
+from app.domain.enums import EventKind, TaskStatus
+from app.domain.models import (
+    ControlState,
+    CropCycle,
+    Decision,
+    Event,
+    Notification,
+    Plot,
+    Reading,
+    Report,
+    Sensor,
+    SimClockState,
+    Stage,
+    Task,
+    Zone,
+)
+
+
+class PlotRepository(Protocol):
+    def add(self, plot: Plot) -> Plot: ...
+    def get(self, plot_id: int) -> Plot: ...
+    def list(self) -> Sequence[Plot]: ...
+
+
+class ZoneRepository(Protocol):
+    def add(self, zone: Zone) -> Zone: ...
+    def get(self, zone_id: int) -> Zone: ...
+    def list_by_plot(self, plot_id: int) -> Sequence[Zone]: ...
+
+
+class SensorRepository(Protocol):
+    def add(self, sensor: Sensor) -> Sensor: ...
+    def list_by_zone(self, zone_id: int) -> Sequence[Sensor]: ...
+
+
+class ReadingRepository(Protocol):
+    def add_many(self, readings: Sequence[Reading]) -> Sequence[Reading]: ...
+    def latest(self, sensor_id: int) -> Reading | None: ...
+    def list_for_sensor(
+        self, sensor_id: int, since: datetime | None = None, until: datetime | None = None
+    ) -> Sequence[Reading]: ...
+
+
+class CropCycleRepository(Protocol):
+    def add(self, cycle: CropCycle) -> CropCycle: ...
+    def get(self, cycle_id: int) -> CropCycle: ...
+    def list_by_plot(self, plot_id: int) -> Sequence[CropCycle]: ...
+    def update(self, cycle: CropCycle) -> CropCycle: ...
+
+
+class StageRepository(Protocol):
+    def add(self, stage: Stage) -> Stage: ...
+    def update(self, stage: Stage) -> Stage: ...
+    def list_by_cycle(self, cycle_id: int) -> Sequence[Stage]: ...
+
+
+class EventRepository(Protocol):
+    """Append-only: there is deliberately no update or delete."""
+
+    def append(self, event: Event) -> Event: ...
+    def list(
+        self, task_id: int | None = None, kind: EventKind | None = None
+    ) -> Sequence[Event]: ...
+    def find_unclosed_execution_requests(self) -> Sequence[Event]: ...
+
+
+class TaskRepository(Protocol):
+    """Tasks change state only together with the event that explains why."""
+
+    def add(self, task: Task, event: Event) -> Task: ...
+    def get(self, task_id: int) -> Task: ...
+    def list(
+        self, status: TaskStatus | None = None, cycle_id: int | None = None
+    ) -> Sequence[Task]: ...
+    def transition(self, task_id: int, target: TaskStatus, event: Event) -> Task: ...
+
+
+class DecisionRepository(Protocol):
+    def add(self, decision: Decision) -> Decision: ...
+    def list_by_task(self, task_id: int) -> Sequence[Decision]: ...
+
+
+class NotificationRepository(Protocol):
+    def add(self, notification: Notification) -> Notification: ...
+    def list(self, unread_only: bool = False) -> Sequence[Notification]: ...
+    def mark_read(self, notification_id: int, read_at: datetime) -> Notification: ...
+
+
+class ReportRepository(Protocol):
+    def add(self, report: Report) -> Report: ...
+    def get(self, report_id: int) -> Report: ...
+    def list_by_cycle(self, cycle_id: int) -> Sequence[Report]: ...
+
+
+class ControlStateRepository(Protocol):
+    def get(self) -> ControlState: ...
+    def set_emergency_stop(self, active: bool, event: Event) -> ControlState: ...
+
+
+class SimClockStateRepository(Protocol):
+    def get(self) -> SimClockState | None: ...
+    def save(self, state: SimClockState) -> SimClockState: ...
+
+
+class UnitOfWork(Protocol):
+    """One transaction. Nothing is persisted unless `commit()` is called."""
+
+    plots: PlotRepository
+    zones: ZoneRepository
+    sensors: SensorRepository
+    readings: ReadingRepository
+    cycles: CropCycleRepository
+    stages: StageRepository
+    tasks: TaskRepository
+    decisions: DecisionRepository
+    events: EventRepository
+    notifications: NotificationRepository
+    reports: ReportRepository
+    control: ControlStateRepository
+    sim_clock: SimClockStateRepository
+
+    def __enter__(self) -> Self: ...
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None: ...
+    def commit(self) -> None: ...
