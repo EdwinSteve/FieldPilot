@@ -316,3 +316,60 @@ backend still accepted the revert would be an actual contradiction.
   - With the simulated clock paused before `revert_deadline`, a revert is
     accepted no matter how much wall-clock time has passed.
   - After resuming the clock past `revert_deadline`, a revert returns 409.
+
+---
+
+## D012 — Schema built with `create_all`; no migrations during the hackathon
+
+- **Date:** 2026-10-27
+- **Status:** Accepted (2026-10-27)
+
+**Context.** Migrations (Alembic) cost setup time, and the data model will
+still change during the hackathon.
+
+**Decision.**
+- The schema is created with `SQLModel.metadata.create_all`.
+- **The schema is reset on every schema change.** Existing databases are not
+  upgraded. `create_all` does not alter existing tables, so an old
+  `fieldpilot.db` must be deleted.
+- The demo database is always regenerated with `make seed` (build step 11).
+- No data is expected to survive between versions.
+
+**Consequences.**
+- There is no migration code to maintain while the model changes.
+- Anyone who tries to keep data between versions will lose it. This entry
+  documents that, so it is no surprise.
+- A real deployment would introduce migrations before storing any farm data.
+
+---
+
+## D013 — Idempotency keys on execution requests; reconciliation by key
+
+- **Date:** 2026-10-27
+- **Status:** Accepted (2026-10-27)
+
+**Context.** Physical execution happens between two database transactions
+(write-ahead, see `architecture.md` §4.3). A crash between them leaves an
+`execution_requested` event without a closing event. Restarting must never
+water twice.
+
+**Decision.**
+- Every `execution_requested` event carries an idempotency key of the form
+  `task-{id}:attempt-{n}`. The event log enforces it: the event is rejected
+  without a key, and `(kind, idempotency_key)` is unique.
+- An execution request is closed by an `execution` or `execution_failed`
+  event with the same key. Other event kinds never close it.
+- At startup, reconciliation decides by key:
+  - If the actuator has a record of that key, the command was applied. The
+    service writes the closing event with the recorded result and does not
+    retry.
+  - If the actuator has no record, the task moves to `FAILED`, the farmer
+    is notified, and nothing is retried automatically. A late irrigation
+    needs a new decision. This is the safer option.
+
+**Consequences.**
+- A restart never re-irrigates.
+- Every interrupted action ends in an explicit, explained state.
+- Step 2 provides the key, the uniqueness constraint and
+  `find_unclosed_execution_requests()`, with tests. The reconciliation
+  service and `Actuator.lookup` come in step 6.
