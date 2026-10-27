@@ -89,7 +89,7 @@ reports in Spanish for the farmer.
 ## D004 — Safety violations always downgrade to APPROVAL; there is no "drop" outcome
 
 - **Date:** 2026-10-27
-- **Status:** Proposed
+- **Status:** Accepted (2026-10-27)
 
 **Context.** Rule 3 says that any action exceeding a safety limit is
 downgraded to APPROVAL and is never silently dropped or executed. The demo,
@@ -103,6 +103,11 @@ block every action.
   the reason.
 - In the demo, "rain-blocked" means that autonomous execution was blocked.
   The irrigation waits as a pending approval that shows the rain rule.
+- The farmer-facing UI never uses the word "blocked". A downgraded task is
+  labelled with the rule that caused it. For rain, the label is
+  "Pendiente de aprobación por lluvia prevista" ("Pending approval: rain
+  forecast"). This makes clear that the agent applied a rule and did not
+  fail.
 - While the emergency stop is active, approving a task returns 409 and the
   task stays pending. The actuator also refuses to execute anything.
 - An explicit approval is a conscious override by the farmer of the limits
@@ -119,7 +124,7 @@ block every action.
 ## D005 — Mandatory-approval action types are enforced in config and verified at startup
 
 - **Date:** 2026-10-27
-- **Status:** Proposed
+- **Status:** Accepted (2026-10-27)
 
 **Context.** Rule 5 puts the default levels in `config/autonomy.yaml`. If
 that file were edited by mistake, fertilizer could become autonomous.
@@ -135,15 +140,19 @@ that file were edited by mistake, fertilizer could become autonomous.
 - `CHEMICAL_INJECTION` exists in the enum but has no actuator command.
   Approving it returns 422 (not supported) and logs the attempt.
 
-**Consequences.** Moving these types to a weaker level would need a change in
-two places, one of them in code. That makes an accidental weakening unlikely.
+**Consequences.**
+- Moving these types to a weaker level would need a change in two places,
+  one of them in code. That makes an accidental weakening unlikely.
+- **Required test:** loading an `autonomy.yaml` that sets any
+  mandatory-approval type below `approval` must raise, and `create_app()`
+  must refuse to start. There is one parametrized case per mandatory type.
 
 ---
 
 ## D006 — Stage autonomy mapping can only make the level stricter
 
 - **Date:** 2026-10-27
-- **Status:** Proposed
+- **Status:** Accepted (2026-10-27)
 
 **Context.** The crop catalog has a per-stage autonomy mapping, and
 `autonomy.yaml` has per-action defaults. The brief does not say which one
@@ -153,22 +162,27 @@ wins when they differ.
 `strictest(default_level, stage_level)`. The order of strictness is
 `APPROVAL > NOTIFY > AUTONOMOUS`.
 
-**Consequences.** Crop data cannot relax a safety-relevant default.
+**Consequences.**
+- Crop data cannot relax a safety-relevant default.
+- **Required test:** a stage mapping that tries to relax a level, such as
+  `stage_level=AUTONOMOUS` with a default of `NOTIFY`, must produce the
+  stricter level. The tests cover every pair of levels.
 
 ---
 
 ## D007 — NOTIFY revert semantics
 
 - **Date:** 2026-10-27
-- **Status:** Proposed
+- **Status:** Accepted (2026-10-27)
 
 **Context.** A NOTIFY action executes immediately but must be revertible
 within a window. Irrigation water that has already been applied cannot be
 removed.
 
 **Decision.**
-- The revert window is `revert_window_hours` in `autonomy.yaml` (default 6).
-  It is measured on the injected simulation clock.
+- The revert window is `revert_window_seconds` in `autonomy.yaml` (default
+  21600, which is 6 h; see D010 for the demo override). It is measured on
+  the injected simulation clock.
 - **Executing** a NOTIFY task means committing it: the task enters the
   calendar as `SCHEDULED` or runs right away.
 - **Reverting** within the window works as follows:
@@ -178,16 +192,24 @@ removed.
     applied is recorded in the event log.
 - A revert after the window, or of a fully applied irrigation, returns 409.
   The refused attempt is logged with its reason.
+- Every revert event, whether successful or refused, records the amount of
+  water actually applied before the revert:
+  - `applied_mm` and `requested_mm`;
+  - `applied_liters`, computed as `applied_mm × zone area in m²`, since
+    1 mm on 1 m² is 1 L.
 
-**Consequences.** The revert button is honest: it never claims to undo
-something that cannot be undone.
+**Consequences.**
+- The revert button is honest: it never claims to undo something that
+  cannot be undone.
+- The water balance in the event log always matches what reached the
+  field.
 
 ---
 
 ## D008 — Add `POST /tasks/{id}/reject`
 
 - **Date:** 2026-10-27
-- **Status:** Proposed
+- **Status:** Accepted (2026-10-27)
 
 **Context.** The brief lists an approve endpoint but no reject endpoint.
 Without one, the farmer could only ignore a pending task.
@@ -198,3 +220,58 @@ the task to `REJECTED` and logs a `rejection` event.
 **Consequences.**
 - Every pending approval has an explicit end state.
 - The event log records the farmer's "no" as clearly as a "yes".
+
+---
+
+## D009 — Demo: the extra irrigation is scheduled for the next day
+
+- **Date:** 2026-10-27
+- **Status:** Accepted (2026-10-27)
+
+**Context.** The demo irrigates 15 mm, then proposes an extra 10 mm as a
+NOTIFY action. On the same day the total is 25 mm. That exceeds the 20 mm
+daily cap and the 12 h minimum interval, so the action would be downgraded
+to APPROVAL (D004), and the NOTIFY revert step could not be shown.
+
+**Decision.**
+- The extra irrigation is scheduled for the next simulated day, at least
+  12 h after the first irrigation. It stays within every limit and keeps its
+  NOTIFY level.
+- The task is committed as `SCHEDULED` and reverted before its
+  `scheduled_for`.
+
+**Consequences.**
+- **Required test (end-to-end):**
+  - The extra irrigation stays `SCHEDULED` while the accelerated clock is
+    before `scheduled_for`.
+  - The revert happens in that state.
+  - No `execution` event exists for the task.
+  - The daily total for the first day stays at 15 mm.
+- The demo never shows the agent breaking its own rules.
+
+---
+
+## D010 — Revert window in seconds, with a demo-only override
+
+- **Date:** 2026-10-27
+- **Status:** Accepted (2026-10-27)
+
+**Context.** The default 6 h window is too long to show live. A shorter
+window should not leak into normal operation by accident.
+
+**Decision.**
+- `config/autonomy.yaml` stores `revert_window_seconds` (default 21600).
+  This stays the single source of the default.
+- The environment variable `DEMO_REVERT_WINDOW_SECONDS` can override it,
+  but only when `APP_PROFILE=demo`. In any other profile, setting the
+  variable stops the app at startup.
+- The override must be a positive integer.
+- When the override is active, the app writes a startup event to the event
+  log with the configured value and the override value.
+
+**Consequences.**
+- The demo can show a window that expires within seconds.
+- A production run cannot silently use a shortened window.
+- Because the window is measured on the simulated clock (D007), the clock's
+  speed factor also shortens it in real time. The override is for the case
+  where the demo must show an expiry while the clock is paused.

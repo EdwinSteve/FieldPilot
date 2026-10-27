@@ -180,7 +180,7 @@ forecast) counts as a violation. This is the safer option.
 ```python
 class AutonomyPolicy:                     # loaded from config/autonomy.yaml
     def default_level(self, action_type: ActionType) -> AutonomyLevel: ...
-    revert_window: timedelta              # default 6 h
+    revert_window: timedelta              # revert_window_seconds, default 21600 (D007, D010)
 
 class AutonomyGate:
     def __init__(self, policy: AutonomyPolicy, limits: SafetyLimits) -> None: ...
@@ -403,7 +403,7 @@ erDiagram
 
 ```yaml
 # config/autonomy.yaml
-revert_window_hours: 6
+revert_window_seconds: 21600   # 6 h; demo-only override in D010
 defaults:
   irrigation: autonomous
   extra_irrigation: notify
