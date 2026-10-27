@@ -80,6 +80,6 @@ class SqlReadingRepository:
         if since is not None:
             query = query.where(col(ReadingRow.recorded_at) >= since)
         if until is not None:
-            query = query.where(col(ReadingRow.recorded_at) <= until)
+            query = query.where(col(ReadingRow.recorded_at) < until)
         query = query.order_by(col(ReadingRow.recorded_at), col(ReadingRow.id))
         return [mappers.reading_from_row(row) for row in self._session.exec(query)]

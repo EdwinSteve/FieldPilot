@@ -49,7 +49,9 @@ class ReadingRepository(Protocol):
     def latest(self, sensor_id: int) -> Reading | None: ...
     def list_for_sensor(
         self, sensor_id: int, since: datetime | None = None, until: datetime | None = None
-    ) -> Sequence[Reading]: ...
+    ) -> Sequence[Reading]:
+        """Readings in the half-open window [since, until), oldest first."""
+        ...
 
 
 class CropCycleRepository(Protocol):

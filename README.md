@@ -128,14 +128,44 @@ flowchart LR
     S5 --> S6[📝 Final report]
 ```
 
-| Stage | Water need | Typical tasks on the calendar | Autonomy level |
-|---|---|---|---|
-| Sowing | Moderate, keep soil moist | Prepare soil, sow, first irrigation | Sowing date: approval · Irrigation: autonomous |
-| Germination & emergence | Frequent, light | Monitor moisture, check emergence | Autonomous |
-| Vegetative growth | High | Irrigation schedule, nitrogen fertilizer | Irrigation: autonomous · Fertilizer: approval |
-| Flowering | Highest | Strict moisture monitoring, stress alerts | Autonomous (alerts) · Extra irrigation: notify |
-| Grain fill | High, then reducing | Irrigation adjustment, pest scouting | Irrigation: autonomous · Scouting visit: notify |
-| Maturity & harvest | Reduce to stop | Stop irrigation, harvest date, traceability record | Harvest date: approval · Stop irrigation: autonomous |
+| Stage | Starts at (°C·day) | Kc | Moisture target (% FC) | Typical tasks on the calendar | Autonomy level |
+|---|---|---|---|---|---|
+| Sowing | 0 | 0.30 | 60–80 | Prepare soil, sow, first irrigation | Sowing date: approval · Irrigation: autonomous |
+| Germination & emergence | 20 | 0.30 | 65–80 | Monitor moisture, check emergence | Autonomous |
+| Vegetative growth | 55.6 | 0.30 → 1.20 | 55–80 | Irrigation schedule, nitrogen fertilizer | Irrigation: autonomous · Fertilizer: approval |
+| Flowering | 788.9 | 1.20 | **70**–80 | Strict moisture monitoring, stress alerts | Autonomous (alerts) · Extra irrigation: notify |
+| Grain fill | 936.7 | 1.20 | 60–80 | Irrigation adjustment, pest scouting | Irrigation: autonomous · Scouting visit: notify |
+| Maturity & harvest | 1291.1 | 1.20 → 0.60 | 40–70 | Stop irrigation, harvest date, traceability record | Harvest date: approval · Irrigation: notify · Stop irrigation: autonomous |
+
+Physiological maturity (black layer) is reached at 1472.2 °C·day. The catalog
+is [`config/crops/maize.yaml`](config/crops/maize.yaml).
+
+**How to read the numbers.**
+
+- **Degree-days and Kc.** Stage thresholds come from Iowa State PMR 1009,
+  via Ohio State AGF-0101, which publishes them in °F·day. They were
+  converted with °C·day = °F·day ÷ 1.8; for example, VE is 100 ÷ 1.8 =
+  55.6. Kc values come from FAO-56. Both were checked against those sources
+  on 2026-10-27.
+- **Kc ini is only partially verified.** The 0.30 used at sowing and
+  germination is the FAO-56 cereals group value, inherited by the maize
+  row. It has not yet been confirmed against the original table (D021).
+- **Sowing–germination boundary.** The 20 °C·day start of germination is a
+  project decision, not agronomic data. The sources define no boundary
+  between sowing and germination.
+- **Not agronomist-reviewed.** These are reference values for US Corn Belt
+  hybrids and FAO standard conditions. They are not reviewed by an
+  agronomist and must be calibrated with local data, for example for Neiva,
+  Huila, before real use (D017, D020).
+- **Moisture targets and nutrient amounts.** These are demo values with no
+  agronomic source.
+- **Flowering.** It has the highest moisture floor, because it is the
+  stage most sensitive to water stress.
+- **Maturity and the 70 % ceiling.** The 40–70 % range at maturity is a
+  *target* that lets the grain dry. It is not a safety limit. The safety
+  rule ("do not irrigate above 85 % of field capacity") still applies
+  everywhere. Irrigation at maturity is raised to *notify*, so the farmer
+  sees any watering at that stage.
 
 Stages are estimated from accumulated degree-days, so the calendar updates
 when the real weather is hotter or cooler than expected. Changes to the
@@ -212,7 +242,7 @@ passes its tests. Design decisions are logged in
 - [x] 1. Scaffold: backend, frontend, Makefile, architecture and decision docs
 - [x] 2. Domain models and SQLite persistence
 - [x] 3. Field simulator with accelerated clock and scenarios
-- [ ] 4. Phenology engine (maize)
+- [x] 4. Phenology engine (maize)
 - [ ] 5. Safety rules and autonomy gate
 - [ ] 6. Simulated actuator and NOTIFY revert window
 - [ ] 7. Agent orchestrator and subagents
@@ -271,7 +301,7 @@ Module contracts and the data model are in [`docs/architecture.md`](docs/archite
 
 - Sensors are **simulated** in the demo. The interface is built for real hardware but has not been tested with it.
 - Satellite imagery is **cached**. Live retrieval is not part of the demo.
-- Crop parameters are simplified, from one public agronomic reference per crop. An agronomist should review them before real use.
+- Crop parameters are reference values, each with its source in the YAML. They are not calibrated for local conditions and have not been reviewed by an agronomist ([D017, D020](docs/decisions.md)).
 - Autonomy levels and thresholds are defaults for the demo. A real deployment would let each farm adjust them within safe bounds.
 - No payments or marketplace in this version.
 

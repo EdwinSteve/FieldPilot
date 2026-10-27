@@ -34,6 +34,7 @@ class SqlCropCycleRepository:
             raise ValueError("cannot update a cycle that was never stored")
         row = get_row_or_raise(self._session, CropCycleRow, cycle.id, "CropCycle")
         row.accumulated_gdd = cycle.accumulated_gdd
+        row.gdd_updated_through = cycle.gdd_updated_through
         row.status = cycle.status
         self._session.flush()
         return mappers.cycle_from_row(row)

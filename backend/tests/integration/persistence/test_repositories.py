@@ -190,7 +190,7 @@ def test_sim_clock_state_save_and_overwrite(uow: UowFactory) -> None:
 def test_datetimes_come_back_as_aware_utc(uow: UowFactory) -> None:
     local = datetime(2026, 10, 27, 1, 0, tzinfo=BOGOTA)
     with uow() as u:
-        plot = u.plots.add(Plot("TZ", 0, 0, 1, created_at=local))
+        plot = u.plots.add(Plot("TZ", 0, 0, 1, created_at=local, utc_offset_hours=-5.0))
         assert plot.id is not None
         u.commit()
 
@@ -206,4 +206,6 @@ def test_datetimes_come_back_as_aware_utc(uow: UowFactory) -> None:
 
 def test_naive_datetime_is_rejected_on_write(uow: UowFactory) -> None:
     with uow() as u, pytest.raises(StatementError, match="naive"):
-        u.plots.add(Plot("Naive", 0, 0, 1, created_at=datetime(2026, 10, 27, 6, 0)))
+        u.plots.add(
+            Plot("Naive", 0, 0, 1, created_at=datetime(2026, 10, 27, 6, 0), utc_offset_hours=0.0)
+        )

@@ -52,6 +52,7 @@ def plot_to_row(plot: Plot) -> PlotRow:
         longitude=plot.longitude,
         area_ha=plot.area_ha,
         created_at=plot.created_at,
+        utc_offset_hours=plot.utc_offset_hours,
     )
 
 
@@ -63,6 +64,7 @@ def plot_from_row(row: PlotRow) -> Plot:
         longitude=row.longitude,
         area_ha=row.area_ha,
         created_at=row.created_at,
+        utc_offset_hours=row.utc_offset_hours,
     )
 
 
@@ -116,6 +118,7 @@ def cycle_to_row(cycle: CropCycle) -> CropCycleRow:
         crop=cycle.crop,
         sowing_date=cycle.sowing_date,
         accumulated_gdd=cycle.accumulated_gdd,
+        gdd_updated_through=cycle.gdd_updated_through,
         status=cycle.status,
     )
 
@@ -127,6 +130,7 @@ def cycle_from_row(row: CropCycleRow) -> CropCycle:
         crop=row.crop,
         sowing_date=row.sowing_date,
         accumulated_gdd=row.accumulated_gdd,
+        gdd_updated_through=row.gdd_updated_through,
         status=CycleStatus(row.status),
     )
 

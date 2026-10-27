@@ -37,6 +37,7 @@ class Plot:
     longitude: float
     area_ha: float
     created_at: datetime
+    utc_offset_hours: float  # defines the plot's local calendar day (D018)
     id: int | None = None
 
 
@@ -77,6 +78,7 @@ class CropCycle:
     crop: str
     sowing_date: date
     accumulated_gdd: float = 0.0
+    gdd_updated_through: date | None = None  # last local day counted (idempotency)
     status: CycleStatus = CycleStatus.ACTIVE
     id: int | None = None
 

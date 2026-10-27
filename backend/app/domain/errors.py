@@ -18,5 +18,13 @@ class InvalidTransitionError(DomainError):
     """A state change that the lifecycle does not allow."""
 
 
+class MissingDataError(DomainError):
+    """Required measurements are absent. The system never invents them (D019)."""
+
+
+class DayNotFinishedError(DomainError):
+    """A daily computation was requested before that local day ended."""
+
+
 class ValveError(DomainError):
     """A valve command that does not match the valve's current state."""
