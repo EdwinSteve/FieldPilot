@@ -216,14 +216,37 @@ class ProposalPort(Protocol):
 
 class ProposalService(ProposalPort):
     def propose(self, action) -> ProposalResult:
-        # 1. log PROPOSAL event
-        # 2. build SafetyContext (repositories, forecast, clock, emergency flag)
-        # 3. verdict = gate.evaluate(...); log GATE_VERDICT + Decision row
-        # 4. create Task with status from verdict
-        # 5. EXECUTE / EXECUTE_AND_NOTIFY -> actuator.execute(task); log EXECUTION
+        # 1. build SafetyContext (repositories, forecast, clock, emergency flag)
+        # 2. verdict = gate.evaluate(...)
+        # 3. one transaction: Task (PENDING_APPROVAL or SCHEDULED) + PROPOSAL
+        #    event, Decision row + GATE_VERDICT event
+        # 4. if EXECUTE / EXECUTE_AND_NOTIFY: run the write-ahead execution below
         #    EXECUTE_AND_NOTIFY -> Notification with revert_deadline
-        # 6. return ProposalResult(task, verdict)
+        # 5. return ProposalResult(task, verdict)
 ```
+
+**Write-ahead execution (D013).** Physical side effects cannot share a
+database transaction, so every execution follows three steps:
+
+1. **Transaction A:** append `execution_requested` with a fresh
+   `idempotency_key` (`task-{id}:attempt-{n}`), then commit.
+2. Call `actuator.execute(task, idempotency_key)`.
+3. **Transaction B:** `tasks.transition(..., EXECUTED, execution event)`,
+   using the same key and the real result (for example `applied_mm`). On
+   failure, the task moves to `FAILED` with an `execution_failed` event that
+   carries the same key.
+
+At startup, `reconcile_executions()` reads
+`events.find_unclosed_execution_requests()` and decides by key, never by
+event kind alone:
+
+- If `actuator.lookup(key)` finds the command was applied, the service
+  writes the closing `execution` event with that result and does not retry.
+- If the actuator has no record of the key, the task moves to `FAILED`, the
+  farmer is notified, and nothing is retried automatically.
+
+A restart therefore never irrigates twice, and never irrigates late without
+a new decision.
 
 Related use cases in `app/services`:
 
@@ -237,8 +260,9 @@ Related use cases in `app/services`:
 
 ```python
 class Actuator(Protocol):
-    def execute(self, task: Task) -> ExecutionResult: ...
-    def revert(self, task: Task) -> RevertResult: ...
+    def execute(self, task: Task, idempotency_key: str) -> ExecutionResult: ...
+    def lookup(self, idempotency_key: str) -> ExecutionResult | None: ...
+    def revert(self, task: Task) -> RevertResult: ...   # carries applied_mm (D007)
 
 class SimulatedActuator(Actuator):        # drives FieldSimulator valves
 ```
@@ -251,14 +275,21 @@ actuator never runs them. Chemical injection has no command (D005).
 
 ### 4.5 Event log (`app/events`)
 
+Storage is `EventRepository` (§4.10). `app/events` holds the builders that
+turn domain facts into events with a human-readable reason, so wording is
+consistent across services.
+
 ```python
-class EventLog(Protocol):
-    def append(self, event: NewEvent) -> Event: ...
-    def list(self, filters: EventFilter) -> Sequence[Event]: ...
+class EventRepository(Protocol):
+    def append(self, event: Event) -> Event: ...
+    def list(self, task_id: int | None = None, kind: EventKind | None = None) -> Sequence[Event]: ...
+    def find_unclosed_execution_requests(self) -> Sequence[Event]: ...
 ```
 
 The log is append-only: no updates and no deletes. It is the only logging
 channel for decisions, and the code has no `print` statements.
+`execution_requested` events must carry an idempotency key, and
+`(kind, idempotency_key)` is unique.
 
 ### 4.6 Simulator (`app/simulator`)
 
@@ -360,6 +391,55 @@ class SpeechToText(Protocol):
 # MuseVoiceTranscribe · MockSpeechToText
 ```
 
+### 4.10 Persistence (`app/persistence`)
+
+The domain uses frozen dataclasses (`app/domain/models.py`) and knows
+nothing about storage. SQLModel tables live in `persistence/tables.py`, and
+`persistence/mappers.py` converts between the two. Repositories are
+`Protocol`s (`persistence/ports.py`) that return domain objects.
+
+```python
+class TaskRepository(Protocol):
+    def add(self, task: Task, event: Event) -> Task: ...
+    def transition(self, task_id: int, target: TaskStatus, event: Event) -> Task: ...
+
+class UnitOfWork(Protocol):        # one session, one transaction
+    tasks: TaskRepository; events: EventRepository; ...   # every repository
+    def commit(self) -> None: ...   # leaving the block without commit rolls back
+```
+
+**What persists and what lives in memory:**
+
+- **Persisted:** every table in §5, including the single-row
+  `ControlState` and `SimClockState`.
+- **In memory only:** the immutable value objects (`ProposedAction`,
+  `SafetyContext`, `GateVerdict`, `RuleViolation`) and the configuration
+  loaded from YAML (`SafetyLimits`, `AutonomyPolicy`, `CropSpec`).
+- **Rebuilt at startup:** the simulator's internal state, from the latest
+  `Reading` of each sensor.
+- **Kept through events:** the agent trace, as `agent_tool_call` events.
+
+**Simulated clock.** `SimClock` is an injected object. Its anchor is stored
+in `SimClockState`, so a restart never moves time backwards.
+
+**Event before state.** A task's status changes only through
+`TaskRepository.add` or `TaskRepository.transition`, both of which require
+the event. Inside the caller's unit of work they run in this order:
+
+1. validate the lifecycle (`domain/task_transitions.py`);
+2. append the event;
+3. write the status.
+
+Any failure rolls back both writes, so there is never a state change
+without an event, and never an orphan event. The emergency stop flag
+follows the same rule through `ControlStateRepository.set_emergency_stop`.
+
+**Datetimes.** `UTCDateTime` stores naive UTC, because SQLite drops the
+offset, and returns aware UTC. It rejects naive input.
+
+**Schema.** The schema is built with `create_all` and has no migrations
+(D012).
+
 ---
 
 ## 5. Data model (SQLite via SQLModel)
@@ -386,16 +466,32 @@ erDiagram
 | **Reading** | id, sensor_id, value, recorded_at |
 | **CropCycle** | id, plot_id, crop, sowing_date, accumulated_gdd, status (`active`, `completed`) |
 | **Stage** | id, cycle_id, name, started_at, ended_at, gdd_at_start |
-| **Task** | id, cycle_id, zone_id?, action_type, params (JSON), scheduled_for, status, effective_level, rationale, estimated_cost?, revert_deadline?, created_at, updated_at |
+| **Task** | id, cycle_id, zone_id?, action_type, params (JSON), scheduled_for, status, effective_level, rationale, estimated_cost_minor?, estimated_cost_currency?, revert_deadline?, created_at, updated_at |
 | **Decision** | id, task_id, requested_level, effective_level, outcome, violations (JSON), reason, inputs (JSON snapshot of the `SafetyContext`), created_at |
-| **Event** | id, occurred_at (sim clock), kind, actor, task_id?, decision_id?, autonomy_level?, rule?, reason, inputs (JSON) |
+| **Event** | id, occurred_at (sim clock), kind, actor, task_id?, decision_id?, autonomy_level?, rule?, reason, inputs (JSON), idempotency_key? · unique (kind, idempotency_key) |
 | **Notification** | id, task_id?, message, created_at, read_at?, revert_deadline? |
 | **Report** | id, cycle_id, stage_id?, language, content (markdown), created_at |
 | **ControlState** | id (single row), emergency_stop_active, changed_at, changed_by |
+| **SimClockState** | id (single row), sim_anchor, wall_anchor, speed_factor, paused |
+
+Money is stored in minor units (`Money(amount_minor, currency)`) to avoid
+float rounding. Every datetime column is aware UTC (§4.10).
 
 `Event.kind` takes one of these values: `proposal`, `gate_verdict`,
-`execution`, `revert`, `approval`, `rejection`, `notification`,
-`emergency_stop`, `stage_transition`, `agent_tool_call`.
+`execution_requested`, `execution`, `execution_failed`, `revert`,
+`revert_refused`, `approval`, `rejection`, `notification`,
+`emergency_stop`, `stage_transition`, `agent_tool_call`, `config_override`.
+
+Task lifecycle (`domain/task_transitions.py`). A task is created as
+`pending_approval` or `scheduled`, and these are the allowed transitions:
+
+| From | To |
+|---|---|
+| `pending_approval` | `scheduled`, `rejected`, `failed` |
+| `scheduled` | `executed`, `reverted`, `failed` |
+| `executed` | `reverted` (D007) |
+
+`reverted`, `rejected` and `failed` are terminal states.
 
 ---
 
