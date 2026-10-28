@@ -1,0 +1,11 @@
+# Safety limits, passed as parameters to the pure rules in
+# backend/app/safety/rules.py. A value equal to a limit is allowed; only
+# values strictly beyond it are downgraded to APPROVAL (D004).
+#
+# Every key is required; unknown keys and negative values stop the app.
+
+max_irrigation_mm_per_zone_day: 20     # executed + scheduled, per zone and day
+rain_skip_threshold_mm_24h: 5          # forecast rain in the next 24 h
+min_irrigation_interval_hours: 12      # between irrigations of the same zone
+max_moisture_pct_fc: 85                # percent of field capacity, never raw VWC (D015)
+max_calendar_shift_days: 2             # earlier or later (D026)

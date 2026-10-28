@@ -1,0 +1,34 @@
+# Farmer-facing messages in Spanish. Keys are the English codes used in code;
+# rules and the gate never contain Spanish text. Every RuleCode must have an
+# entry under `rules`, or the app refuses to start.
+#
+# Placeholders in {braces} are filled from the violation's params.
+
+rules:
+  emergency_stop_active: "Pendiente de aprobación: parada de emergencia activa"
+  always_approval_type: "Pendiente de aprobación: esta acción siempre requiere tu confirmación"
+  daily_irrigation_cap_exceeded: >-
+    Pendiente de aprobación: el riego del día sumaría {total_mm} mm, por encima
+    del máximo de {limit_mm} mm
+  rain_forecast_above_limit: "Pendiente de aprobación por lluvia prevista ({forecast_mm} mm > {limit_mm} mm)"
+  irrigation_interval_too_short: >-
+    Pendiente de aprobación: solo habrían pasado {hours_since_last} h desde el
+    último riego (mínimo {min_hours} h)
+  moisture_above_limit: >-
+    Pendiente de aprobación: el suelo ya está al {moisture_pct_fc} % de su
+    capacidad de campo (máximo {limit_pct_fc} %)
+  calendar_shift_too_large: >-
+    Pendiente de aprobación: mover la fecha {shift_days} días supera el máximo
+    de {limit_days} días
+  missing_input: "Pendiente de aprobación: falta un dato para decidir con seguridad ({input})"
+
+# Names shown for `missing_input`, keyed by the input identifier.
+inputs:
+  rain_forecast_mm_24h: pronóstico de lluvia
+  soil_moisture_vwc: humedad del suelo
+  field_capacity_vwc: capacidad de campo de la zona
+  volume_mm: volumen de riego
+  shift_days: días de cambio de fecha
+
+labels:
+  already_decided: "Ya decidida el {decided_at}"
