@@ -89,7 +89,8 @@ def later(minutes: int) -> datetime:
     return T0 + timedelta(minutes=minutes)
 
 
-CROPS_DIR = Path(__file__).resolve().parents[2] / "config" / "crops"
+CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
+CROPS_DIR = CONFIG_DIR / "crops"
 SAFETY_MAX_MOISTURE_PCT_FC = 85.0
 
 
