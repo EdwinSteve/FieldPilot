@@ -111,99 +111,185 @@ class ProposedAction:
     plot_id: int
     zone_id: int | None
     scheduled_for: datetime
-    params: Mapping[str, float | str]   # e.g. {"volume_mm": 15}
+    params: Mapping[str, float | str]   # e.g. {"volume_mm": 15}, {"shift_days": 3}
     rationale: str                      # agent's explanation, shown to farmer
     estimated_cost: Money | None
     proposed_by: str                    # "agent:irrigation", "farmer", "system"
+    proposal_key: str                   # derived from content, see proposal_key() (D023)
+
+def proposal_key(action_type, plot_id, zone_id, local_day: date, params) -> str: ...
+    # sha256 of canonical JSON; excludes rationale, cost and proposer (D023)
+
+class RuleCode(StrEnum):               # English identifiers; Spanish text lives in
+    EMERGENCY_STOP_ACTIVE = ...         # config/messages/es.yaml, keyed by code
+    ALWAYS_APPROVAL_TYPE = ...
+    DAILY_IRRIGATION_CAP_EXCEEDED = ...
+    RAIN_FORECAST_ABOVE_LIMIT = ...
+    IRRIGATION_INTERVAL_TOO_SHORT = ...
+    MOISTURE_ABOVE_LIMIT = ...
+    CALENDAR_SHIFT_TOO_LARGE = ...
+    MISSING_INPUT = ...                 # a rule lacked data it needs (D027)
 
 @dataclass(frozen=True)
 class RuleViolation:
-    rule: str          # stable id, e.g. "irrigation.daily_cap"
-    reason: str        # human-readable, includes the numbers
+    code: RuleCode
+    params: Mapping[str, float | str]   # the numbers behind it, no text
 
 @dataclass(frozen=True)
 class GateVerdict:
     outcome: GateOutcome
-    requested_level: AutonomyLevel      # from policy and stage mapping
-    effective_level: AutonomyLevel      # after downgrade
+    requested_level: AutonomyLevel      # default, tightened by the stage (D006)
+    effective_level: AutonomyLevel      # after the always-approval check and rules
     violations: tuple[RuleViolation, ...]
-    reason: str
+    reason_code: RuleCode | None        # emergency_stop_active first (D022), then
+                                        # always_approval_type, then the first rule violation
 ```
 
 ---
 
 ## 4. Module contracts
 
-### 4.1 Safety (`app/safety/rules.py`): pure, mypy strict
+### 4.1 Safety (`app/safety/`): pure rules, mypy strict
 
-Pure functions only: no I/O, no clock, no database. Each rule takes the
-proposal, a `SafetyContext` snapshot and the `SafetyLimits`. It returns
-`RuleViolation | None`.
+`rules.py` holds pure functions only: no I/O, no clock, no database. Each
+rule takes the proposal, a `SafetyContext` snapshot and the `SafetyLimits`,
+and returns `RuleViolation | None`. Loading the limits from YAML lives in
+`limits.py`, so the rules never touch a file.
 
 ```python
 @dataclass(frozen=True)
-class SafetyLimits:                       # loaded from config/safety.yaml (D001)
-    max_irrigation_mm_per_zone_per_day: float     # 20
-    rain_forecast_skip_mm_24h: float              # 5
-    min_hours_between_irrigations: float          # 12
-    max_soil_moisture_pct_of_field_capacity: float  # 85
-    max_calendar_shift_days: float                # 2
+class SafetyLimits:                       # config/safety.yaml (D001)
+    max_irrigation_mm_per_zone_day: float # 20
+    rain_skip_threshold_mm_24h: float     # 5
+    min_irrigation_interval_hours: float  # 12
+    max_moisture_pct_fc: float            # 85
+    max_calendar_shift_days: float        # 2 (D026)
 
 @dataclass(frozen=True)
 class SafetyContext:                      # built by the caller, read-only snapshot
-    now: datetime
-    emergency_stop_active: bool
-    irrigated_mm_on_day: float            # executed + scheduled, same zone and day
+    emergency_stop_active: bool           # from ControlState
+    irrigated_mm_on_day: float            # executed + scheduled, same zone, day of scheduled_for
     last_irrigation_at: datetime | None
-    soil_moisture_pct_of_fc: float | None
+    soil_moisture_vwc: float | None       # raw sensor value, volumetric %
+    field_capacity_vwc: float | None      # the rule converts with pct_of_field_capacity (D015)
     rain_forecast_mm_24h: float | None
-    calendar_shift_days: float | None     # for CALENDAR_SHIFT / date changes
 
-def check_emergency_stop(a, ctx, limits) -> RuleViolation | None: ...
+def check_emergency_stop(a, ctx, limits) -> RuleViolation | None: ...   # scope: D022
 def check_daily_irrigation_cap(a, ctx, limits) -> RuleViolation | None: ...
 def check_rain_forecast(a, ctx, limits) -> RuleViolation | None: ...
-def check_min_interval(a, ctx, limits) -> RuleViolation | None: ...
-def check_field_capacity(a, ctx, limits) -> RuleViolation | None: ...
+def check_irrigation_interval(a, ctx, limits) -> RuleViolation | None: ...
+def check_moisture(a, ctx, limits) -> RuleViolation | None: ...
 def check_calendar_shift(a, ctx, limits) -> RuleViolation | None: ...
 
 ALL_RULES: tuple[Rule, ...]
-def evaluate_rules(a, ctx, limits) -> tuple[RuleViolation, ...]: ...
+def evaluate_rules(a, ctx, limits) -> tuple[RuleViolation, ...]: ...   # every violation, not the first
+
+def load_safety_limits(path: Path) -> SafetyLimits: ...                 # limits.py; ConfigError on any problem
 ```
 
-Boundary convention: a value **equal** to a limit is allowed, and only
-values strictly above it violate. For example, 20 mm is allowed and 20.1 mm
-is a violation. Missing data needed by an irrigation rule (for example, no
-forecast) counts as a violation. This is the safer option.
+**Boundary convention.** A value **equal** to a limit is allowed, and only
+values strictly above it violate. These pairs are tested:
 
-### 4.2 Autonomy (`app/autonomy`): mypy strict
+| Limit | Allowed | Violation |
+|---|---|---|
+| Daily irrigation cap | 20 mm | 20.01 mm |
+| Forecast rain | 5 mm | 5.01 mm |
+| Irrigation interval | 12 h | 11 h 59 min (below the minimum) |
+| Moisture | 85 % FC | 85.01 % FC |
+| Calendar shift | 2 days | 3 days |
+
+**Which rules apply to which actions:**
+
+- **Irrigation rules** (cap, rain, interval, moisture) apply to
+  `irrigation` and `extra_irrigation`.
+- **The calendar rule** applies to `calendar_shift`,
+  `planting_date_change` and `harvest_timing`, through `params.shift_days`.
+- **The emergency stop** follows D022.
+
+**Details:**
+
+- The interval is measured from the proposal's `scheduled_for`, not from
+  "now", so a next-day irrigation (D009) is judged at its own time.
+- Missing data that a rule needs is itself a violation, `missing_input`
+  (D027).
+
+### 4.2 Autonomy (`app/autonomy/`): mypy strict
 
 ```python
-class AutonomyPolicy:                     # loaded from config/autonomy.yaml
+MANDATORY_APPROVAL: frozenset[ActionType]   # fixed in code (D005); the YAML list must match it
+
+@dataclass(frozen=True)
+class AutonomyPolicy:                     # config/autonomy.yaml
+    defaults: Mapping[ActionType, AutonomyLevel]   # every ActionType required (D025)
+    always_approval: frozenset[ActionType]
+    revert_window_seconds: int            # stored now, used in step 6 (D010, D011)
     def default_level(self, action_type: ActionType) -> AutonomyLevel: ...
-    revert_window: timedelta              # revert_window_seconds, default 21600 (D007, D010)
+
+def load_autonomy_policy(path: Path) -> AutonomyPolicy: ...   # ConfigError on any problem
+def validate_stage_overrides(policy: AutonomyPolicy, catalog: CropCatalog) -> None: ...
+
+@dataclass(frozen=True)
+class GateContext:
+    safety: SafetyContext
+    stage_level: AutonomyLevel | None     # StageSpec.level_for(action_type)
 
 class AutonomyGate:
     def __init__(self, policy: AutonomyPolicy, limits: SafetyLimits) -> None: ...
-    def evaluate(
-        self,
-        action: ProposedAction,
-        ctx: SafetyContext,
-        stage_level: AutonomyLevel | None,   # from phenology stage mapping
-    ) -> GateVerdict: ...
+    def evaluate(self, action: ProposedAction, context: GateContext) -> GateVerdict: ...
+
+class MessageCatalog:                     # config/messages/es.yaml, every RuleCode required
+    def render(self, code: RuleCode, params: Mapping[str, float | str]) -> str: ...
 ```
 
 `evaluate` is pure and deterministic. It runs in this order:
 
-1. `requested = strictest(policy.default_level(type), stage_level)`. A stage
-   mapping can only make the level stricter (D006).
-2. `violations = evaluate_rules(action, ctx, limits)`.
-3. If there are any violations, the effective level is `APPROVAL`
-   (downgrade). Otherwise it is `requested`.
-4. The effective level maps to the outcome: `AUTONOMOUS → EXECUTE`,
+1. `default = policy.default_level(type)`.
+2. `requested = strictest(default, stage_level)`. A stage mapping can
+   only tighten (D006).
+3. If the type is in `always_approval`, the result is `APPROVAL` with
+   `always_approval_type`. The rules still run and their violations are
+   listed too.
+4. `violations = evaluate_rules(...)`. The emergency stop runs first
+   (D022). Any violation sets the effective level to `APPROVAL` and lists
+   all violations.
+5. Otherwise the effective level is `requested`.
+6. The level maps to the outcome: `AUTONOMOUS → EXECUTE`,
    `NOTIFY → EXECUTE_AND_NOTIFY`, `APPROVAL → AWAIT_APPROVAL`.
 
-There is no "drop" outcome. A blocked action is always visible to the farmer
-as a pending approval with the rule and reason (D004).
+There is no "drop" outcome (D004).
+
+**Recording.** The gate does not log, so it stays pure.
+`services/gate_decisions.py` (`record_verdict`) writes one `gate_verdict`
+event. The event holds the proposal, the context snapshot, the requested
+and effective levels, every violation code with its parameters, and the
+reason code. Its idempotency key is the proposal key. A second verdict for
+the same key is refused by `UNIQUE(kind, idempotency_key)`, and the service
+returns the existing one (D023). No new event kind is added.
+
+```python
+@dataclass(frozen=True)
+class RecordedVerdict:
+    verdict: GateVerdict
+    already_decided_at: datetime | None   # set when the key was already decided (D023)
+
+def record_verdict(uow, clock, action: ProposedAction, context: GateContext,
+                   verdict: GateVerdict) -> RecordedVerdict: ...
+```
+
+When `already_decided_at` is set, the reply shows the earlier verdict with
+the label "Ya decidida el {fecha}".
+
+**Startup.** `create_app()` loads `autonomy.yaml`, `safety.yaml`, the crop
+catalog (with `max_moisture_pct_fc` from `safety.yaml`) and the message
+catalog. It refuses to start if any of these holds:
+
+- a mandatory-approval type is below `approval`, or is missing from the
+  YAML list (D005);
+- an action type has no level (D025);
+- `safety.yaml` is incomplete, has unknown keys or has negative values;
+- a stage override relaxes a default; an override equal to the default
+  is allowed;
+- a `RuleCode` has no Spanish message.
 
 ### 4.3 Proposal service (`app/services/proposals.py`)
 
@@ -580,8 +666,16 @@ Task lifecycle (`domain/task_transitions.py`). A task is created as
 
 ```yaml
 # config/autonomy.yaml
-revert_window_seconds: 21600   # 6 h; demo-only override in D010
-defaults:
+revert_window_seconds: 21600   # 6 h; used in step 6 (D007, D010, D011)
+always_approval:               # must equal MANDATORY_APPROVAL in code (D005)
+  - fertilizer
+  - agrochemical
+  - planting_date_change
+  - harvest_timing             # named harvest_timing_change in the brief (D024)
+  - product_listing
+  - price_change
+  - chemical_injection         # never implemented; listing it never enables execution
+defaults:                      # every action type must appear (D025)
   irrigation: autonomous
   extra_irrigation: notify
   stop_irrigation: autonomous
@@ -600,18 +694,25 @@ defaults:
 
 ```yaml
 # config/safety.yaml
-irrigation:
-  max_mm_per_zone_per_day: 20
-  rain_forecast_skip_mm_24h: 5
-  min_hours_between: 12
-  max_soil_moisture_pct_of_field_capacity: 85
-calendar:
-  max_shift_days: 2
+max_irrigation_mm_per_zone_day: 20
+rain_skip_threshold_mm_24h: 5
+min_irrigation_interval_hours: 12
+max_moisture_pct_fc: 85
+max_calendar_shift_days: 2     # D026
 ```
 
-At load time the app checks that every `ActionType` has a level, and that
-the mandatory-approval types are set to `approval` (D005). If either check
-fails, the app does not start.
+```yaml
+# config/messages/es.yaml  (farmer-facing text; English keys, Spanish values)
+rules:                         # one entry per RuleCode, all required
+  rain_forecast_above_limit: "Pendiente de aprobación por lluvia prevista ({forecast_mm} mm > {limit_mm} mm)"
+  emergency_stop_active: "Pendiente de aprobación: parada de emergencia activa"
+  # ...
+labels:
+  already_decided: "Ya decidida el {decided_at}"
+```
+
+If any of these files is missing or invalid, the app does not start
+(§4.2).
 
 ---
 
