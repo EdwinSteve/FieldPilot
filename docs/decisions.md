@@ -610,3 +610,197 @@ PDF or the printed paper) and read the cereals group Kc ini.
 
 **Consequences.** The only partially verified number is labelled as such in
 every place a reviewer would look.
+
+---
+
+## D022 — Emergency stop: what it blocks and what it never blocks
+
+- **Date:** 2026-10-28
+- **Status:** Accepted (2026-10-28)
+
+**Context.** The brief says that while the emergency stop is active, the
+gate returns APPROVAL with an `emergency_stop_active` violation. Applied
+literally to every action, that blocks two things that must keep working
+in an emergency:
+
+- closing a valve, which reduces the risk;
+- telling the farmer that the crop is under stress.
+
+**Decision.**
+- **The emergency stop blocks every action that adds water or changes the
+  plan.** That is every action type except the informational ones,
+  `stress_alert` and `stage_report`, which change nothing physical or
+  planned. Those are outside the rule's scope; this is not an exemption.
+  They keep their normal level (`stress_alert` stays autonomous), so the
+  farmer does not lose information when they need it most.
+- **The only exemption is `stop_irrigation`.** It is a valve command and
+  so inside the scope, but closing a valve can only reduce risk.
+- The scope (informational types) and the exemption list
+  (`stop_irrigation`) are two fixed sets in code. Both are tested.
+- **The emergency stop is evaluated before every other rule.** For a
+  blocked type, the verdict's `reason_code` is always
+  `emergency_stop_active`, even when other rules or the always-approval
+  list also apply. The other violations are still listed. The farmer and
+  the jury therefore see the exact cause, rendered from the message
+  catalog, and never a generic text.
+- Approval while the stop is active returns 409 (D004, step 9). The
+  actuator also refuses to execute (defense in depth, step 6).
+
+**In one sentence, for the demo:** the emergency stop *blocks everything
+that adds water or changes the plan, and still lets you close valves and
+see alerts.*
+
+**Consequences.**
+- The exemption list has a single entry.
+- Any new action type is blocked by default unless it is classified as
+  informational. Adding a type to either set needs a new decision entry,
+  so the demo sentence stays true.
+
+---
+
+## D023 — The proposal key is derived from the proposal's content
+
+- **Date:** 2026-10-28
+- **Status:** Accepted (2026-10-28)
+
+**Context.** `UNIQUE(kind, idempotency_key)` stops a second `gate_verdict`
+with the same key. If each attempt carried a fresh UUID, an agent that
+retries the same proposal would get two verdicts, and possibly two
+irrigations. The constraint would then protect only against resending the
+same object, not against agent retries.
+
+**Decision.**
+- `proposal_key = "proposal-" + sha256(canonical JSON of {action_type,
+  plot_id, zone_id, local day of scheduled_for, params})`.
+- Canonical JSON means sorted keys and floats rounded to 3 decimals, so
+  `15` and `15.0` give the same key.
+- **Excluded from the key:** `rationale`, `estimated_cost` and
+  `proposed_by`. They vary between LLM attempts without changing what
+  would happen in the field.
+- The key is computed by one pure function in the domain. Callers never
+  build keys themselves.
+- A second proposal with the same key creates no new verdict: the service
+  returns the existing one.
+- Proposal keys (`proposal-…`) and execution keys (`task-{id}:attempt-{n}`,
+  D013) live in different namespaces and never collide.
+
+**Consequences.**
+- An agent retry within the same local day is recognized as the same
+  proposal.
+- A truly different proposal still gets its own verdict: another volume,
+  zone or day.
+- Re-proposing the same action on the same day after the farmer rejected
+  it returns the earlier verdict instead of creating a new pending task.
+  That is accepted: the farmer already answered.
+- **That reuse must be visible.** `record_verdict` returns the verdict
+  together with `already_decided_at` (the time of the original decision,
+  or `None` for a new one). The agent's reply and the UI show the earlier
+  verdict with the label "Ya decidida el {fecha}", taken from the message
+  catalog, so the system never looks as if it ignored the request.
+
+---
+
+## D024 — `harvest_timing` is the action type name, not `harvest_timing_change`
+
+- **Date:** 2026-10-28
+- **Status:** Accepted (2026-10-28)
+
+**Context.** The step 5 brief lists the always-approval type as
+`harvest_timing_change`. The `ActionType` enum, defined in step 2, calls
+it `harvest_timing`.
+
+**Decision.**
+- The config and the code use `harvest_timing`.
+- Using the brief's name would create a key that matches no action type.
+  D005 would then protect nothing, with no visible error.
+
+**Consequences.** Unknown action types in `autonomy.yaml` stop the app, so
+this kind of mismatch can never pass silently in the future.
+
+---
+
+## D025 — Every action type must have an explicit level
+
+- **Date:** 2026-10-28
+- **Status:** Accepted (2026-10-28)
+
+**Context.** The brief's default list does not include `stop_irrigation`.
+
+**Decision.**
+- `autonomy.yaml` must give a level to every `ActionType`. A missing type
+  stops the app; nothing falls back to a silent default.
+- `stop_irrigation` is `autonomous`, as stated in the README.
+
+**Consequences.** Adding a new action type forces a deliberate choice of
+level before the app can start.
+
+---
+
+## D026 — The calendar-shift limit lives in `safety.yaml`
+
+- **Date:** 2026-10-28
+- **Status:** Accepted (2026-10-28)
+
+**Context.** The brief's `safety.yaml` keys do not include the 2-day
+calendar limit (non-negotiable rule 3).
+
+**Decision.**
+- Add `max_calendar_shift_days: 2` to `safety.yaml`.
+- The rule applies to `calendar_shift`, `planting_date_change` and
+  `harvest_timing`, using `abs(params.shift_days)`, so moving a task
+  earlier counts the same as moving it later.
+
+**Consequences.**
+- **Required test:** a 2-day shift passes and a 3-day shift goes to
+  APPROVAL, in both directions.
+- A missing `shift_days` is `missing_input` (D027).
+
+---
+
+## D027 — Missing input to a safety rule is a violation
+
+- **Date:** 2026-10-28
+- **Status:** Accepted (2026-10-28)
+
+**Context.** A rule can lack the data it needs: no forecast, no moisture
+reading, no field capacity, or no `volume_mm` / `shift_days`.
+
+**Decision.** A missing input produces a `missing_input` violation that
+names the input, so the action goes to APPROVAL. A rule never assumes it is
+satisfied. This is the same principle as D019.
+
+**Consequences.** A sensor or forecast outage moves irrigation to the
+farmer's approval queue instead of watering blind.
+
+---
+
+## D028 — Step 5 commit order and staged-only verification
+
+- **Date:** 2026-10-28
+- **Status:** Accepted (2026-10-28)
+
+**Context.** The proposed order put `chore(config)` after
+`feat(autonomy)`. The gate and startup tests load the real YAML files, so
+that commit would fail `make check`. Also, `make check` on the working
+tree does not prove that the *staged* commit passes.
+
+**Decision.**
+- The commit order is: docs → `feat(safety)` → `chore(config)` →
+  `feat(autonomy)`.
+- A commit that touches only documentation (`.md`) runs `make check`
+  directly; there is no uncommitted code that could hide a failure.
+- From the second commit on, when uncommitted code exists, check only what
+  is staged:
+
+  ```bash
+  git stash push --keep-index --include-untracked -m pre-commit-check
+  make check; status=$?
+  git stash pop
+  git stash list      # must be empty
+  ```
+
+  The `;` makes sure the `pop` runs even when `make check` fails. Commit
+  only if `status` was 0.
+
+**Consequences.** Every commit on the branch passes `make check` on its
+own.
