@@ -8,6 +8,8 @@ from app.domain.errors import ConfigError
 from app.safety.limits import load_safety_limits
 from tests.builders import LIMITS
 
+SHIPPED_SAFETY_FILE = Path(__file__).resolve().parents[4] / "config" / "safety.yaml"
+
 VALID: dict[str, Any] = {
     "max_irrigation_mm_per_zone_day": 20,
     "rain_skip_threshold_mm_24h": 5,
@@ -21,6 +23,10 @@ def write(tmp_path: Path, content: Any) -> Path:
     path = tmp_path / "safety.yaml"
     path.write_text(yaml.safe_dump(content), encoding="utf-8")
     return path
+
+
+def test_shipped_safety_file_has_the_agreed_limits() -> None:
+    assert load_safety_limits(SHIPPED_SAFETY_FILE) == LIMITS
 
 
 def test_valid_file_loads_every_limit(tmp_path: Path) -> None:

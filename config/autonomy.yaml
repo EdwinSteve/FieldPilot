@@ -1,0 +1,38 @@
+# Autonomy policy: the single place where action types get their level.
+#
+# Levels: autonomous (execute and log), notify (execute, notify, revertible),
+# approval (wait for the farmer). See README "Autonomy levels" and D004.
+#
+# The app refuses to start if (D005, D025):
+#   - any action type is missing from `defaults`,
+#   - any type below is not `approval` in `defaults`,
+#   - `always_approval` differs from the fixed list in code.
+
+# NOTIFY actions can be reverted within this window, measured on the
+# simulated clock (D007, D010, D011). Stored now; used from step 6.
+revert_window_seconds: 21600   # 6 h
+
+always_approval:
+  - fertilizer
+  - agrochemical
+  - planting_date_change
+  - harvest_timing         # named harvest_timing_change in the step 5 brief (D024)
+  - product_listing
+  - price_change
+  - chemical_injection     # never implemented; listing it never enables execution (D005)
+
+defaults:
+  irrigation: autonomous
+  extra_irrigation: notify
+  stop_irrigation: autonomous   # not in the brief's list; README level (D025)
+  stress_alert: autonomous
+  stage_report: autonomous
+  calendar_shift: notify
+  scouting_visit: notify
+  fertilizer: approval
+  agrochemical: approval
+  planting_date_change: approval
+  harvest_timing: approval
+  product_listing: approval
+  price_change: approval
+  chemical_injection: approval
