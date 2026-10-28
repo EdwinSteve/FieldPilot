@@ -18,6 +18,11 @@ _STRICTNESS: dict[AutonomyLevel, int] = {
 }
 
 
+def strictness(level: AutonomyLevel) -> int:
+    """Rank of a level: higher means the farmer is more involved."""
+    return _STRICTNESS[level]
+
+
 def strictest(first: AutonomyLevel, *others: AutonomyLevel) -> AutonomyLevel:
     """Return the strictest of the given levels (APPROVAL > NOTIFY > AUTONOMOUS)."""
     return max((first, *others), key=_STRICTNESS.__getitem__)

@@ -48,3 +48,17 @@ def proposal(
 
 def context(**changes: object) -> SafetyContext:
     return replace(SAFE, **changes)  # type: ignore[arg-type]
+
+
+# The brief's always-approval types, written out independently of
+# MANDATORY_APPROVAL so a type dropped from the code makes its test fail
+# instead of silently disappearing from the parametrization.
+BRIEF_ALWAYS_APPROVAL = (
+    ActionType.FERTILIZER,
+    ActionType.AGROCHEMICAL,
+    ActionType.PLANTING_DATE_CHANGE,
+    ActionType.HARVEST_TIMING,  # harvest_timing_change in the brief (D024)
+    ActionType.PRODUCT_LISTING,
+    ActionType.PRICE_CHANGE,
+    ActionType.CHEMICAL_INJECTION,
+)

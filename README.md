@@ -243,7 +243,7 @@ passes its tests. Design decisions are logged in
 - [x] 2. Domain models and SQLite persistence
 - [x] 3. Field simulator with accelerated clock and scenarios
 - [x] 4. Phenology engine (maize)
-- [ ] 5. Safety rules and autonomy gate
+- [x] 5. Safety rules and autonomy gate
 - [ ] 6. Simulated actuator and NOTIFY revert window
 - [ ] 7. Agent orchestrator and subagents
 - [ ] 8. Satellite NDVI and segmentation

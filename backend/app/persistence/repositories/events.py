@@ -34,6 +34,14 @@ class SqlEventRepository:
         query = query.order_by(col(EventRow.occurred_at), col(EventRow.id))
         return [mappers.event_from_row(row) for row in self._session.exec(query)]
 
+    def find_by_key(self, kind: EventKind, idempotency_key: str) -> Event | None:
+        """The event of `kind` with this key, if any; (kind, key) is unique."""
+        query = select(EventRow).where(
+            EventRow.kind == kind, EventRow.idempotency_key == idempotency_key
+        )
+        row = self._session.exec(query).first()
+        return mappers.event_from_row(row) if row else None
+
     def find_unclosed_execution_requests(self) -> Sequence[Event]:
         """Execution requests whose idempotency key has no closing event.
 
