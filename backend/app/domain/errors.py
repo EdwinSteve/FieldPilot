@@ -28,3 +28,7 @@ class DayNotFinishedError(DomainError):
 
 class ValveError(DomainError):
     """A valve command that does not match the valve's current state."""
+
+
+class ConfigError(ValueError):
+    """A configuration file is missing, malformed or unsafe. The app must not start."""
