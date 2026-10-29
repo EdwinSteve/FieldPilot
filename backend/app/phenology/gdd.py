@@ -3,6 +3,7 @@
 import math
 from collections.abc import Mapping
 from datetime import UTC, date, datetime, time, timedelta
+from itertools import pairwise
 
 from app.phenology.catalog import CropSpec, StageSpec
 
@@ -10,16 +11,17 @@ MATURITY = "maturity"
 
 
 def daily_gdd(t_min_c: float, t_max_c: float, crop: CropSpec) -> float:
-    """Growing degree-days for one day, Modified 86/50 °F (10/30 °C) cutoff.
+    """Growing degree-days for one day, Modified 86/50 °F (10/30 °C) method.
 
-    Both the daily low and high are clamped to [base, upper] before
-    averaging, so cold nights add no negative heat and heat waves are capped.
+    As published (Purdue AY-312-W): the high is capped at the upper
+    temperature and the low is raised to the base. The low is not capped,
+    so a night above 30 °C counts in full (D031). Never negative.
     """
     if t_min_c > t_max_c:
         raise ValueError(f"daily minimum {t_min_c} is above maximum {t_max_c}")
-    low = _clamp(t_min_c, crop.base_temp_c, crop.upper_temp_c)
-    high = _clamp(t_max_c, crop.base_temp_c, crop.upper_temp_c)
-    return (low + high) / 2 - crop.base_temp_c
+    high = min(t_max_c, crop.upper_temp_c)
+    low = max(t_min_c, crop.base_temp_c)
+    return max(0.0, (high + low) / 2 - crop.base_temp_c)
 
 
 def stage_for(gdd: float, crop: CropSpec) -> StageSpec:
@@ -43,11 +45,17 @@ def transitions_between(
 
 
 def crop_coefficient_at(gdd: float, crop: CropSpec) -> float:
-    """Kc at `gdd`, linear within each stage (the FAO-56 Kc curve)."""
-    stage = stage_for(gdd, crop)
-    start, end = stage.gdd_start, crop.stage_end_gdd(stage)
-    progress = min(max((gdd - start) / (end - start), 0.0), 1.0)
-    return stage.kc_start + (stage.kc_end - stage.kc_start) * progress
+    """Kc at `gdd`, linear between the points of the FAO-56 curve (D030).
+
+    From maturity on, the last point's Kc applies.
+    """
+    if gdd < 0:
+        raise ValueError("accumulated GDD cannot be negative")
+    for before, after in pairwise(crop.kc_curve):
+        if gdd <= after.gdd:
+            progress = (gdd - before.gdd) / (after.gdd - before.gdd)
+            return before.kc + (after.kc - before.kc) * progress
+    return crop.kc_curve[-1].kc
 
 
 def project_stage_dates(
@@ -74,7 +82,3 @@ def local_day_window(day: date, utc_offset_hours: float) -> tuple[datetime, date
     local_midnight = datetime.combine(day, time(0), tzinfo=UTC)
     start = local_midnight - timedelta(hours=utc_offset_hours)
     return start, start + timedelta(days=1)
-
-
-def _clamp(value: float, low: float, high: float) -> float:
-    return max(low, min(value, high))

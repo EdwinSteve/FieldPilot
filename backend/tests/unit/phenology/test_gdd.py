@@ -13,7 +13,7 @@ from app.phenology.gdd import (
     transitions_between,
 )
 
-# --- daily GDD (10/30 °C cutoff) -------------------------------------------
+# --- daily GDD (Modified 86/50 °F, as published; D031) ---------------------
 
 
 @pytest.mark.parametrize(
@@ -21,8 +21,10 @@ from app.phenology.gdd import (
     [
         (2.0, 9.0, 0.0),  # whole day below base: no heat, never negative
         (10.0, 10.0, 0.0),  # exactly at base
-        (31.0, 38.0, 20.0),  # whole day above upper: capped
+        (30.0, 38.0, 20.0),  # high capped at upper, low exactly at upper
         (30.0, 30.0, 20.0),  # exactly at upper
+        (32.0, 36.0, 21.0),  # night above 30 °C: the low is not capped
+        (9.0, 9.0, 0.0),  # high below base, low raised to base: never negative
         (5.0, 25.0, 7.5),  # low clamped up to 10
         (22.0, 34.0, 16.0),  # high clamped down to 30 (Neiva-like day)
         (15.0, 25.0, 10.0),  # no clamping
@@ -82,18 +84,41 @@ def test_gdd_never_decreases(maize: CropSpec) -> None:
         transitions_between(300.0, 200.0, maize)
 
 
-# --- crop coefficient (FAO-56 curve) --------------------------------------
+# --- crop coefficient (FAO-56 curve, D030) --------------------------------
+
+# Expected Kc at a given GDD, written out from the sources (AGF-0101 °F·day
+# ÷ 1.8 and FAO-56 Table 12), not read back from the catalog.
+KC_AT_GDD = [
+    (0.0, 0.30),  # sowing
+    (20.0, 0.30),  # germination starts: still on the initial plateau
+    (55.6, 0.30),  # VE: still on the initial plateau
+    (192.2, 0.30),  # V3: end of initial
+    (300.0, 0.5591),  # asymmetric point: 0.30 + 0.90 x (300 - 192.2) / (566.7 - 192.2)
+    (379.45, 0.75),  # midpoint of development
+    (566.7, 1.20),  # V12: effective full cover
+    (788.9, 1.20),  # flowering is inside the mid-season plateau
+    (1291.1, 1.20),  # R5: start of maturity
+    (1381.65, 0.90),  # midpoint of the late season
+    (1472.2, 0.60),  # R6: physiological maturity
+    (1572.2, 0.60),  # past maturity: stays at Kc end
+]
 
 
-def test_kc_follows_the_fao56_curve(maize: CropSpec) -> None:
-    vegetative = maize.stage("vegetative")
-    midpoint = (vegetative.gdd_start + maize.stage("flowering").gdd_start) / 2
+@pytest.mark.parametrize(("gdd", "kc"), KC_AT_GDD)
+def test_kc_follows_the_fao56_curve(maize: CropSpec, gdd: float, kc: float) -> None:
+    assert crop_coefficient_at(gdd, maize) == pytest.approx(kc, abs=1e-4)
 
-    assert crop_coefficient_at(0.0, maize) == pytest.approx(0.30)
-    assert crop_coefficient_at(midpoint, maize) == pytest.approx(0.75)
-    assert crop_coefficient_at(maize.stage("flowering").gdd_start, maize) == pytest.approx(1.20)
-    assert crop_coefficient_at(maize.maturity_gdd, maize) == pytest.approx(0.60)
-    assert crop_coefficient_at(maize.maturity_gdd + 100, maize) == pytest.approx(0.60)
+
+def test_kc_reaches_mid_season_before_flowering(maize: CropSpec) -> None:
+    just_before_full_cover = crop_coefficient_at(566.7 - 1.0, maize)
+
+    assert just_before_full_cover < 1.20
+    assert crop_coefficient_at(maize.stage("flowering").gdd_start - 100, maize) == 1.20
+
+
+def test_kc_rejects_negative_gdd(maize: CropSpec) -> None:
+    with pytest.raises(ValueError):
+        crop_coefficient_at(-1.0, maize)
 
 
 STAGE_NAMES = [
@@ -105,15 +130,6 @@ STAGE_NAMES = [
     "maturity_harvest",
 ]
 EPSILON = 1e-6
-
-
-@pytest.mark.parametrize("name", STAGE_NAMES)
-def test_kc_equals_the_stage_extremes_on_its_first_and_last_day(maize: CropSpec, name: str) -> None:
-    stage = maize.stage(name)
-    end = maize.stage_end_gdd(stage)
-
-    assert crop_coefficient_at(stage.gdd_start, maize) == pytest.approx(stage.kc_start)
-    assert crop_coefficient_at(end - EPSILON, maize) == pytest.approx(stage.kc_end, abs=1e-6)
 
 
 @pytest.mark.parametrize("boundary", STAGE_NAMES[1:])

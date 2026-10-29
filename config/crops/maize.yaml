@@ -4,9 +4,11 @@
 # calibrated with local data before real use (D017, D020). They have NOT been
 # reviewed by an agronomist.
 #
-# Degree-days use the Modified 86/50 °F cutoff method (10/30 °C): daily high
-# and low are each clamped to [10, 30] °C, then GDD = mean - 10. Published
+# Degree-days use the Modified 86/50 °F method (10/30 °C), as published:
+# GDD = max(0, (min(high, 30) + max(low, 10)) / 2 - 10) (D031). Published
 # values are in °F·day and were converted to °C·day by dividing by 1.8.
+#
+# Kc is a curve of FAO-56 points (kc_curve), independent of the stages (D030).
 
 crop: maize
 display_name: {en: Maize, es: Maíz}
@@ -15,29 +17,39 @@ calibration_note: >-
   Degree-days come from US Corn Belt hybrids and Kc values assume FAO-56
   standard conditions (subhumid, RHmin about 45 %, wind about 2 m/s). For a
   warm lowland site such as Neiva, Huila (about 430 m), both must be
-  calibrated with local data before any real use.
+  calibrated with local data before any real use. FAO-56 Equations 62 and
+  65 adjust Kc mid and Kc end when RHmin differs from 45 % or wind speed
+  from 2 m/s; the Kc curve points mapped to leaf stages (D030) must be
+  confirmed with local field observations.
 
 sources:
   pmr1009:
     citation: >-
-      Abendroth, L.J. et al. (2011). Corn Growth and Development. PMR 1009,
-      Iowa State University Extension. Values as tabulated in Ortez & Lindsey,
-      Corn Growing Degree Days: A Method of Maturity Rating for Hybrids,
-      AGF-0101 Table 1, The Ohio State University (2023).
+      Eckert, D.J. & Thomison, P.R. (2017), revised by Ortez, O. & Lindsey, A.
+      (2023). Corn growing degree days: A method of maturity rating for
+      hybrids. AGF-0101 Table 1, The Ohio State University. Cumulative GDD
+      adapted from Abendroth, L.J. et al. (2011), Corn Growth and
+      Development, PMR 1009, Iowa State University Extension, and Nielsen,
+      R.L. (2021), Grain Fill Stages in Corn, Purdue University
+      (https://www.agry.purdue.edu/ext/corn/news/timeless/GrainFill.html).
     url: https://ohioline.osu.edu/sites/ohioline/files/imce/Horticulture_and_Crop_Science/AGF-0101-Table1.pdf
     verification: verified
-    verified_on: 2026-10-27
+    verified_on: 2026-10-28
     note: >-
       Cumulative GDD in °F·day from planting; the source calls them approximate.
-      Converted with °C·day = °F·day ÷ 1.8, rounded to 0.1. Dividing is enough
-      because the 50 °F base equals the 10 °C base: only the degree size changes.
+      Rounded to 0.1. GDD measure degrees above the base (50 °F = 10 °C), not
+      absolute temperatures, so converting is a change of degree size only:
+      °C·day = °F·day ÷ 1.8.
   gdd_method:
     citation: >-
       Modified 86/50 °F cutoff method, as described in Purdue University /
       Ohio State AY-312-W (Nielsen, Thomison et al.).
     url: https://www.agry.purdue.edu/ext/corn/pubs/AY-312-W.pdf
     verification: verified
-    verified_on: 2026-10-27
+    verified_on: 2026-10-28
+    note: >-
+      The daily high is capped at 86 °F (30 °C) and the daily low is raised
+      to 50 °F (10 °C); the low is not capped at 30 °C.
   fao56:
     citation: >-
       Allen, R.G. et al. (1998). Crop evapotranspiration. FAO Irrigation and
@@ -45,19 +57,32 @@ sources:
     url: http://www.fao.org/4/x0490e/x0490e0b.htm
     verification: verified
     verified_on: 2026-10-27
-    note: Kc mid 1.20 and Kc end 0.60 (harvest at high grain moisture).
+    note: >-
+      Kc mid 1.20 and Kc end 0.60. Table 12 note 11: 0.60 is for harvest at
+      high grain moisture; 0.35 for harvest after complete field drying.
   fao56_kc_ini:
     citation: >-
       FAO-56 Table 12, Kc ini for the cereals group. The "Maize, Field (grain)"
       row has no Kc ini of its own and inherits the group value.
     url: http://www.fao.org/4/x0490e/x0490e0b.htm
-    verification: partially_verified
-    verified_on: 2026-10-27
+    verification: verified
+    verified_on: 2026-10-28
     note: >-
-      Read as 0.3 from the cereals group header in the online text; that
-      column may be rendered from an image, so it is not confirmed against
-      the original table (D021). FAO-56 also notes Kc ini varies from 0.1 to
-      1.15 with wetting frequency, so frequent irrigation at sowing raises it.
+      Verified against the online edition (D031): the Kc ini column matches
+      the cereals group row by alignment with Kc mid and Kc end, and by the
+      group-inheritance rule in the chapter text. The original PDF was not
+      checked. Kc ini depends on wetting frequency (Table 12 note 1, Figs.
+      29-30), so this is a planning value.
+  kc_stage_mapping:
+    citation: >-
+      FieldPilot convention (D030): FAO-56 Kc curve points mapped to leaf
+      stages. The degree-day values come from AGF-0101 Table 1; the choice
+      of leaf stage is not agronomic data.
+    verification: project_convention
+    note: >-
+      FAO-56 defines the points by ground cover and maturity, not leaf stage.
+      Where the window is uncertain, the earlier stage was chosen; this
+      overestimates ET (and water applied) in V3-V6 and V12-V15.
   project_convention:
     citation: FieldPilot convention, not an agronomic value.
     verification: project_convention
@@ -72,19 +97,45 @@ gdd:
   upper_temp_c: {value: 30.0, source: gdd_method}
   maturity_gdd: {value: 1472.2, source: pmr1009}   # R6 black layer: 2650 °F·d ÷ 1.8 = 1472.2 °C·d
 
+# FAO-56 Kc curve (D030), linear between points; the last point is maturity_gdd.
+kc_curve:
+  - name: sowing
+    gdd: {value: 0.0, source: pmr1009}             # planting
+    kc: {value: 0.30, source: fao56_kc_ini}
+  - name: end_initial
+    gdd: {value: 192.2, source: kc_stage_mapping}  # V3: 346 °F·d ÷ 1.8 = 192.2 °C·d
+    kc: {value: 0.30, source: fao56_kc_ini}
+    note: FAO-56 end of initial stage (~10 % ground cover), mapped to V3.
+  - name: full_cover
+    gdd: {value: 566.7, source: kc_stage_mapping}  # V12: 1020 °F·d ÷ 1.8 = 566.7 °C·d
+    kc: {value: 1.20, source: fao56}
+    note: >-
+      FAO-56 effective full cover; for row crops, when leaves of adjacent rows
+      begin to intermingle. Mapped to V12.
+  - name: start_maturity
+    gdd: {value: 1291.1, source: kc_stage_mapping} # R5 dent: 2324 °F·d ÷ 1.8 = 1291.1 °C·d
+    kc: {value: 1.20, source: fao56}
+    note: >-
+      FAO-56 start of maturity, where Kc starts to fall; mapped to R5 (dent)
+      by project convention, not by FAO-56.
+  - name: physiological_maturity
+    gdd: {value: 1472.2, source: pmr1009}          # R6 black layer = maturity_gdd
+    kc: {value: 0.60, source: fao56}
+    note: >-
+      Kc end for harvest at high grain moisture (FAO-56 Table 12 note 11).
+      AGF-0101 gives kernel moisture at R6 as averaging 30 % (25-40 %).
+
 stages:
   - name: sowing
     display_name: {en: Sowing, es: Siembra}
     gdd_start: {value: 0.0, source: pmr1009}        # planting: 0 °F·d ÷ 1.8 = 0 °C·d
-    crop_coefficient: {start: 0.30, end: 0.30, source: fao56_kc_ini}
     moisture_target_pct_fc: {low: 60.0, high: 80.0, source: demo_value}
     nutrient_need_kg_ha: {values: {N: 30.0, P2O5: 40.0, K2O: 40.0}, source: demo_value}
     autonomy: {}   # irrigation keeps its autonomous default here, on purpose
 
   - name: germination_emergence
-    display_name: {en: Germination & emergence, es: Germinación y emergencia}
+    display_name: {en: Germination (to emergence), es: Germinación (hasta la emergencia)}
     gdd_start: {value: 20.0, source: project_convention}   # project decision, not agronomic data
-    crop_coefficient: {start: 0.30, end: 0.30, source: fao56_kc_ini}
     moisture_target_pct_fc: {low: 65.0, high: 80.0, source: demo_value}
     nutrient_need_kg_ha: {values: {}, source: demo_value}
     autonomy: {}
@@ -92,7 +143,6 @@ stages:
   - name: vegetative
     display_name: {en: Vegetative growth, es: Crecimiento vegetativo}
     gdd_start: {value: 55.6, source: pmr1009}       # VE: 100 °F·d ÷ 1.8 = 55.6 °C·d
-    crop_coefficient: {start: 0.30, end: 1.20, source: fao56}   # development stage
     moisture_target_pct_fc: {low: 55.0, high: 80.0, source: demo_value}
     nutrient_need_kg_ha: {values: {N: 60.0}, source: demo_value}
     autonomy: {}
@@ -100,7 +150,6 @@ stages:
   - name: flowering
     display_name: {en: Flowering, es: Floración}
     gdd_start: {value: 788.9, source: pmr1009}      # VT/R1: 1420 °F·d ÷ 1.8 = 788.9 °C·d
-    crop_coefficient: {start: 1.20, end: 1.20, source: fao56}
     moisture_target_pct_fc: {low: 70.0, high: 80.0, source: demo_value}   # strictest
     nutrient_need_kg_ha: {values: {}, source: demo_value}
     autonomy: {}
@@ -108,7 +157,6 @@ stages:
   - name: grain_fill
     display_name: {en: Grain fill, es: Llenado de grano}
     gdd_start: {value: 936.7, source: pmr1009}      # R2: 1686 °F·d ÷ 1.8 = 936.7 °C·d
-    crop_coefficient: {start: 1.20, end: 1.20, source: fao56}
     moisture_target_pct_fc: {low: 60.0, high: 80.0, source: demo_value}
     nutrient_need_kg_ha: {values: {}, source: demo_value}
     autonomy: {scouting_visit: notify}
@@ -116,7 +164,6 @@ stages:
   - name: maturity_harvest
     display_name: {en: Maturity & harvest, es: Madurez y cosecha}
     gdd_start: {value: 1291.1, source: pmr1009}     # R5: 2324 °F·d ÷ 1.8 = 1291.1 °C·d
-    crop_coefficient: {start: 1.20, end: 0.60, source: fao56}   # late season
     moisture_target_pct_fc: {low: 40.0, high: 70.0, source: demo_value}   # dry down the grain
     nutrient_need_kg_ha: {values: {}, source: demo_value}
     autonomy: {irrigation: notify}   # stricter: irrigating at maturity is unusual
