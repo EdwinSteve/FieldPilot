@@ -920,3 +920,194 @@ four things to correct.
 
 **Consequences.** A test pins the 32 °C night case (21 °C·day, not 20).
 The README no longer lists Kc ini as partially verified.
+
+---
+
+## D032 — An irrigation cut by a restart is reported as of unknown size
+
+- **Date:** 2026-10-29
+- **Status:** Accepted (2026-10-29)
+
+**Context.** D013 closes execution requests left open by a crash. It does
+not cover an irrigation that was already `EXECUTED` and still running when
+the process restarted. That task has no open request, and its valve run is
+lost with the simulator's memory (D014). D014 says D013 closes it, but D013
+cannot see it.
+
+**Options considered.**
+1. Report it, with the applied amount unknown.
+2. Estimate `applied_mm = rate × (sim time at startup − start)`.
+3. Add an `execution_interrupted` event kind.
+
+**Decision.** Option 1.
+- At startup, reconciliation flags every `EXECUTED` irrigation that meets
+  both conditions:
+  - its natural end is after the last event logged before startup, which
+    is the last moment the backend is known to have run;
+  - the actuator does not know its key.
+- For each flagged irrigation, reconciliation:
+  - sends `close` to that zone's valve, which is always allowed, in case
+    real hardware kept running;
+  - writes one `notification` event with `requested_mm`,
+    `applied_mm: null` and the reason. Its key is
+    `interrupted:{execution key}`, so a second restart does not repeat it;
+  - creates a Notification for the farmer.
+- **The farmer's message says that the irrigation may have continued
+  after the restart and that the amount applied is unknown.** A bare
+  "riego cerrado" would leave the farmer not knowing how much water the
+  crop received.
+- The task stays `EXECUTED` and is never reopened.
+- The daily cap counts it by the millimetres requested, which is the
+  conservative reading (D035).
+
+**Why not the others.** Option 2 invents a number. If the clock was running
+during the outage, wall time inflates the estimate. Option 3 adds an event
+kind where `notification` is enough.
+
+**Consequences.** No irrigation of unknown size is hidden, and none is
+counted as smaller than it may have been.
+
+---
+
+## D033 — A scheduled task is re-evaluated when its time comes
+
+- **Date:** 2026-10-29
+- **Status:** Accepted (2026-10-29)
+
+**Context.** A `SCHEDULED` task, such as the next-day extra irrigation of
+D009, runs hours after its verdict. Rain, the emergency stop or another
+irrigation may have changed the picture since then. Permits also live in
+memory and do not survive a restart.
+
+**Options considered.**
+1. Re-evaluate with a fresh context.
+2. Keep the original verdict and re-check only the emergency stop.
+3. Add a `SCHEDULED → PENDING_APPROVAL` transition.
+
+**Decision.** Option 1.
+- `DueTaskRunner.run_due(now)` is called explicitly (D016). For each due
+  task the actuator supports, it rebuilds the action, gets a fresh context
+  and calls `gate.authorize`.
+- **With a permit**, the task runs through the write-ahead protocol. The
+  fresh verdict is stored in the `execution_requested` inputs. It is not a
+  second `gate_verdict`, which is unique per proposal key.
+- **Without a permit**, the task moves to `FAILED` with an
+  `execution_failed` event. That event carries the verdict, its reason
+  code and every violation, and the actuator is never called.
+- **The farmer saw this task as scheduled, so the notification names the
+  rule that changed**, rendered from the message catalog as in D004. For
+  example: "La tarea programada no se ejecutó: pendiente de aprobación por
+  lluvia prevista (8 mm > 5 mm). Requiere una nueva decisión."
+- A new decision needs a new proposal.
+
+**Consequences.** Nothing runs on a stale verdict, and a downgrade is never
+silent. The task lifecycle does not change.
+
+---
+
+## D034 — `calendar_shift` execution waits for the calendar (step 7)
+
+- **Date:** 2026-10-29
+- **Status:** Accepted (2026-10-29)
+
+**Context.** D007 says that reverting a calendar shift moves the task back
+to its original date. No calendar exists to move yet; it comes with the
+planner in step 7.
+
+**Decision.**
+- In step 6, a `calendar_shift` task can be created, and reverted while it
+  is `SCHEDULED`.
+- The actuator raises `UnsupportedActionError` for it, and
+  `DueTaskRunner` leaves it scheduled.
+- Its execution, and its revert after execution, are built in step 7.
+
+**Consequences.** Step 6 never claims to move a date it cannot move.
+
+---
+
+## D035 — What the gate counts toward the daily cap and the interval
+
+- **Date:** 2026-10-29
+- **Status:** Accepted (2026-10-29)
+
+**Context.** The safety context must be built from stored facts, never
+supplied by the caller. Otherwise the agent could under-report water. The
+brief does not say which irrigations count.
+
+**Decision.**
+- `StoredGateContextProvider` builds the context per zone and per local
+  day of the plot (D018).
+- For the daily cap and the 12 h interval it counts:
+  - executed irrigations, by the millimetres applied;
+  - scheduled irrigations, by the millimetres requested, so two scheduled
+    15 mm irrigations cannot each pass on their own;
+  - interrupted irrigations, by the millimetres requested (D032).
+- Reverted and failed tasks do not count.
+- The rain forecast comes through a `RainForecast` port. Tests use a
+  fake; the Open-Meteo adapter comes in step 8. Until then a missing
+  forecast is a violation (D027).
+
+**Consequences.** The cap holds across tasks that are committed but not yet
+run.
+
+---
+
+## D036 — The demo override can only shorten the revert window
+
+- **Date:** 2026-10-29
+- **Status:** Accepted (2026-10-29)
+
+**Context.** D010 requires `DEMO_REVERT_WINDOW_SECONDS` to be a positive
+integer. It does not say whether it may exceed `revert_window_seconds`.
+
+**Decision.** An override larger than `revert_window_seconds` stops the
+app at startup. The override exists to shorten the window for the demo,
+not to lengthen it.
+
+**Consequences.** The override cannot extend how long an action stays
+revertible.
+
+---
+
+## D037 — Only the gate can issue an `ExecutionPermit`
+
+- **Date:** 2026-10-29
+- **Status:** Accepted (2026-10-29)
+
+**Context.** The brief requires that the actuator can never be called with
+a raw action. The architecture allows only the gate to authorize an
+execution.
+
+**Decision.**
+- `AutonomyGate.authorize(action, context)` returns the verdict and,
+  only for `EXECUTE` or `EXECUTE_AND_NOTIFY`, an `ExecutionPermit`.
+- The permit carries a token private to `gate.py`. Building one anywhere
+  else raises `PermissionError`.
+- `Actuator.execute` checks the token, and checks that the permit matches
+  the task (type, zone and parameters).
+- `evaluate` stays pure and unchanged.
+- The approval path of step 9 will add its own gate method, so an
+  approved task also receives a gate-issued permit.
+
+**Consequences.** Python cannot make construction strictly impossible, but
+bypassing the token takes a deliberate import of a private name. A test
+pins the refusal.
+
+---
+
+## D038 — One irrigation rate for every simulated valve
+
+- **Date:** 2026-10-29
+- **Status:** Accepted (2026-10-29)
+
+**Context.** `ValveController.open` needs a flow rate. Neither zones nor
+proposals carry one, and the agent should not choose it.
+
+**Decision.**
+- `config/actuation.yaml` holds `irrigation_rate_mm_per_h: 6.0`, marked
+  as a demo value.
+- The actuator uses it for every opening and records it in the result.
+
+**Consequences.** Closing mid-irrigation applies `rate × elapsed`, capped
+at the target, on a known rate. A per-zone rate can come with real
+hardware.
