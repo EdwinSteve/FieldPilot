@@ -1,0 +1,88 @@
+# Continuous integration for FieldPilot.
+#
+# Every job calls the same Makefile targets a developer runs locally, so CI
+# and `make check` can never disagree about what "passing" means (D041).
+# No secrets are used: the agent runs in mock mode and nothing reaches the
+# network beyond package downloads.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Read-only token: CI never writes to the repository.
+permissions:
+  contents: read
+
+# A newer push to the same PR cancels the older run; runs on main always finish.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  MOCK_LLM: "1"
+  UV_VERSION: "0.12.3" # same as local development
+
+jobs:
+  repo:
+    name: Repository hygiene
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: No .env or database files tracked
+        run: make check-repo
+
+  backend:
+    name: Backend (ruff, mypy, pytest)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install (fails if uv.lock is out of date)
+        run: make install-backend
+      - name: Lint and format
+        run: make lint-backend
+      - name: Type-check (mypy; strict for safety and autonomy)
+        run: make typecheck-backend
+      - name: Tests (mock mode, no network)
+        run: make test
+      - name: Tests leave the working tree clean
+        run: |
+          changes="$(git status --porcelain)"
+          if [ -n "$changes" ]; then
+            echo "Tests created or changed files in the repository:"
+            echo "$changes"
+            exit 1
+          fi
+
+  frontend:
+    name: Frontend (tsc, vite build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install (exact package-lock.json)
+        run: make install-frontend
+      - name: Type-check and build
+        run: make check-frontend

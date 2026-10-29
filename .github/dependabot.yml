@@ -1,0 +1,11 @@
+# Keeps the pinned GitHub Actions above up to date. Python and npm
+# dependencies are not included: they change only with an explicit commit
+# that lists and explains them (brief rule 9).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci
