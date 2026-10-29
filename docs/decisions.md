@@ -1158,3 +1158,48 @@ proposal exceed the 20 mm cap.
 **Consequences.** The cap reflects the water that reached the field. A test
 pins that a run stopped at 9 mm counts 9 mm, neither 0 nor the 10
 requested.
+
+---
+
+## D041 — CI runs the same Makefile targets as local development
+
+- **Date:** 2026-10-29
+- **Status:** Accepted (2026-10-29)
+
+**Context.** Until now `make check` was the only gate, run by hand before
+each commit (D028). The repository needs the same gate on every pull
+request, without a second definition of "passing" that could drift from
+the local one.
+
+**Decision.**
+- `.github/workflows/ci.yml` runs on pull requests to `main`, on pushes to
+  `main`, and on demand. It has three jobs, whose names are the
+  required status checks:
+  - **Repository hygiene:** `make check-repo` fails if a `.env` file
+    (other than `.env.example`) or a database file is tracked (rule 7).
+  - **Backend:** `make install-backend` (`uv sync --locked`, so a stale
+    `uv.lock` fails), `lint-backend`, `typecheck-backend` and `test`.
+    Then it checks that the tests left the working tree clean, so no
+    test can write a database into the repository.
+  - **Frontend:** `make install-frontend` (`npm ci`) and
+    `check-frontend` (`tsc` and `vite build`).
+- `make check` is now `check-repo`, `check-backend` and `check-frontend`.
+  Locally it also builds the frontend, as CI does.
+- **No secrets.** The workflow uses no repository secrets.
+  `MOCK_LLM=1` keeps the agent off the network, and the token is
+  read-only (`contents: read`). Checkout does not keep credentials.
+- **Pinned tools.**
+  - Every action is pinned to a commit SHA, with its version in a
+    comment. Dependabot proposes updates to the actions only, monthly.
+  - uv is pinned to 0.12.3, the version used locally. Python comes from
+    `backend/.python-version` (D002), and Node from `frontend/.nvmrc`
+    (24).
+- **Concurrency.** A newer push to the same pull request cancels the older
+  run. Runs on `main` always finish.
+
+**Consequences.**
+- A pull request cannot be merged on a red check once the three checks
+  are required in the branch ruleset.
+- No Python or npm dependency was added. Dependabot covers GitHub Actions
+  only, so dependency changes still go through an explicit commit
+  (brief rule 9).

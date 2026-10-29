@@ -243,14 +243,14 @@ sequenceDiagram
 ## Quick start
 
 **Prerequisites:** [uv](https://docs.astral.sh/uv/) (manages Python 3.12, see
-[D002](docs/decisions.md)), Node.js 20+, `make`.
+[D002](docs/decisions.md)), Node.js 24 (`frontend/.nvmrc`), `make`.
 
 ```bash
 cp .env.example .env        # add your Meta Model API key, or keep MOCK_LLM=1
 make install
 make dev                    # backend :8000 · frontend :5173
 make test                   # backend tests, mock mode, no network
-make check                  # lint + type-check + tests
+make check                  # what CI runs: hygiene, backend and frontend
 ```
 
 `make seed` (demo farm and maize cycle) arrives with build step 11.
@@ -267,7 +267,11 @@ so the simulator, calendar and autonomy gate can still be exercised.
 
 ## Status
 
-Work in progress during the hackathon. A box is ticked only when the feature
+[![CI](https://github.com/EdwinSteve/FieldPilot/actions/workflows/ci.yml/badge.svg)](https://github.com/EdwinSteve/FieldPilot/actions/workflows/ci.yml)
+
+Work in progress during the hackathon. Every pull request runs the same
+Makefile targets as `make check`, in three jobs: repository hygiene, backend
+and frontend ([D041](docs/decisions.md)). A box is ticked only when the feature
 passes its tests. Design decisions are logged in
 [`docs/decisions.md`](docs/decisions.md).
 
