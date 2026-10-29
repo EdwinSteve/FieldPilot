@@ -158,3 +158,78 @@ def test_startup_reconciles_before_serving(config_dir: Path, tmp_path: Path) -> 
     with SqlUnitOfWork(create_db_engine(database_url)) as u:
         assert u.tasks.get(task_id).status is TaskStatus.FAILED
         assert u.events.find_unclosed_execution_requests() == []
+
+
+# --- D010 / D036: demo-only revert window override --------------------------
+
+
+def app_with(config_dir: Path, **env: Any) -> Any:
+    settings = Settings(_env_file=None, config_dir=config_dir, database_url="sqlite://", **env)
+    return create_app(settings)
+
+
+def override_events(app: Any) -> list[Any]:
+    with app.state.runtime.uow() as u:
+        return list(u.events.list(kind=EventKind.CONFIG_OVERRIDE))
+
+
+def test_demo_profile_accepts_the_override_and_logs_the_shortening(config_dir: Path) -> None:
+    app = app_with(config_dir, app_profile="demo", demo_revert_window_seconds=600)
+
+    window = app.state.runtime.revert_window
+    assert (window.seconds, window.configured_seconds, window.overridden) == (600, 21600, True)
+    [event] = override_events(app)
+    assert event.inputs == {
+        "setting": "revert_window_seconds",
+        "configured_seconds": 21600,
+        "override_seconds": 600,
+        "app_profile": "demo",
+    }
+
+
+@pytest.mark.parametrize("profile", ["dev", "prod"])
+def test_any_other_profile_refuses_to_start_with_the_override(
+    config_dir: Path, profile: str
+) -> None:
+    with pytest.raises(ConfigError, match="only when APP_PROFILE=demo"):
+        app_with(config_dir, app_profile=profile, demo_revert_window_seconds=600)
+
+
+def test_the_default_profile_refuses_to_start_with_the_override(config_dir: Path) -> None:
+    with pytest.raises(ConfigError, match="APP_PROFILE is 'dev'"):
+        app_with(config_dir, demo_revert_window_seconds=600)
+
+
+@pytest.mark.parametrize("seconds", [0, -5])
+def test_the_override_must_be_positive(config_dir: Path, seconds: int) -> None:
+    with pytest.raises(ConfigError, match="positive integer"):
+        app_with(config_dir, app_profile="demo", demo_revert_window_seconds=seconds)
+
+
+def test_the_override_can_only_shorten_the_window(config_dir: Path) -> None:
+    with pytest.raises(ConfigError, match="can only shorten"):
+        app_with(config_dir, app_profile="demo", demo_revert_window_seconds=21601)
+
+
+def test_an_override_equal_to_the_configured_window_is_accepted(config_dir: Path) -> None:
+    app = app_with(config_dir, app_profile="demo", demo_revert_window_seconds=21600)
+
+    assert app.state.runtime.revert_window.seconds == 21600
+
+
+def test_demo_profile_without_the_override_keeps_the_configured_window(config_dir: Path) -> None:
+    app = app_with(config_dir, app_profile="demo")
+
+    assert app.state.runtime.revert_window.seconds == 21600
+    assert app.state.runtime.revert_window.overridden is False
+    assert override_events(app) == []
+
+
+def test_the_override_is_read_from_the_environment(
+    config_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("APP_PROFILE", "prod")
+    monkeypatch.setenv("DEMO_REVERT_WINDOW_SECONDS", "600")
+
+    with pytest.raises(ConfigError, match="APP_PROFILE is 'prod'"):
+        app_with(config_dir)
