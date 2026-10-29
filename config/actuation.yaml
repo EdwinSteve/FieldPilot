@@ -1,0 +1,6 @@
+# Actuation settings (D038).
+#
+# One flow rate for every simulated valve. This is a demo value with no
+# agronomic or hardware source: a real installation sets it per valve.
+# At 6 mm/h, a 15 mm irrigation runs for 2.5 simulated hours.
+irrigation_rate_mm_per_h: 6.0

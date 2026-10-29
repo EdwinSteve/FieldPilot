@@ -97,3 +97,16 @@ def test_crop_catalog_uses_the_moisture_limit_from_safety_yaml(config_dir: Path)
 
     with pytest.raises(ConfigError, match="safety limit"):
         start(config_dir)
+
+
+def test_refuses_to_start_without_actuation_config(config_dir: Path) -> None:
+    (config_dir / "actuation.yaml").unlink()
+
+    with pytest.raises(ConfigError, match=r"actuation\.yaml"):
+        start(config_dir)
+
+
+def test_shipped_configuration_loads_the_irrigation_rate(config_dir: Path) -> None:
+    app = create_app(Settings(_env_file=None, config_dir=config_dir))
+
+    assert app.state.config.actuation.irrigation_rate_mm_per_h == 6.0
