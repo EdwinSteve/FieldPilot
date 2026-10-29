@@ -58,7 +58,7 @@ def test_past_maturity_stays_in_the_last_stage(maize: CropSpec) -> None:
 
 
 def test_negative_gdd_is_rejected(maize: CropSpec) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="cannot be negative"):
         stage_for(-1.0, maize)
 
 
@@ -117,7 +117,7 @@ def test_kc_reaches_mid_season_before_flowering(maize: CropSpec) -> None:
 
 
 def test_kc_rejects_negative_gdd(maize: CropSpec) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="cannot be negative"):
         crop_coefficient_at(-1.0, maize)
 
 
@@ -163,7 +163,7 @@ def test_projection_counts_whole_days(maize: CropSpec) -> None:
 
 
 def test_projection_requires_positive_rate(maize: CropSpec) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="must be positive"):
         project_stage_dates(0.0, TODAY, expected_daily_gdd=0.0, crop=maize)
 
 

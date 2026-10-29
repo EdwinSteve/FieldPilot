@@ -56,7 +56,9 @@ Rule = Callable[[ProposedAction, SafetyContext, SafetyLimits], RuleViolation | N
 
 
 def check_emergency_stop(
-    action: ProposedAction, ctx: SafetyContext, limits: SafetyLimits
+    action: ProposedAction,
+    ctx: SafetyContext,
+    limits: SafetyLimits,  # noqa: ARG001 - every rule shares the `Rule` signature
 ) -> RuleViolation | None:
     """Block everything that adds water or changes the plan while the stop is active."""
     if not ctx.emergency_stop_active:
@@ -141,7 +143,9 @@ def check_moisture(
 
 
 def check_calendar_shift(
-    action: ProposedAction, ctx: SafetyContext, limits: SafetyLimits
+    action: ProposedAction,
+    ctx: SafetyContext,  # noqa: ARG001 - every rule shares the `Rule` signature
+    limits: SafetyLimits,
 ) -> RuleViolation | None:
     """Earlier and later shifts count the same (D026)."""
     if action.action_type not in CALENDAR_ACTIONS:

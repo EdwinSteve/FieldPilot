@@ -77,7 +77,7 @@ def task_for(permit: ExecutionPermit, **changes: Any) -> Task:
 
 
 def test_a_raw_action_is_refused_and_no_valve_opens(rig: Rig) -> None:
-    raw_action = cast(Any, proposal(zone_id=ZONE))
+    raw_action = cast("Any", proposal(zone_id=ZONE))
     permit = permit_for()
 
     with pytest.raises(PermissionError, match="gate-issued ExecutionPermit"):

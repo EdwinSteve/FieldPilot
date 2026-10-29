@@ -42,11 +42,11 @@ def record_readings(
             if zone.id is None:
                 continue
             snapshot = source.read(zone.id, at)
-            for sensor in u.sensors.list_by_zone(zone.id):
-                if sensor.id is not None:
-                    readings.append(
-                        Reading(sensor.id, _value_for(sensor.kind, snapshot), snapshot.at)
-                    )
+            readings.extend(
+                Reading(sensor.id, _value_for(sensor.kind, snapshot), snapshot.at)
+                for sensor in u.sensors.list_by_zone(zone.id)
+                if sensor.id is not None
+            )
         stored = u.readings.add_many(readings)
         u.commit()
     return stored

@@ -45,7 +45,7 @@ class ExecutionService:
             result = self._actuator.execute(permit, task, key)
         except DomainError as error:
             return self._close_failed(task_id(task), key, str(error))
-        return self._close_executed(task_id(task), key, result)
+        return self._close_executed(task_id(task), result)
 
     def _request(self, task: Task, permit: ExecutionPermit, recheck: GateVerdict | None) -> str:
         """Transaction A: the request is durable before anything physical happens."""
@@ -70,8 +70,8 @@ class ExecutionService:
             u.commit()
         return key
 
-    def _close_executed(self, stored_id: int, key: str, result: ExecutionResult) -> Task:
-        """Transaction B: the real result, with the same key."""
+    def _close_executed(self, stored_id: int, result: ExecutionResult) -> Task:
+        """Transaction B: the real result; the event carries the request's key."""
         with self._uow() as u:
             task = u.tasks.transition(
                 stored_id, TaskStatus.EXECUTED, execution_event(result, self._clock.now())

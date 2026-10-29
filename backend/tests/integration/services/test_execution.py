@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from app.actuation.ports import ExecutionResult
+from app.actuation.simulated import SimulatedActuator
 from app.autonomy.gate import ExecutionPermit
 from app.domain.enums import EventKind, TaskStatus
 from app.domain.models import Task
@@ -131,8 +132,6 @@ def test_the_report_says_the_simulator_was_not_resumed(world: World) -> None:
 
 
 def test_an_actuator_refusal_fails_the_task_with_the_same_key(world: World) -> None:
-    from app.actuation.simulated import SimulatedActuator
-
     world.build_services(
         SimulatedActuator(world.valves, FakeEmergencyStop(True), world.clock, RATE)
     )

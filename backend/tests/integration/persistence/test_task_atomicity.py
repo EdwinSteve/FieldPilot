@@ -71,7 +71,6 @@ def test_failure_after_event_before_status_leaves_no_orphan_event(
 
     with uow() as u, pytest.raises(RuntimeError, match="simulated crash"):
         u.tasks.transition(task_id, TaskStatus.EXECUTED, make_event(EventKind.EXECUTION))
-        u.commit()
 
     with uow() as u:
         assert u.tasks.get(task_id).status is TaskStatus.SCHEDULED

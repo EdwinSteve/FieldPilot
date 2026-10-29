@@ -19,14 +19,22 @@ class UTCDateTime(TypeDecorator[datetime]):
     impl = DateTime
     cache_ok = True
 
-    def process_bind_param(self, value: datetime | None, dialect: Dialect) -> datetime | None:
+    def process_bind_param(  # SQLAlchemy's signature
+        self,
+        value: datetime | None,
+        dialect: Dialect,  # noqa: ARG002
+    ) -> datetime | None:
         if value is None:
             return None
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError(f"naive datetime not allowed: {value!r}")
         return value.astimezone(UTC).replace(tzinfo=None)
 
-    def process_result_value(self, value: datetime | None, dialect: Dialect) -> datetime | None:
+    def process_result_value(  # SQLAlchemy's signature
+        self,
+        value: datetime | None,
+        dialect: Dialect,  # noqa: ARG002
+    ) -> datetime | None:
         if value is None:
             return None
         return value.replace(tzinfo=UTC)

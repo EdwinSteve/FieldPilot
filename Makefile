@@ -1,13 +1,16 @@
 BACKEND  := backend
 FRONTEND := frontend
 UV       := uv --directory $(BACKEND)
+# Extra ruff options; CI passes --output-format=github for inline PR annotations.
+RUFF_ARGS ?=
 
 .PHONY: help install install-backend install-frontend dev dev-backend dev-frontend \
-	test lint lint-backend format typecheck typecheck-backend typecheck-frontend \
-	build-frontend check check-backend check-frontend check-repo clean
+	test lint lint-backend lint-rules-backend format-check-backend format \
+	typecheck typecheck-backend typecheck-frontend build-frontend \
+	check check-backend check-frontend check-repo clean
 
 help: ## List available targets
-	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-18s %s\n", $$1, $$2}'
+	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-22s %s\n", $$1, $$2}'
 
 install: install-backend install-frontend ## Install exact locked dependencies (uv.lock, package-lock.json)
 
@@ -29,10 +32,14 @@ dev-frontend:
 test: ## Run the backend test suite (mock mode, no network)
 	MOCK_LLM=1 $(UV) run pytest
 
-lint: lint-backend ## Lint and check formatting
+lint: lint-backend ## Lint (readability rules, D042) and check formatting
 
-lint-backend:
-	$(UV) run ruff check .
+lint-backend: lint-rules-backend format-check-backend
+
+lint-rules-backend: ## Readability and cleanliness rules (complexity, unused code, naive datetimes...)
+	$(UV) run ruff check . $(RUFF_ARGS)
+
+format-check-backend: ## Fail if any file is not ruff-formatted
 	$(UV) run ruff format --check .
 
 format: ## Auto-format backend code
