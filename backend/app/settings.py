@@ -5,7 +5,7 @@ Secrets and model ids are never hardcoded; they come from the environment
 """
 
 from pathlib import Path
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     muse_api_key: SecretStr | None = None
     muse_api_base_url: str | None = None
     muse_agent_model: str | None = None
+
+    # D010: the demo override is honoured only under APP_PROFILE=demo; any
+    # other profile with the variable set refuses to start (app/bootstrap.py).
+    app_profile: Literal["dev", "demo", "prod"] = "dev"
+    demo_revert_window_seconds: int | None = None
 
     database_url: str = f"sqlite:///{REPO_ROOT / 'backend' / 'fieldpilot.db'}"
     config_dir: Path = REPO_ROOT / "config"

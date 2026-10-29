@@ -8,6 +8,7 @@ executions before any request is served (D013).
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
 
 from app.actuation.config import ActuationConfig, load_actuation_config
@@ -15,7 +16,9 @@ from app.actuation.emergency import StoredEmergencyStop
 from app.actuation.simulated import SimulatedActuator
 from app.autonomy.messages import MessageCatalog, load_message_catalog
 from app.autonomy.policy import AutonomyPolicy, load_autonomy_policy, validate_stage_overrides
+from app.domain.enums import EventKind
 from app.domain.errors import ConfigError
+from app.domain.models import Event
 from app.persistence.db import create_db_engine, init_schema
 from app.persistence.ports import UnitOfWork
 from app.persistence.unit_of_work import SqlUnitOfWork
@@ -58,6 +61,40 @@ def load_runtime_config(config_dir: Path) -> RuntimeConfig:
 
 
 @dataclass(frozen=True)
+class RevertWindowSetting:
+    """The effective revert window and, when shortened for the demo, by how much."""
+
+    seconds: int
+    configured_seconds: int  # revert_window_seconds in autonomy.yaml
+    overridden: bool
+
+    @property
+    def window(self) -> timedelta:
+        return timedelta(seconds=self.seconds)
+
+
+def resolve_revert_window(settings: Settings, policy: AutonomyPolicy) -> RevertWindowSetting:
+    """Apply DEMO_REVERT_WINDOW_SECONDS only where D010 and D036 allow it."""
+    configured = policy.revert_window_seconds
+    override = settings.demo_revert_window_seconds
+    if override is None:
+        return RevertWindowSetting(configured, configured, overridden=False)
+    if settings.app_profile != "demo":
+        raise ConfigError(
+            f"DEMO_REVERT_WINDOW_SECONDS is set but APP_PROFILE is {settings.app_profile!r}; "
+            "it is honoured only when APP_PROFILE=demo (D010)"
+        )
+    if override <= 0:
+        raise ConfigError("DEMO_REVERT_WINDOW_SECONDS must be a positive integer (D010)")
+    if override > configured:
+        raise ConfigError(
+            f"DEMO_REVERT_WINDOW_SECONDS {override} exceeds revert_window_seconds "
+            f"{configured}; the override can only shorten the window (D036)"
+        )
+    return RevertWindowSetting(override, configured, overridden=True)
+
+
+@dataclass(frozen=True)
 class Runtime:
     """Long-lived collaborators built once at startup and shared by the services."""
 
@@ -66,10 +103,14 @@ class Runtime:
     simulator: FieldSimulator
     actuator: SimulatedActuator
     reconciliation: ReconciliationReport
+    revert_window: RevertWindowSetting
 
 
 def start_runtime(
-    settings: Settings, config: RuntimeConfig, wall: WallClock = system_wall_clock
+    settings: Settings,
+    config: RuntimeConfig,
+    revert_window: RevertWindowSetting,
+    wall: WallClock = system_wall_clock,
 ) -> Runtime:
     """Open the database, restore the clock, and reconcile before serving (D013, D014).
 
@@ -88,4 +129,29 @@ def start_runtime(
         simulator, StoredEmergencyStop(uow), clock, config.actuation.irrigation_rate_mm_per_h
     )
     report = reconcile_executions(uow, clock, actuator, config.messages)
-    return Runtime(uow, clock, simulator, actuator, report)
+    if revert_window.overridden:
+        _log_override(uow, clock, settings, revert_window)
+    return Runtime(uow, clock, simulator, actuator, report, revert_window)
+
+
+def _log_override(
+    uow: UowFactory, clock: SimClock, settings: Settings, setting: RevertWindowSetting
+) -> None:
+    """Every startup with a shortened window says so in the event log (D010)."""
+    with uow() as u:
+        u.events.append(
+            Event(
+                kind=EventKind.CONFIG_OVERRIDE,
+                actor="system:startup",
+                reason=f"Revert window shortened for the demo: {setting.configured_seconds} s "
+                f"-> {setting.seconds} s (DEMO_REVERT_WINDOW_SECONDS).",
+                occurred_at=clock.now(),
+                inputs={
+                    "setting": "revert_window_seconds",
+                    "configured_seconds": setting.configured_seconds,
+                    "override_seconds": setting.seconds,
+                    "app_profile": settings.app_profile,
+                },
+            )
+        )
+        u.commit()

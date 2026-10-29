@@ -26,3 +26,14 @@ def test_real_mode_with_credentials_is_accepted() -> None:
     )
 
     assert settings.muse_agent_model == "test-model"
+
+
+def test_an_unknown_profile_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="app_profile"):
+        Settings(_env_file=None, app_profile="staging")
+
+
+def test_the_default_profile_is_dev_without_override() -> None:
+    settings = Settings(_env_file=None)
+
+    assert (settings.app_profile, settings.demo_revert_window_seconds) == ("dev", None)

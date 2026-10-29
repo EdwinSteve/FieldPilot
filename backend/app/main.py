@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 
 from app.api.routes import health
-from app.bootstrap import load_runtime_config, start_runtime
+from app.bootstrap import load_runtime_config, resolve_revert_window, start_runtime
 from app.settings import Settings
 
 
@@ -16,7 +16,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     """
     resolved_settings = settings or Settings()
     runtime_config = load_runtime_config(resolved_settings.config_dir)
-    runtime = start_runtime(resolved_settings, runtime_config)
+    revert_window = resolve_revert_window(resolved_settings, runtime_config.policy)
+    runtime = start_runtime(resolved_settings, runtime_config, revert_window)
     app = FastAPI(title="FieldPilot", version="0.1.0")
     app.state.settings = resolved_settings
     app.state.config = runtime_config
