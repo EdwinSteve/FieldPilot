@@ -30,5 +30,17 @@ class ValveError(DomainError):
     """A valve command that does not match the valve's current state."""
 
 
+class EmergencyStopActiveError(DomainError):
+    """A command that adds water was refused because the emergency stop is active (D022)."""
+
+
+class UnsupportedActionError(DomainError):
+    """The actuator has no command for this action type (D005, D034)."""
+
+
+class PermitMismatchError(DomainError):
+    """The execution permit does not match the task it was presented with (D037)."""
+
+
 class ConfigError(ValueError):
     """A configuration file is missing, malformed or unsafe. The app must not start."""

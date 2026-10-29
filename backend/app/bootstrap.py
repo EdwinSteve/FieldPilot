@@ -7,6 +7,7 @@ so the application never runs on an unsafe configuration (D005, D006, D025).
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.actuation.config import ActuationConfig, load_actuation_config
 from app.autonomy.messages import MessageCatalog, load_message_catalog
 from app.autonomy.policy import AutonomyPolicy, load_autonomy_policy, validate_stage_overrides
 from app.domain.errors import ConfigError
@@ -21,10 +22,11 @@ class RuntimeConfig:
     limits: SafetyLimits
     crops: CropCatalog
     messages: MessageCatalog
+    actuation: ActuationConfig
 
 
 def load_runtime_config(config_dir: Path) -> RuntimeConfig:
-    """Load autonomy, safety, crop and message configuration from `config_dir`."""
+    """Load autonomy, safety, crop, message and actuation configuration from `config_dir`."""
     policy = load_autonomy_policy(config_dir / "autonomy.yaml")
     limits = load_safety_limits(config_dir / "safety.yaml")
     try:
@@ -34,4 +36,7 @@ def load_runtime_config(config_dir: Path) -> RuntimeConfig:
         raise ConfigError(str(error)) from error
     validate_stage_overrides(policy, crops)
     messages = load_message_catalog(config_dir / "messages" / "es.yaml")
-    return RuntimeConfig(policy=policy, limits=limits, crops=crops, messages=messages)
+    actuation = load_actuation_config(config_dir / "actuation.yaml")
+    return RuntimeConfig(
+        policy=policy, limits=limits, crops=crops, messages=messages, actuation=actuation
+    )

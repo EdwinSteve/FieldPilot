@@ -1,1 +1,1 @@
-"""Actuator interface, simulator-backed actuator and NOTIFY revert handling."""
+"""Actuator interface and simulator-backed actuator. Reverts live in services/revert.py."""

@@ -273,9 +273,9 @@ class MessageCatalog:                     # config/messages/es.yaml, every RuleC
 There is no "drop" outcome (D004).
 
 **Permits.** `authorize` runs `evaluate` and, only for `EXECUTE` or
-`EXECUTE_AND_NOTIFY`, attaches an `ExecutionPermit`. The permit carries a
-token private to `gate.py`; building one anywhere else raises
-`PermissionError`. The actuator accepts nothing else, so a raw action can
+`EXECUTE_AND_NOTIFY`, attaches an `ExecutionPermit`. Its constructor
+always raises `PermissionError`, and so does `dataclasses.replace`; only a
+private factory in `gate.py` builds one (D039). The actuator accepts nothing else, so a raw action can
 never reach a valve (D037). Permits live in memory only: a task that runs
 later gets a fresh permit from a fresh evaluation (D033).
 

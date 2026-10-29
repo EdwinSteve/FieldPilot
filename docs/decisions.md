@@ -1072,7 +1072,7 @@ revertible.
 ## D037 — Only the gate can issue an `ExecutionPermit`
 
 - **Date:** 2026-10-29
-- **Status:** Accepted (2026-10-29)
+- **Status:** Accepted (2026-10-29). Mechanism amended by D039.
 
 **Context.** The brief requires that the actuator can never be called with
 a raw action. The architecture allows only the gate to authorize an
@@ -1111,3 +1111,28 @@ proposals carry one, and the agent should not choose it.
 **Consequences.** Closing mid-irrigation applies `rate × elapsed`, capped
 at the target, on a known rate. A per-zone rate can come with real
 hardware.
+
+---
+
+## D039 — The permit is unforgeable through its constructor, not a token
+
+- **Date:** 2026-10-29
+- **Status:** Accepted (2026-10-29). Amends the mechanism of D037.
+
+**Context.** D037 put a private token in a field of the permit. During
+implementation this turned out to have a hole: `dataclasses.replace(permit,
+zone_id=3)` copies the token, so a valid permit could be re-aimed at
+another zone without the gate.
+
+**Decision.**
+- `ExecutionPermit.__init__` always raises `PermissionError`. Because
+  `dataclasses.replace` calls the constructor, it raises too.
+- Only `_issue_permit`, private to `gate.py`, builds a permit, and only
+  `AutonomyGate.authorize` calls it.
+- `Actuator.execute` refuses anything that is not an `ExecutionPermit`,
+  and still checks that the permit matches the task.
+
+**Consequences.**
+- Forging a permit now takes a deliberate `object.__new__` on a private
+  type.
+- Tests pin that a permit cannot be built by hand or copied with changes.
