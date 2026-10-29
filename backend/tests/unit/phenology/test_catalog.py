@@ -15,7 +15,6 @@ from tests.conftest import CROPS_DIR, SAFETY_MAX_MOISTURE_PCT_FC
 MAIZE_FILE = CROPS_DIR / "maize.yaml"
 SOURCED_STAGE_FIELDS = (
     "gdd_start",
-    "crop_coefficient",
     "moisture_target_pct_fc",
     "nutrient_need_kg_ha",
 )
@@ -28,6 +27,18 @@ PUBLISHED_GDD_F = {
     "maturity_harvest": 2324,  # R5
 }
 PUBLISHED_MATURITY_GDD_F = 2650  # R6
+
+# Kc curve points (D030): leaf stage in °F·day from AGF-0101 Table 1, and the
+# FAO-56 Table 12 Kc at that point.
+PUBLISHED_KC_CURVE = {
+    "sowing": (0, 0.30),
+    "end_initial": (346, 0.30),  # V3
+    "full_cover": (1020, 1.20),  # V12
+    "start_maturity": (2324, 1.20),  # R5
+    "physiological_maturity": (2650, 0.60),  # R6
+}
+# Points whose position is a project mapping, not a published boundary.
+MAPPED_KC_POINTS = {"end_initial", "full_cover", "start_maturity"}
 
 
 def raw_maize() -> dict[str, Any]:
@@ -47,6 +58,9 @@ def test_every_value_in_the_raw_file_names_a_declared_source() -> None:
     for stage in raw["stages"]:
         for field in SOURCED_STAGE_FIELDS:
             assert stage[field]["source"] in declared, f"{stage['name']}.{field}"
+    for point in raw["kc_curve"]:
+        for field in ("gdd", "kc"):
+            assert point[field]["source"] in declared, f"{point['name']}.{field}"
 
 
 def test_verified_sources_carry_a_url_and_a_date(maize: CropSpec) -> None:
@@ -79,10 +93,48 @@ def test_maturity_matches_black_layer(maize: CropSpec) -> None:
     assert maize.maturity_gdd == pytest.approx(PUBLISHED_MATURITY_GDD_F / 1.8, abs=0.05)
 
 
-def test_kc_values_match_fao56(maize: CropSpec) -> None:
-    assert maize.stage("flowering").kc_start == 1.20
-    assert maize.stage("maturity_harvest").kc_end == 0.60
-    assert maize.stage("sowing").kc_start == 0.30
+@pytest.mark.parametrize(("name", "published"), PUBLISHED_KC_CURVE.items())
+def test_kc_curve_matches_the_published_tables(
+    maize: CropSpec, name: str, published: tuple[float, float]
+) -> None:
+    gdd_f, kc = published
+    point = maize.kc_point(name)
+
+    assert point.gdd == pytest.approx(gdd_f / 1.8, abs=0.05)
+    assert point.kc == kc
+
+
+def test_kc_curve_lists_its_points_in_order(maize: CropSpec) -> None:
+    assert [point.name for point in maize.kc_curve] == list(PUBLISHED_KC_CURVE)
+
+
+@pytest.mark.parametrize("name", PUBLISHED_KC_CURVE)
+def test_mapped_kc_points_are_labelled_as_a_convention(maize: CropSpec, name: str) -> None:
+    source = maize.sources[maize.kc_point(name).sources["gdd"]]
+    expected = "project_convention" if name in MAPPED_KC_POINTS else "verified"
+
+    assert source.verification == expected
+
+
+def test_kc_end_cites_fao56_with_a_note(maize: CropSpec) -> None:
+    point = maize.kc_point("physiological_maturity")
+
+    assert point.sources["kc"] == "fao56"
+    assert point.note is not None and "note 11" in point.note
+
+
+def test_kc_ini_is_verified_against_the_online_edition(maize: CropSpec) -> None:
+    source = maize.sources["fao56_kc_ini"]
+
+    assert source.verification == "verified"
+    assert source.note is not None and "original PDF was not" in source.note
+
+
+def test_germination_stage_ends_at_emergence(maize: CropSpec) -> None:
+    stage = maize.stage("germination_emergence")
+
+    assert stage.display_name["es"] == "Germinación (hasta la emergencia)"
+    assert maize.stage("vegetative").gdd_start == pytest.approx(100 / 1.8, abs=0.05)  # VE
 
 
 # --- agronomic intent (demo) ----------------------------------------------
@@ -152,7 +204,7 @@ INVALID: dict[str, tuple[Mutation, str]] = {
     "first stage not at 0": (_set(["stages", 0, "gdd_start", "value"], 5.0), "start at 0"),
     "non-increasing stages": (_set(["stages", 2, "gdd_start", "value"], 10.0), "increase"),
     "duplicate stage name": (_set(["stages", 1, "name"], "sowing"), "unique"),
-    "kc above 2": (_set(["stages", 3, "crop_coefficient", "end"], 2.5), "outside"),
+    "kc above 2": (_set(["kc_curve", 2, "kc", "value"], 2.5), "outside"),
     "moisture above safety limit": (
         _set(["stages", 3, "moisture_target_pct_fc", "high"], 90.0),
         "safety limit",
@@ -168,9 +220,18 @@ INVALID: dict[str, tuple[Mutation, str]] = {
         _set(["stages", 0, "autonomy"], {"teleport": "approval"}),
         "teleport",
     ),
-    "kc jump between stages": (
-        _set(["stages", 3, "crop_coefficient", "start"], 1.0),
-        "jumps",
+    "kc curve not at 0": (_set(["kc_curve", 0, "gdd", "value"], 5.0), "start at 0"),
+    "kc curve not increasing": (_set(["kc_curve", 2, "gdd", "value"], 100.0), "increase"),
+    "kc curve not ending at maturity": (
+        _set(["kc_curve", -1, "gdd", "value"], 1400.0),
+        "end at maturity_gdd",
+    ),
+    "kc curve with one point": (lambda raw: raw.update(kc_curve=raw["kc_curve"][:1]), "two"),
+    "duplicate kc point name": (_set(["kc_curve", 1, "name"], "sowing"), "unique"),
+    "unknown kc source": (_set(["kc_curve", 2, "kc", "source"], "memory"), "unknown source"),
+    "stage still declaring kc": (
+        _set(["stages", 0, "crop_coefficient"], {"start": 0.3, "end": 0.3, "source": "fao56"}),
+        "Extra inputs",
     ),
     "negative nutrient": (
         _set(["stages", 0, "nutrient_need_kg_ha", "values", "N"], -1.0),

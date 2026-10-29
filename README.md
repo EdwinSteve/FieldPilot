@@ -131,8 +131,8 @@ flowchart LR
 | Stage | Starts at (°C·day) | Kc | Moisture target (% FC) | Typical tasks on the calendar | Autonomy level |
 |---|---|---|---|---|---|
 | Sowing | 0 | 0.30 | 60–80 | Prepare soil, sow, first irrigation | Sowing date: approval · Irrigation: autonomous |
-| Germination & emergence | 20 | 0.30 | 65–80 | Monitor moisture, check emergence | Autonomous |
-| Vegetative growth | 55.6 | 0.30 → 1.20 | 55–80 | Irrigation schedule, nitrogen fertilizer | Irrigation: autonomous · Fertilizer: approval |
+| Germination (to emergence) | 20 | 0.30 | 65–80 | Monitor moisture, check emergence | Autonomous |
+| Vegetative growth | 55.6 | 0.30 → 1.20 (V3 → V12) | 55–80 | Irrigation schedule, nitrogen fertilizer | Irrigation: autonomous · Fertilizer: approval |
 | Flowering | 788.9 | 1.20 | **70**–80 | Strict moisture monitoring, stress alerts | Autonomous (alerts) · Extra irrigation: notify |
 | Grain fill | 936.7 | 1.20 | 60–80 | Irrigation adjustment, pest scouting | Irrigation: autonomous · Scouting visit: notify |
 | Maturity & harvest | 1291.1 | 1.20 → 0.60 | 40–70 | Stop irrigation, harvest date, traceability record | Harvest date: approval · Irrigation: notify · Stop irrigation: autonomous |
@@ -140,16 +140,26 @@ flowchart LR
 Physiological maturity (black layer) is reached at 1472.2 °C·day. The catalog
 is [`config/crops/maize.yaml`](config/crops/maize.yaml).
 
+Kc follows its own FAO-56 curve, independent of the stages (D030): 0.30
+until V3 (192.2 °C·day), rising to 1.20 at effective full cover, V12
+(566.7), flat until R5 (1291.1), then falling to 0.60 at R6 (1472.2).
+
 **How to read the numbers.**
 
-- **Degree-days and Kc.** Stage thresholds come from Iowa State PMR 1009,
-  via Ohio State AGF-0101, which publishes them in °F·day. They were
-  converted with °C·day = °F·day ÷ 1.8; for example, VE is 100 ÷ 1.8 =
-  55.6. Kc values come from FAO-56. Both were checked against those sources
-  on 2026-10-27.
-- **Kc ini is only partially verified.** The 0.30 used at sowing and
-  germination is the FAO-56 cereals group value, inherited by the maize
-  row. It has not yet been confirmed against the original table (D021).
+- **Degree-days and Kc.** Stage thresholds come from Ohio State AGF-0101
+  Table 1 (adapted from Iowa State PMR 1009 and Nielsen 2021), which
+  publishes them in °F·day. They were converted with °C·day = °F·day ÷ 1.8;
+  for example, VE is 100 ÷ 1.8 = 55.6. Daily GDD use the Modified 86/50 °F
+  method as published by Purdue. Kc values come from FAO-56 Table 12. Both
+  were checked against those sources on 2026-10-28 (D031).
+- **Kc ini is verified against the online edition of FAO-56.** The 0.30 used
+  at sowing is the cereals group value, inherited by the maize row. The
+  original PDF was not checked (D031).
+- **Kc curve points are a project mapping.** FAO-56 places them by ground
+  cover and maturity, not by leaf stage. V3, V12 and R5 were chosen, the
+  earlier stage where the window is uncertain. That overestimates ET, and so
+  applies more water than needed, in V3–V6 and V12–V15; the 20 mm/day cap
+  bounds the effect (D030).
 - **Sowing–germination boundary.** The 20 °C·day start of germination is a
   project decision, not agronomic data. The sources define no boundary
   between sowing and germination.
