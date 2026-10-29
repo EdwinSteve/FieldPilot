@@ -222,7 +222,7 @@ MANDATORY_APPROVAL: frozenset[ActionType]   # fixed in code (D005); the YAML lis
 class AutonomyPolicy:                     # config/autonomy.yaml
     defaults: Mapping[ActionType, AutonomyLevel]   # every ActionType required (D025)
     always_approval: frozenset[ActionType]
-    revert_window_seconds: int            # stored now, used in step 6 (D010, D011)
+    revert_window_seconds: int            # NOTIFY revert window (D007, D010, D011)
     def default_level(self, action_type: ActionType) -> AutonomyLevel: ...
 
 def load_autonomy_policy(path: Path) -> AutonomyPolicy: ...   # ConfigError on any problem
@@ -233,9 +233,23 @@ class GateContext:
     safety: SafetyContext
     stage_level: AutonomyLevel | None     # StageSpec.level_for(action_type)
 
+@dataclass(frozen=True)
+class ExecutionPermit:                    # only AutonomyGate can build one (D037)
+    proposal_key: str
+    action_type: ActionType
+    zone_id: int | None
+    params: Mapping[str, float | str]
+    level: AutonomyLevel                  # AUTONOMOUS or NOTIFY, never APPROVAL
+
+@dataclass(frozen=True)
+class Authorization:
+    verdict: GateVerdict
+    permit: ExecutionPermit | None        # None unless EXECUTE or EXECUTE_AND_NOTIFY
+
 class AutonomyGate:
     def __init__(self, policy: AutonomyPolicy, limits: SafetyLimits) -> None: ...
     def evaluate(self, action: ProposedAction, context: GateContext) -> GateVerdict: ...
+    def authorize(self, action: ProposedAction, context: GateContext) -> Authorization: ...
 
 class MessageCatalog:                     # config/messages/es.yaml, every RuleCode required
     def render(self, code: RuleCode, params: Mapping[str, float | str]) -> str: ...
@@ -257,6 +271,13 @@ class MessageCatalog:                     # config/messages/es.yaml, every RuleC
    `NOTIFY → EXECUTE_AND_NOTIFY`, `APPROVAL → AWAIT_APPROVAL`.
 
 There is no "drop" outcome (D004).
+
+**Permits.** `authorize` runs `evaluate` and, only for `EXECUTE` or
+`EXECUTE_AND_NOTIFY`, attaches an `ExecutionPermit`. The permit carries a
+token private to `gate.py`; building one anywhere else raises
+`PermissionError`. The actuator accepts nothing else, so a raw action can
+never reach a valve (D037). Permits live in memory only: a task that runs
+later gets a fresh permit from a fresh evaluation (D033).
 
 **Recording.** The gate does not log, so it stays pure.
 `services/gate_decisions.py` (`record_verdict`) writes one `gate_verdict`
@@ -291,73 +312,197 @@ catalog. It refuses to start if any of these holds:
   is allowed;
 - a `RuleCode` has no Spanish message.
 
-### 4.3 Proposal service (`app/services/proposals.py`)
+### 4.3 Proposal and execution services (`app/services`)
 
-The only orchestrator of the execution path. It implements `ProposalPort`
-for the agent.
+`ProposalService` is the only entry point of the execution path. It
+implements `ProposalPort` for the agent.
 
 ```python
 class ProposalPort(Protocol):
     def propose(self, action: ProposedAction) -> ProposalResult: ...
 
+class GateContextProvider(Protocol):             # built from stored facts, never from the caller
+    def context_for(self, action: ProposedAction) -> GateContext: ...
+
+class RainForecast(Protocol):                    # fake in tests; Open-Meteo in step 8
+    def rain_mm_next_24h(self, plot_id: int, at: datetime) -> float | None: ...
+
+@dataclass(frozen=True)
+class ProposalResult:
+    task: Task
+    verdict: GateVerdict
+    already_decided_at: datetime | None          # D023
+
 class ProposalService(ProposalPort):
     def propose(self, action) -> ProposalResult:
-        # 1. build SafetyContext (repositories, forecast, clock, emergency flag)
-        # 2. verdict = gate.evaluate(...)
-        # 3. one transaction: Task (PENDING_APPROVAL or SCHEDULED) + PROPOSAL
-        #    event, Decision row + GATE_VERDICT event
-        # 4. if EXECUTE / EXECUTE_AND_NOTIFY: run the write-ahead execution below
-        #    EXECUTE_AND_NOTIFY -> Notification with revert_deadline
-        # 5. return ProposalResult(task, verdict)
+        # 0. a `proposal` event with this proposal key exists -> return its task
+        #    and stored verdict, with already_decided_at; nothing else runs (D023)
+        # 1. context = provider.context_for(action); auth = gate.authorize(...)
+        # 2. one transaction: Task (PENDING_APPROVAL or SCHEDULED; NOTIFY sets
+        #    revert_deadline) + `proposal` event (key = proposal key),
+        #    Decision row + `gate_verdict` event, Notification for NOTIFY
+        # 3. permit and scheduled_for <= now -> executor.execute(task, permit)
+        # 4. return ProposalResult
 ```
+
+**Gate context (D035).** `StoredGateContextProvider` reads the emergency
+flag, the latest soil moisture of the zone, the rain forecast and the
+stage level. For the daily cap and the 12 h interval it counts, for the
+zone and the plot's local day:
+
+- executed irrigations, by the millimetres applied;
+- scheduled irrigations, by the millimetres requested;
+- irrigations interrupted by a restart, by the millimetres requested
+  (D032).
+
+Reverted and failed tasks do not count. A missing forecast is a violation
+(D027).
 
 **Write-ahead execution (D013).** Physical side effects cannot share a
-database transaction, so every execution follows three steps:
+database transaction, so `ExecutionService.execute(task, permit)` follows
+three steps:
 
-1. **Transaction A:** append `execution_requested` with a fresh
-   `idempotency_key` (`task-{id}:attempt-{n}`), then commit.
-2. Call `actuator.execute(task, idempotency_key)`.
-3. **Transaction B:** `tasks.transition(..., EXECUTED, execution event)`,
-   using the same key and the real result (for example `applied_mm`). On
-   failure, the task moves to `FAILED` with an `execution_failed` event that
+1. **Transaction A:** append `execution_requested` with the key
+   `task-{id}:attempt-{n}`, then commit. The task stays `SCHEDULED`.
+2. Call `actuator.execute(permit, task, key)`, outside any transaction.
+3. **Transaction B:** `tasks.transition(..., EXECUTED, execution event)`
+   with the same key and the real result. If the actuator raises a domain
+   error, the task moves to `FAILED` with an `execution_failed` event that
    carries the same key.
 
-At startup, `reconcile_executions()` reads
-`events.find_unclosed_execution_requests()` and decides by key, never by
-event kind alone:
+**Due tasks (D009, D033).** `DueTaskRunner.run_due(now)` is called
+explicitly; there is no background thread (D016). For every `SCHEDULED`
+task the actuator supports whose `scheduled_for` is not after `now`, it
+rebuilds the action, gets a fresh context and calls `gate.authorize`
+again.
 
-- If `actuator.lookup(key)` finds the command was applied, the service
-  writes the closing `execution` event with that result and does not retry.
-- If the actuator has no record of the key, the task moves to `FAILED`, the
-  farmer is notified, and nothing is retried automatically.
+- With a permit, it runs the write-ahead execution above, and the fresh
+  verdict is stored in the `execution_requested` inputs.
+- Without one, the task moves to `FAILED` with an `execution_failed`
+  event (no key, no `execution_requested`). The event and the farmer's
+  notification name the rule that changed, as in D004. The actuator is
+  never called. A new decision needs a new proposal.
 
-A restart therefore never irrigates twice, and never irrigates late without
-a new decision.
+Other scheduled types (manual tasks such as a scouting visit) are left to
+the farmer.
 
-Related use cases in `app/services`:
+**Startup reconciliation (D013, D014, D032).** `reconcile_executions()`
+runs in `create_app()` after the configuration is validated and before
+any request is served. It returns a `ReconciliationReport`.
 
-- `approve_task(task_id, actor)` re-checks the emergency stop only, then
-  executes and logs `APPROVAL` and `EXECUTION`.
-- `reject_task(task_id, actor, reason)` logs `REJECTION`.
-- `revert_task(task_id, actor)` follows D007.
+1. For each `events.find_unclosed_execution_requests()`, it decides by key:
+   - `actuator.lookup(key)` has a record: write the closing `execution`
+     event with the recorded result and move the task to `EXECUTED`. No
+     retry.
+   - No record: move the task to `FAILED` with `execution_failed`, notify
+     the farmer, and retry nothing.
+2. Every `EXECUTED` irrigation whose natural end is after the last event
+   logged before startup (the last moment the backend is known to have
+   run) and whose key the actuator does not know was cut by the restart.
+   Reconciliation sends `close` to that zone's valve, which is always
+   allowed, and writes one `notification` event per task (key
+   `interrupted:{execution key}`, so a second restart does not repeat it)
+   plus a Notification. Both say that the irrigation may have continued
+   after the restart and that the applied amount is unknown
+   (`applied_mm: null`). The task stays `EXECUTED` and is never reopened.
+3. The report always states `simulator_state_resumed: False` (D014).
+
+A restart therefore never irrigates twice, never irrigates late without a
+new decision, and never hides an irrigation of unknown size.
+
+Use cases that come with the API in step 9:
+
+- `approve_task(task_id, actor)` re-checks the emergency stop, then
+  executes and logs `approval` and `execution`;
+- `reject_task(task_id, actor, reason)` logs `rejection` (D008);
 - `set_emergency_stop(active, actor)`.
 
-### 4.4 Actuation (`app/actuation`)
+Reverts go through `RevertService` (§4.4).
+
+### 4.4 Actuation (`app/actuation`) and revert (`app/services/revert.py`)
 
 ```python
-class Actuator(Protocol):
-    def execute(self, task: Task, idempotency_key: str) -> ExecutionResult: ...
-    def lookup(self, idempotency_key: str) -> ExecutionResult | None: ...
-    def revert(self, task: Task) -> RevertResult: ...   # carries applied_mm (D007)
+@dataclass(frozen=True)
+class ExecutionResult:
+    idempotency_key: str
+    action_type: ActionType
+    zone_id: int | None
+    started_at: datetime
+    target_mm: float                     # requested; 0 for stop_irrigation
+    rate_mm_per_h: float                 # from config/actuation.yaml (D038)
+    applied_mm: float | None             # stop_irrigation: mm the closed run applied
 
-class SimulatedActuator(Actuator):        # drives FieldSimulator valves
+class EmergencyStopState(Protocol):
+    def is_active(self) -> bool: ...
+
+class Actuator(Protocol):
+    def execute(self, permit: ExecutionPermit, task: Task, idempotency_key: str) -> ExecutionResult: ...
+    def lookup(self, idempotency_key: str) -> ExecutionResult | None: ...
+    def interrupt(self, idempotency_key: str, at: datetime) -> float | None: ...  # mm applied, None if not running
+    def close_valve(self, zone_id: int, at: datetime) -> float | None: ...       # always allowed
+
+class SimulatedActuator(Actuator):      # depends only on ValveController (step 3)
 ```
 
-The actuator refuses to execute while the emergency stop is active. This is
-a defense in depth on top of the gate. Only physical action types are
-supported: irrigation, stop irrigation and calendar shift. Fertilizer and
-agrochemical tasks, once approved, become manual tasks for the farmer. The
-actuator never runs them. Chemical injection has no command (D005).
+The actuator only executes. It does not decide, log or revert.
+
+- `execute` rejects anything that is not a gate-issued `ExecutionPermit`
+  matching the task (type, zone and parameters).
+- The same key twice returns the recorded result and never opens the
+  valve again.
+- **Emergency stop.** While the stop is active it refuses to open any
+  valve. This is defense in depth on top of the gate (D022). Closing a
+  valve, and `stop_irrigation`, are always allowed.
+- **Supported types.** It runs `irrigation`, `extra_irrigation` and
+  `stop_irrigation`. Every other type raises `UnsupportedActionError`:
+  - `calendar_shift` waits for the calendar of step 7 (D034);
+  - fertilizer and agrochemical tasks, once approved, become manual tasks
+    for the farmer;
+  - chemical injection has no command (D005).
+- **Records.** The simulated actuator keeps its records in memory, like
+  the simulator (D014). After a restart `lookup` finds nothing, which
+  D013 resolves safely.
+
+**Revert (D007, D011).** `RevertService` owns every revert decision and
+uses only the simulated clock.
+
+```python
+@dataclass(frozen=True)
+class RevertWindow:
+    deadline: datetime
+    open: bool                           # now < deadline, simulated time
+    remaining: timedelta                 # frozen while the clock is paused
+
+@dataclass(frozen=True)
+class RevertResult:
+    task: Task                           # now REVERTED
+    requested_mm: float
+    applied_mm: float                    # 0 if it never ran
+    applied_liters: float                # applied_mm × zone area in m² (D007)
+
+class RevertService:
+    def window(self, task: Task) -> RevertWindow | None: ...   # None: not revertible
+    def revert(self, task_id: int, actor: str) -> RevertResult: ...
+```
+
+- `revert_deadline` is set when a NOTIFY task is committed:
+  `commit time + window`, in simulated time. It is stored on the task.
+- The window is open while `now < deadline`. One second before the
+  deadline it is accepted; at the deadline it is refused.
+- `SCHEDULED`: the task is cancelled (`REVERTED`), and no execution event
+  is ever written for it (D009).
+- `EXECUTED` irrigation still running: `actuator.interrupt` closes the
+  valve and returns the millimetres applied, then the task moves to
+  `REVERTED`.
+- Refused cases write a `revert_refused` event with the reason, change no
+  state, and raise `RevertRefusedError(reason)`:
+  - `window_closed`;
+  - `already_applied`, for an irrigation that ran to its target;
+  - `not_revertible`, for a task with no deadline.
+
+  Step 9 maps that error to HTTP 409.
+- Every `revert` and `revert_refused` event records `requested_mm`,
+  `applied_mm` and `applied_liters` (`applied_mm × zone area in m²`).
 
 ### 4.5 Event log (`app/events`)
 
@@ -735,8 +880,19 @@ labels:
   already_decided: "Ya decidida el {decided_at}"
 ```
 
+```yaml
+# config/actuation.yaml
+irrigation_rate_mm_per_h: 6.0  # demo_value; one rate for every simulated valve (D038)
+```
+
 If any of these files is missing or invalid, the app does not start
 (§4.2).
+
+**Environment (D010, D036).** `APP_PROFILE` defaults to `dev`.
+`DEMO_REVERT_WINDOW_SECONDS` is honoured only when `APP_PROFILE=demo`, and
+it must be a positive integer no larger than `revert_window_seconds`.
+Otherwise the app refuses to start. When the override is active, each
+startup writes a `config_override` event with both values.
 
 ---
 
