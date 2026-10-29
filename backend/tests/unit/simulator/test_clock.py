@@ -133,4 +133,4 @@ def test_state_round_trip_resumes_at_the_same_time(wall: FakeWall) -> None:
 
 def test_naive_start_is_rejected(wall: FakeWall) -> None:
     with pytest.raises(ValueError, match="timezone-aware"):
-        SimClock.start(datetime(2026, 10, 27, 6, 0), wall)
+        SimClock.start(datetime(2026, 10, 27, 6, 0), wall)  # noqa: DTZ001 - naive on purpose

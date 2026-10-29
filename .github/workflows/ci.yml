@@ -54,8 +54,10 @@ jobs:
           cache-dependency-glob: backend/uv.lock
       - name: Install (fails if uv.lock is out of date)
         run: make install-backend
-      - name: Lint and format
-        run: make lint-backend
+      - name: Readability and cleanliness rules (ruff, D042)
+        run: make lint-rules-backend RUFF_ARGS=--output-format=github
+      - name: Formatting
+        run: make format-check-backend
       - name: Type-check (mypy; strict for safety and autonomy)
         run: make typecheck-backend
       - name: Tests (mock mode, no network)

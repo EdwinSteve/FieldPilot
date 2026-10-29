@@ -271,7 +271,9 @@ so the simulator, calendar and autonomy gate can still be exercised.
 
 Work in progress during the hackathon. Every pull request runs the same
 Makefile targets as `make check`, in three jobs: repository hygiene, backend
-and frontend ([D041](docs/decisions.md)). A box is ticked only when the feature
+and frontend ([D041](docs/decisions.md)). The backend job enforces readability
+rules: complexity, unused code, no `print` and no naive datetimes. Findings
+appear inline on the pull request ([D042](docs/decisions.md)). A box is ticked only when the feature
 passes its tests. Design decisions are logged in
 [`docs/decisions.md`](docs/decisions.md).
 

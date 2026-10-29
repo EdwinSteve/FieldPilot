@@ -1203,3 +1203,59 @@ the local one.
 - No Python or npm dependency was added. Dependabot covers GitHub Actions
   only, so dependency changes still go through an explicit commit
   (brief rule 9).
+
+---
+
+## D042 — Readability and cleanliness rules enforced in CI
+
+- **Date:** 2026-10-29
+- **Status:** Accepted (2026-10-29)
+
+**Context.** CI ran ruff with the base rule set: errors, style, imports,
+bugbear, pyupgrade, simplify, naming and ruff's own rules. Several project
+principles, such as no `print`, aware UTC everywhere and small functions,
+were enforced only by review.
+
+**Decision.**
+- **Rule families added**, each catching something a reviewer would
+  otherwise have to flag:
+  - `C90`, with complexity at most 10, and `PLR0911`/`PLR0912`/`PLR0915`:
+    no function grows too many branches, returns or statements;
+  - `ARG`: no unused arguments;
+  - `RET`, `PIE`, `C4` and `PERF`: no needless code, ambiguous returns
+    or hand-written loops a comprehension expresses better;
+  - `ERA`: no commented-out code;
+  - `T20`: no `print`, because the event log is the only channel
+    (architecture §4.5);
+  - `DTZ`: no naive datetimes (§4.10);
+  - `SLF`: no access to another object's private members;
+  - `PLE`/`PLW`/`PLC0415`: pylint errors and warnings, and imports at
+    the top of the module;
+  - `PTH`, `PT` and `TC`: pathlib, pytest conventions and typing-only
+    imports;
+  - `D100`: every application module has a docstring.
+- **Not added**, because the churn would not buy readability:
+  - full `D` (pydocstyle): 710 findings, mostly obvious one-line test
+    functions;
+  - `FBT`, `TRY` and `EM`;
+  - `PLR2004` (magic values) and `PLR0913` (argument count): services
+    take their dependencies through the constructor on purpose.
+- **Ignored on purpose:** `PT018`, because a composite `assert a is not
+  None and a.x == 1` narrows types for mypy.
+- **Exceptions are explicit.**
+  - Tests may keep unused arguments, because test doubles must match
+    the protocol signatures they replace. They also need no module
+    docstring.
+  - Every other exception is an inline `noqa` with its reason: the
+    shared `Rule` signature, SQLAlchemy's `TypeDecorator` signature,
+    naive datetimes built on purpose to test their rejection, and the
+    simulator's true water content, which has no public accessor.
+- **CI** runs the rules and the formatting check as two separate steps.
+  The rules step uses ruff's GitHub output, so every finding appears as
+  an annotation on the exact line of the pull request.
+
+**Consequences.**
+- No dependency was added: every rule ships with ruff, which is already
+  a dev dependency.
+- Existing findings were fixed in the same change, for example an unused
+  argument in `ExecutionService` and a loop rewritten as `extend`.

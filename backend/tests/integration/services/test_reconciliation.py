@@ -30,7 +30,7 @@ def test_a_running_irrigation_cut_by_a_restart_is_reported_as_unknown(world: Wor
     assert report.interrupted == (task.id,)
     assert report.simulator_state_resumed is False
     assert world.task(task.id).status is TaskStatus.EXECUTED
-    [event] = [e for e in world.events(EventKind.NOTIFICATION, task.id)]
+    [event] = world.events(EventKind.NOTIFICATION, task.id)
     assert event.idempotency_key == f"interrupted:task-{task.id}:attempt-1"
     assert event.inputs["requested_mm"] == 15.0
     assert event.inputs["applied_mm"] is None

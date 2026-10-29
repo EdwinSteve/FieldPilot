@@ -207,5 +207,12 @@ def test_datetimes_come_back_as_aware_utc(uow: UowFactory) -> None:
 def test_naive_datetime_is_rejected_on_write(uow: UowFactory) -> None:
     with uow() as u, pytest.raises(StatementError, match="naive"):
         u.plots.add(
-            Plot("Naive", 0, 0, 1, created_at=datetime(2026, 10, 27, 6, 0), utc_offset_hours=0.0)
+            Plot(
+                "Naive",
+                0,
+                0,
+                1,
+                created_at=datetime(2026, 10, 27, 6, 0),  # noqa: DTZ001 - naive on purpose
+                utc_offset_hours=0.0,
+            )
         )

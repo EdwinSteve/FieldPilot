@@ -33,7 +33,39 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "SIM", "N", "RUF"]
+# Readability and cleanliness rules enforced in CI (D042). Each family is
+# chosen because it catches something a reviewer would otherwise flag.
+select = [
+    "E", "F", "W", "I", "B", "UP", "SIM", "N", "RUF",  # base: errors, style, imports, bugbear
+    "C90",                           # cyclomatic complexity (max 10)
+    "PLR0911", "PLR0912", "PLR0915", # too many returns, branches or statements
+    "PLE", "PLW", "PLC0415",         # pylint errors and warnings; imports at the top
+    "ARG",                           # unused arguments
+    "RET",                           # consistent, unambiguous returns
+    "PIE", "C4", "PERF",             # needless code, comprehensions, simple performance
+    "PTH",                           # pathlib instead of os.path
+    "ERA",                           # no commented-out code
+    "T20",                           # no print: the event log is the only channel (§4.5)
+    "DTZ",                           # no naive datetimes: everything is aware UTC (§4.10)
+    "SLF",                           # no access to another object's private members
+    "PT",                            # pytest conventions
+    "TC",                            # typing-only imports and casts
+    "D100",                          # every application module has a docstring
+]
+ignore = [
+    "PT018",  # `assert a is not None and a.x == 1` narrows types for mypy; kept on purpose
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.flake8-unused-arguments]
+ignore-variadic-names = true  # *args/**kwargs of a signature that must refuse everything
+
+[tool.ruff.lint.per-file-ignores]
+# Test doubles must keep the exact signatures of the protocols they replace,
+# and test modules are named for what they test rather than documented.
+"tests/**" = ["ARG", "D100"]
 
 [tool.mypy]
 python_version = "3.12"

@@ -145,7 +145,8 @@ def test_different_seed_changes_noise_but_not_the_physical_state() -> None:
     second.advance_to(at(600))
 
     assert first.read(ZONE, at(600)) != second.read(ZONE, at(600))
-    assert first._zones[ZONE].vwc == second._zones[ZONE].vwc
+    # The true water content has no public accessor (sensors add noise by design).
+    assert first._zones[ZONE].vwc == second._zones[ZONE].vwc  # noqa: SLF001
 
 
 def test_snapshot_is_taken_at_the_last_grid_point() -> None:

@@ -76,7 +76,7 @@ def test_two_fertilizer_doses_do_not_collide() -> None:
 
 def test_scheduled_for_must_be_aware() -> None:
     with pytest.raises(ValueError, match="timezone-aware"):
-        proposal(scheduled_for=datetime(2026, 10, 28, 6, 0))
+        proposal(scheduled_for=datetime(2026, 10, 28, 6, 0))  # noqa: DTZ001 - naive on purpose
 
 
 def test_boolean_parameters_are_rejected() -> None:
