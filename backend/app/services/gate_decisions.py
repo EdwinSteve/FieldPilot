@@ -38,28 +38,41 @@ def record_verdict(
     with uow() as u:
         existing = u.events.find_by_key(EventKind.GATE_VERDICT, action.proposal_key)
         if existing is not None:
-            return RecordedVerdict(_verdict_from(existing), existing.occurred_at)
-        u.events.append(
-            Event(
-                kind=EventKind.GATE_VERDICT,
-                actor=ACTOR,
-                reason=_reason(action, verdict),
-                occurred_at=clock.now(),
-                autonomy_level=verdict.effective_level,
-                rule=verdict.reason_code,
-                idempotency_key=action.proposal_key,
-                inputs={
-                    "proposal": _proposal_json(action),
-                    "context": _context_json(context),
-                    "verdict": _verdict_json(verdict),
-                },
-            )
-        )
+            return RecordedVerdict(verdict_from_event(existing), existing.occurred_at)
+        append_verdict(u, clock.now(), action, context, verdict)
         u.commit()
     return RecordedVerdict(verdict, already_decided_at=None)
 
 
-def _reason(action: ProposedAction, verdict: GateVerdict) -> str:
+def append_verdict(
+    u: UnitOfWork,
+    occurred_at: datetime,
+    action: ProposedAction,
+    context: GateContext,
+    verdict: GateVerdict,
+    task_id: int | None = None,
+) -> Event:
+    """Append the `gate_verdict` event inside the caller's transaction."""
+    return u.events.append(
+        Event(
+            kind=EventKind.GATE_VERDICT,
+            actor=ACTOR,
+            reason=verdict_reason(action, verdict),
+            occurred_at=occurred_at,
+            task_id=task_id,
+            autonomy_level=verdict.effective_level,
+            rule=verdict.reason_code,
+            idempotency_key=action.proposal_key,
+            inputs={
+                "proposal": proposal_json(action),
+                "context": _context_json(context),
+                "verdict": verdict_json(verdict),
+            },
+        )
+    )
+
+
+def verdict_reason(action: ProposedAction, verdict: GateVerdict) -> str:
     """English audit summary; farmer-facing Spanish comes from the message catalog."""
     if not verdict.violations:
         return f"{action.action_type} allowed at level {verdict.effective_level}."
@@ -70,7 +83,7 @@ def _reason(action: ProposedAction, verdict: GateVerdict) -> str:
     )
 
 
-def _proposal_json(action: ProposedAction) -> dict[str, JsonValue]:
+def proposal_json(action: ProposedAction) -> dict[str, JsonValue]:
     return {
         "action_type": action.action_type,
         "plot_id": action.plot_id,
@@ -96,7 +109,7 @@ def _context_json(context: GateContext) -> dict[str, JsonValue]:
     }
 
 
-def _verdict_json(verdict: GateVerdict) -> dict[str, JsonValue]:
+def verdict_json(verdict: GateVerdict) -> dict[str, JsonValue]:
     return {
         "outcome": verdict.outcome,
         "requested_level": verdict.requested_level,
@@ -106,7 +119,7 @@ def _verdict_json(verdict: GateVerdict) -> dict[str, JsonValue]:
     }
 
 
-def _verdict_from(event: Event) -> GateVerdict:
+def verdict_from_event(event: Event) -> GateVerdict:
     data = event.inputs["verdict"]
     if not isinstance(data, dict):
         raise ValueError(f"event {event.id} has no stored verdict")

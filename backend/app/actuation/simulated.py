@@ -23,6 +23,9 @@ from app.safety.rules import IRRIGATION_ACTIONS
 from app.simulator.clock import Clock
 from app.simulator.ports import ValveController
 
+# Action types this actuator can run (architecture §4.4, D034).
+SUPPORTED_ACTIONS = IRRIGATION_ACTIONS | {ActionType.STOP_IRRIGATION}
+
 
 class SimulatedActuator:
     """Drives valves through `ValveController` only (architecture §4.6)."""

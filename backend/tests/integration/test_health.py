@@ -5,7 +5,7 @@ from app.settings import Settings
 
 
 def test_health_returns_ok() -> None:
-    client = TestClient(create_app(Settings(_env_file=None)))
+    client = TestClient(create_app(Settings(_env_file=None, database_url="sqlite://")))
 
     response = client.get("/health")
 
