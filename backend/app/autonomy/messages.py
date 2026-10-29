@@ -14,7 +14,16 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from app.domain.errors import ConfigError
 from app.domain.violations import RuleCode, RuleViolation
 
-REQUIRED_LABELS = frozenset({"already_decided"})
+REQUIRED_LABELS = frozenset(
+    {
+        "already_decided",
+        "notify_committed",
+        "scheduled_not_executed",
+        "execution_failed",
+        "execution_not_confirmed",
+        "irrigation_interrupted",
+    }
+)
 
 
 class _MessagesFile(BaseModel):

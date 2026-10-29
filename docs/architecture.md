@@ -322,7 +322,9 @@ class ProposalPort(Protocol):
     def propose(self, action: ProposedAction) -> ProposalResult: ...
 
 class GateContextProvider(Protocol):             # built from stored facts, never from the caller
-    def context_for(self, action: ProposedAction) -> GateContext: ...
+    def context_for(self, action: ProposedAction,
+                    exclude_task_id: int | None = None) -> GateContext: ...
+                    # exclude_task_id: a due task never counts its own water (D033)
 
 class RainForecast(Protocol):                    # fake in tests; Open-Meteo in step 8
     def rain_mm_next_24h(self, plot_id: int, at: datetime) -> float | None: ...
@@ -353,14 +355,17 @@ zone and the plot's local day:
 - executed irrigations, by the millimetres applied;
 - scheduled irrigations, by the millimetres requested;
 - irrigations interrupted by a restart, by the millimetres requested
-  (D032).
+  (D032);
+- reverted irrigations, by the millimetres applied before the revert
+  (D040).
 
-Reverted and failed tasks do not count. A missing forecast is a violation
-(D027).
+Failed, rejected and pending tasks do not count. The interval uses the
+counted irrigation nearest in time, before or after. A missing forecast is
+a violation (D027).
 
 **Write-ahead execution (D013).** Physical side effects cannot share a
-database transaction, so `ExecutionService.execute(task, permit)` follows
-three steps:
+database transaction, so `ExecutionService.execute(task, permit, recheck=None)`
+follows three steps:
 
 1. **Transaction A:** append `execution_requested` with the key
    `task-{id}:attempt-{n}`, then commit. The task stays `SCHEDULED`.
@@ -406,6 +411,20 @@ any request is served. It returns a `ReconciliationReport`.
    after the restart and that the applied amount is unknown
    (`applied_mm: null`). The task stays `EXECUTED` and is never reopened.
 3. The report always states `simulator_state_resumed: False` (D014).
+
+```python
+@dataclass(frozen=True)
+class ReconciliationReport:
+    closed_as_executed: tuple[int, ...]   # actuator had a record
+    failed: tuple[int, ...]               # no record: FAILED, notified
+    interrupted: tuple[int, ...]          # cut by the restart (D032)
+    simulator_state_resumed: bool = False # D014
+
+def start_runtime(settings, config) -> Runtime: ...  # engine, clock, actuator, reconciliation
+```
+
+`create_app()` calls `load_runtime_config`, then `start_runtime`, and keeps
+the report in `app.state.runtime.reconciliation`.
 
 A restart therefore never irrigates twice, never irrigates late without a
 new decision, and never hides an irrigation of unknown size.

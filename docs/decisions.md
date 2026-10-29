@@ -1028,7 +1028,7 @@ planner in step 7.
 ## D035 — What the gate counts toward the daily cap and the interval
 
 - **Date:** 2026-10-29
-- **Status:** Accepted (2026-10-29)
+- **Status:** Accepted (2026-10-29). Amended by D040.
 
 **Context.** The safety context must be built from stored facts, never
 supplied by the caller. Otherwise the agent could under-report water. The
@@ -1136,3 +1136,25 @@ another zone without the gate.
 - Forging a permit now takes a deliberate `object.__new__` on a private
   type.
 - Tests pin that a permit cannot be built by hand or copied with changes.
+
+---
+
+## D040 — A reverted irrigation counts the water it applied
+
+- **Date:** 2026-10-29
+- **Status:** Accepted (2026-10-29). Amends D035.
+
+**Context.** D035 said reverted tasks do not count toward the daily cap.
+That holds for a task cancelled while `SCHEDULED`, which applied nothing.
+It does not hold for an irrigation stopped mid-run: in the step 6 test it
+had applied 9 mm of a requested 10 mm. Counting it as 0 would let the next
+proposal exceed the 20 mm cap.
+
+**Decision.**
+- A reverted irrigation counts the `applied_mm` recorded on its `revert`
+  event. That value is 0 for a scheduled task that was cancelled.
+- Failed, rejected and pending tasks still count nothing.
+
+**Consequences.** The cap reflects the water that reached the field. A test
+pins that a run stopped at 9 mm counts 9 mm, neither 0 nor the 10
+requested.

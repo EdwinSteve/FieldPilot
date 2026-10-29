@@ -32,3 +32,17 @@ inputs:
 
 labels:
   already_decided: "Ya decidida el {decided_at}"
+  notify_committed: >-
+    Acción en marcha con aviso: puedes revertirla mientras la ventana esté
+    abierta (reloj simulado)
+  # D033: the farmer saw this task as scheduled, so name the rule that changed.
+  scheduled_not_executed: "La tarea programada no se ejecutó: {rule}. Requiere una nueva decisión"
+  execution_failed: "La tarea {task_id} no se pudo ejecutar y no se reintentará"
+  # D013: no actuator record after a restart.
+  execution_not_confirmed: >-
+    La ejecución de la tarea {task_id} no se confirmó tras un reinicio del
+    sistema. No se reintentará: requiere una nueva decisión
+  # D032: never a bare "riego cerrado"; the farmer must know the amount is unknown.
+  irrigation_interrupted: >-
+    El riego de {requested_mm} mm en la zona {zone} pudo haber seguido después
+    del reinicio del sistema. La cantidad de agua aplicada se desconoce
