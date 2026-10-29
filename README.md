@@ -89,11 +89,28 @@ farmer sells.
 | Level | What the agent does | Examples | Farmer's role |
 |---|---|---|---|
 | **Autonomous** | Acts and records the reason | Irrigation within limits, stress alerts, stage reports, calendar updates | Can review the log |
-| **Notify** | Acts and sends a notice; the farmer can undo within a time window | Small extra irrigation, calendar shifts of up to 2 days, pest scouting visits | Can revert within 6 hours |
+| **Notify** | Acts and sends a notice; the farmer can undo within a time window | Small extra irrigation, calendar shifts of up to 2 days, pest scouting visits | Can revert within 6 hours of simulated time |
 | **Approval** | Proposes and waits; does not act until confirmed | Fertilizer and agrochemicals, planting date changes, harvest timing, listing a product for sale, price changes | Accepts or rejects with one tap |
 
 Chemical injection is never automated. Fertilizer and agrochemical tasks always
 sit in the approval level.
+
+**What "revert" means** ([D007](docs/decisions.md)). The window is measured on
+the simulated clock, and the backend alone decides whether it is open. A
+paused clock pauses the window.
+
+- A scheduled task is cancelled before anything runs.
+- A running irrigation is stopped, and the water already applied is recorded
+  in millimetres and litres.
+- Water that has already been applied cannot be undone, so that revert is
+  refused and logged.
+
+A scheduled task is checked again by the autonomy gate when its time comes.
+If the new verdict needs approval, for example because rain is now forecast,
+the task does not run, and the farmer is told which rule changed
+([D033](docs/decisions.md)). After a restart, nothing runs a second time. An
+irrigation the restart may have cut is reported with its amount as unknown
+([D013](docs/decisions.md), [D032](docs/decisions.md)).
 
 ### Safety rules
 
@@ -238,6 +255,11 @@ make check                  # lint + type-check + tests
 
 `make seed` (demo farm and maize cycle) arrives with build step 11.
 
+For a live demo, `APP_PROFILE=demo DEMO_REVERT_WINDOW_SECONDS=600` shortens
+the revert window. It can only shorten the window, every shortening is logged,
+and any other profile refuses to start with the variable set
+([D010](docs/decisions.md), [D036](docs/decisions.md)).
+
 Without an API key, the agent runs in **mock mode** with recorded responses,
 so the simulator, calendar and autonomy gate can still be exercised.
 
@@ -254,7 +276,7 @@ passes its tests. Design decisions are logged in
 - [x] 3. Field simulator with accelerated clock and scenarios
 - [x] 4. Phenology engine (maize)
 - [x] 5. Safety rules and autonomy gate
-- [ ] 6. Simulated actuator and NOTIFY revert window
+- [x] 6. Simulated actuator and NOTIFY revert window
 - [ ] 7. Agent orchestrator and subagents
 - [ ] 8. Satellite NDVI and segmentation
 - [ ] 9. REST API
