@@ -458,7 +458,7 @@ closed.
 ## D017 — Agronomic sources for the maize catalog, verified before commit
 
 - **Date:** 2026-10-27
-- **Status:** Accepted (2026-10-27)
+- **Status:** Accepted (2026-10-27). Citation and GDD method amended by D031.
 
 **Context.** The first proposal cited degree-days and Kc values from memory.
 Those values had to be checked against their sources before the catalog
@@ -578,7 +578,7 @@ Kc values assume standard conditions: a subhumid climate, RHmin of about
 ## D021 — FAO-56 Kc ini (0.30) stays "partially verified" until checked in the original table
 
 - **Date:** 2026-10-27
-- **Status:** Accepted (2026-10-27)
+- **Status:** Superseded by D031
 
 **Context.** A reviewer reading the full FAO-56 Table 12 must not find a
 gap between the catalog and the source. A second check on 2026-10-27
@@ -804,3 +804,119 @@ tree does not prove that the *staged* commit passes.
 
 **Consequences.** Every commit on the branch passes `make check` on its
 own.
+
+---
+
+## D029 — Mandatory-approval tests use a list independent of the code
+
+- **Date:** 2026-10-28
+- **Status:** Accepted (2026-10-28)
+
+**Context.** The D005 startup tests were first parametrized from the
+`MANDATORY_APPROVAL` constant they guard. A mutation check showed that
+removing `fertilizer` from the constant made its tests disappear instead
+of fail (474 → 470 tests, all green).
+
+**Decision.**
+- Mandatory-approval tests are parametrized from `BRIEF_ALWAYS_APPROVAL`
+  in `tests/builders.py`, a list written independently of
+  `MANDATORY_APPROVAL`.
+- A guard test asserts that both are equal. Changing either alone fails
+  CI; parametrizing from the constant would let a dropped type silently
+  lose its tests.
+- A type listed in `always_approval` in `autonomy.yaml` beyond the
+  mandatory set must also default to approval, or the app refuses to
+  start.
+
+**Consequences.** Adding a mandatory type takes two edits, the constant
+and the test list, and CI shows the change.
+
+---
+
+## D030 — The Kc curve is a list of points, independent of the stages
+
+- **Date:** 2026-10-28
+- **Status:** Accepted (2026-10-28)
+
+**Context.** Each stage carried its own Kc, so the Kc curve could only bend
+at stage boundaries. The mid-season plateau (Kc 1.20) began at flowering
+(788.9 °C·day). FAO-56 starts it at effective full cover, which for maize
+comes earlier, so the model underestimated ET in the weeks before
+flowering, the most water-sensitive window.
+
+FAO-56 defines the stages by ground cover and maturity, not by leaf stage:
+- initial: from planting to approximately 10 % ground cover;
+- development: to effective full cover;
+- mid-season: from effective full cover to the start of maturity;
+- late season: from the start of maturity to harvest.
+
+FAO-56 adds that "effective full cover for many crops occurs at the
+initiation of flowering", but for row crops such as maize it defines it as
+"the time when some leaves of plants in adjacent rows begin to
+intermingle", that is, canopy closure, which comes before flowering and
+depends on row spacing.
+
+**Decision.**
+- Kc is a crop-level curve of points (`kc_curve`), interpolated linearly.
+  Stages keep moisture targets, nutrients and autonomy only.
+- No source maps the FAO-56 points to leaf stages, so the mapping is a
+  project convention (source `kc_stage_mapping`). The degree-day values
+  come from AGF-0101 Table 1:
+  - end of initial: V3, 346 °F·day → 192.2 °C·day (V3–V6 is plausible);
+  - effective full cover: V12, 1020 → 566.7 (V12–V15 is plausible);
+  - start of maturity, where Kc starts to fall: R5 (dent), 2324 → 1291.1.
+- The last point is R6 (black layer, 1472.2 °C·day), the catalog's
+  `maturity_gdd`, with Kc end 0.60 from FAO-56 Table 12 note 11 (harvest
+  at high grain moisture). AGF-0101 gives kernel moisture at R6 as
+  averaging 30 % (25–40 %), consistent with that note.
+- Where the window is uncertain, the earlier point was chosen.
+
+**Cost of the decision.** The model overestimates ET between V3 and V6 and
+between V12 and V15. In those windows irrigation applies more water than
+the crop needs, with a risk of nitrate leaching and of wasted water and
+energy. The 20 mm/day cap (D001) bounds that effect in the demo.
+
+**Consequences.**
+- Flowering (788.9) now falls inside the 1.20 plateau.
+- `crop_coefficient_at` keeps its signature, so the simulator does not
+  change.
+- Both mapped points must be confirmed with local field observations (row
+  spacing, hybrid) before real use (D020).
+
+---
+
+## D031 — Phenology source review: citation, GDD method and Kc ini
+
+- **Date:** 2026-10-28
+- **Status:** Accepted (2026-10-28). Supersedes D021; amends D017.
+
+**Context.** A second review of the maize catalog against its sources found
+four things to correct.
+
+**Decision.**
+- **Citation.** AGF-0101, "Corn growing degree days: A method of maturity
+  rating for hybrids", by Eckert & Thomison (2017), revised by Ortez &
+  Lindsey (2023). Its Table 1 footnote says the cumulative GDD are adapted
+  from Abendroth et al. (2011), PMR 1009, and from Nielsen, R.L. (2021),
+  "Grain Fill Stages in Corn", Purdue University. Nielsen is now cited.
+- **GDD method.** Purdue AY-312-W caps the daily high at 86 °F (30 °C) and
+  raises the daily low to 50 °F (10 °C); it does not cap the low at 30 °C.
+  `daily_gdd` now follows that form:
+  `max(0, (min(high, 30) + max(low, 10)) / 2 − 10)`. The old code clamped
+  both values to [10, 30], which differs only on nights above 30 °C.
+- **Kc ini.** `fao56_kc_ini = 0.30` is verified against the online edition
+  of FAO-56 Table 12: the cereals group row, with the Kc ini column
+  confirmed by its alignment with Kc mid and Kc end and by the
+  group-inheritance rule in the chapter text. The original PDF was not
+  checked. Kc ini depends on wetting frequency (FAO-56 Table 12 note 1,
+  Figs. 29–30); the sowing value is documented as a planning value.
+- **Calibration path.** The calibration note names the concrete method:
+  FAO-56 Equations 62 and 65 adjust Kc mid and Kc end when RHmin differs
+  from 45 % or wind speed from 2 m/s.
+- **Stage name.** The stage that ends at VE is shown as "Germinación
+  (hasta la emergencia)" / "Germination (to emergence)", because
+  emergence is its end, not part of it. The internal key
+  `germination_emergence` does not change.
+
+**Consequences.** A test pins the 32 °C night case (21 °C·day, not 20).
+The README no longer lists Kc ini as partially verified.

@@ -445,7 +445,6 @@ class StageSpec:
     name: str
     display_name: Mapping[str, str]                  # {"en": ..., "es": ...}
     gdd_start: float                                 # °C·day
-    kc_start: float; kc_end: float                   # FAO-56 Kc, linear within the stage
     moisture_target: MoistureTarget                  # low/high, % of field capacity
     nutrient_need_kg_ha: Mapping[str, float]         # e.g. {"N": 60}
     autonomy: Mapping[ActionType, AutonomyLevel]     # may only tighten (D006)
@@ -453,11 +452,20 @@ class StageSpec:
     def level_for(self, action_type: ActionType) -> AutonomyLevel | None: ...
 
 @dataclass(frozen=True)
+class KcPoint:
+    name: str                                        # e.g. "full_cover"
+    gdd: float                                       # °C·day
+    kc: float                                        # FAO-56 Kc at this point
+    sources: Mapping[str, str]                       # field -> source key
+    note: str | None                                 # why this point sits here
+
+@dataclass(frozen=True)
 class CropSpec:
     name: str
     base_temp_c: float; upper_temp_c: float          # 10 / 30 °C cutoff
     maturity_gdd: float
     stages: tuple[StageSpec, ...]
+    kc_curve: tuple[KcPoint, ...]                    # independent of the stages (D030)
     sources: Mapping[str, Source]                    # citation, url, verification
     reviewed_by_agronomist: bool
     calibration_note: str
@@ -473,6 +481,19 @@ def local_day_window(day: date, utc_offset_hours: float) -> tuple[datetime, date
 
 Every function above is pure.
 
+**Degree-days.** `daily_gdd` follows the Modified 86/50 °F method as
+published (Purdue AY-312-W): the high is capped at the upper temperature,
+the low is raised to the base, and the result is never negative:
+`max(0, (min(high, 30) + max(low, 10)) / 2 − 10)`. The low is not capped
+at 30 °C, so a night above 30 °C counts in full (D031).
+
+**Kc curve.** Kc is a property of the crop, not of a stage: a list of
+FAO-56 points (end of initial, effective full cover, start of maturity,
+harvest) mapped to degree-days (D030). `crop_coefficient_at` interpolates
+linearly between consecutive points and returns the last point's Kc from
+`maturity_gdd` on. Stages keep moisture targets, nutrients and autonomy
+only, so a stage boundary never forces a corner in the Kc curve.
+
 **Catalog validation.** Every numeric field in the YAML names a source
 declared in the same file (D017). The loader checks the following and stops
 the app at startup if any check fails:
@@ -480,6 +501,8 @@ the app at startup if any check fails:
 - every source exists;
 - stages start at 0 and strictly increase;
 - stage names are unique;
+- the Kc curve has at least two points, starts at 0, strictly increases,
+  ends exactly at `maturity_gdd`, and has unique point names;
 - Kc is in [0, 2];
 - for moisture, `0 < low < high ≤` the safety limit, which is passed in
   rather than duplicated;
