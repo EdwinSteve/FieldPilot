@@ -1590,3 +1590,29 @@ prompt that produced it.
 
 **Consequences.** Changing a prompt is a reviewed config change, and every
 decision in the event log can be tied to the prompt version that made it.
+
+---
+
+## D056 — Citation rounding is half up
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30). Complements D050.
+
+**Context.** D050 rounds a stored value to the precision the text writes,
+but does not say how. Python's `round()` rounds halves to the nearest even
+digit: a stored 20.5 becomes 20, so a report that says "21 %" would be
+refused although any person reads 20.5 as 21. The two examples in D050
+(37.96 and 37.4) do not depend on the rounding mode, so they cannot pin it.
+
+**Decision.**
+- The stored value is rounded **half up**, as a person rounds it: 20.5 → 21,
+  and 2.675 → 2.68 at two decimals.
+- The rounding works on the decimal value as stored, not on its binary
+  float form.
+- **Required tests:** 20.5 written as "21 %" passes; 21.47 written as
+  "21 %" passes, and written as "21,0 %" fails, which only holds when the
+  value is rounded to the written precision.
+
+**Consequences.** The check accepts what a farmer would read as the same
+number, and nothing more. A mutation back to half-to-even rounding fails a
+test.

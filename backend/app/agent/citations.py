@@ -52,7 +52,7 @@ def claim_matches(stored: float, claim: NumberClaim) -> bool:
 
 
 def round_half_up(value: float, decimals: int) -> float:
-    """How a person rounds: 20.5 -> 21. Python's round() would give 20 (to even)."""
+    """How a person rounds (D056): 20.5 -> 21. Python's round() would give 20 (to even)."""
     step = Decimal(1).scaleb(-decimals)
     return float(Decimal(str(value)).quantize(step, rounding=ROUND_HALF_UP))
 
