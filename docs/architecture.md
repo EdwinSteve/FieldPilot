@@ -866,12 +866,24 @@ not count; the model can fix it at no cost.
 | Monitoring | `submit_assessment(zones, summary)` | a zone of the plot is missing or repeated; a cited id is not in the ledger; a value differs from the cited observation (D050) |
 | Irrigation | `finish(summary)`, after any number of `propose_action(action_type, zone_id, volume_mm, scheduled_for, rationale, cited)` | `propose_action`: the type is not `irrigation`, `extra_irrigation` or `stop_irrigation`; `scheduled_for` is naive or in the past; a cited id is not in the ledger. Everything else is the gate's decision |
 | Reporting | `submit_report(text_es, cited, actions)` | a number with a unit in the text does not match a cited observation (D050); a declared task status differs from the stored one. The third refusal escalates (D052) |
-| Orchestrator | `answer_farmer(text_es, cited)` | the same number check as `submit_report` (D050, D053) |
+| Orchestrator | `answer_farmer(text_es, cited)`, after `consult_monitoring` if needed | the same number check as `submit_report` (D050, D053). No writing tool (D057) |
 
 Only Irrigation has `may_write=True` and holds `propose_action`, which
-calls `ProposalPort.propose`. The orchestrator consults Monitoring and
-Irrigation through `consult_monitoring` and `consult_irrigation`, which run
-those subagents in the same loop and return their closing results.
+calls `ProposalPort.propose`. The orchestrator consults Monitoring through
+`consult_monitoring`, which runs it in the same session and returns its
+verified brief. The chat is read-only for now: there is no
+`consult_irrigation` (D057).
+
+*Sessions* (`app/services/agent_session.py`). An `AgentSession` holds one
+ledger, one brief draft and one loop, for one daily cycle or one chat
+question. Nothing read in one session can be cited in another.
+`AgentDeps` carries what every session needs, wired once.
+`ChatService.ask` runs the orchestrator in a new session.
+
+*Record and replay.* `RecordingLLMClient(inner, path)` writes each model
+response in the `MockLLMClient` fixture format, rewriting the file after
+every response. A tool call keeps `arguments` when they are a JSON object,
+and `arguments_json` (raw text) otherwise.
 
 *Catalogue.* `load_agent_catalog(config_dir / "agents")` builds the real
 subagents. It refuses to start when a prompt file is missing (D055) or a

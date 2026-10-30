@@ -11,6 +11,7 @@ from app.agent.field import (
     StageView,
     ZoneView,
 )
+from app.agent.loop import AgentRun
 
 NOW = datetime(2026, 10, 28, 11, 0, tzinfo=UTC)
 ZONE_2 = ZoneView(
@@ -75,3 +76,10 @@ class FakeOutbox:
 
     def notify(self, plot_id: int, text_key: str) -> None:
         self.notifications.append(text_key)
+
+
+class NoConsultant:
+    """For tests that never consult: any call is a test bug."""
+
+    def consult(self, subagent: str, task: str) -> AgentRun:
+        raise AssertionError(f"unexpected consult of {subagent}")

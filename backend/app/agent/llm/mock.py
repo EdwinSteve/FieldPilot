@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, JsonValue
+from pydantic import BaseModel, ConfigDict, JsonValue, model_validator
 
 from app.agent.llm.ports import FixtureExhaustedError
 from app.agent.messages import LLMResponse, Message, TokenUsage, ToolCall, ToolSpec
@@ -50,8 +50,22 @@ class _StrictModel(BaseModel):
 
 
 class _FixtureToolCall(_StrictModel):
+    """`arguments` for a JSON object; `arguments_json` keeps raw text the model sent."""
+
     name: str
-    arguments: dict[str, JsonValue]
+    arguments: dict[str, JsonValue] | None = None
+    arguments_json: str | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> "_FixtureToolCall":
+        if (self.arguments is None) == (self.arguments_json is None):
+            raise ValueError("a tool call needs exactly one of arguments and arguments_json")
+        return self
+
+    def raw(self) -> str:
+        return (
+            self.arguments_json if self.arguments_json is not None else json.dumps(self.arguments)
+        )
 
 
 class _FixtureUsage(_StrictModel):
@@ -66,9 +80,7 @@ class _FixtureResponse(_StrictModel):
 
     def to_response(self, call_id: str) -> LLMResponse:
         call = (
-            ToolCall(call_id, self.tool_call.name, json.dumps(self.tool_call.arguments))
-            if self.tool_call
-            else None
+            ToolCall(call_id, self.tool_call.name, self.tool_call.raw()) if self.tool_call else None
         )
         return LLMResponse(
             self.text, call, TokenUsage(self.usage.input_tokens, self.usage.output_tokens)
