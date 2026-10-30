@@ -5,6 +5,7 @@ description = "FieldPilot backend: AI agent for irrigation and crop management."
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "fastapi>=0.162.0",
+    "openai>=3.41.0",
     "pydantic-settings>=2.16.1",
     "pyyaml>=6.0.3",
     "sqlmodel>=0.0.48",
