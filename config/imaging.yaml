@@ -1,0 +1,12 @@
+# Imaging settings (D059). Loaded once at startup; changes are reviewed config.
+
+# A zone whose mean NDVI is below this is "low vigour". A demo assumption,
+# not a cited agronomic value: healthy maize canopy is usually well above it,
+# bare soil well below.
+low_ndvi_threshold: 0.4
+
+# The text prompt sent to SAM 3.1 with the RGB image. SAM answers to what the
+# image looks like, not what it means: on the demo image "bare soil", "dry
+# patch", "soil", "dirt" and "brown soil" found nothing, "brown patch" found
+# every patch (2026-10-30). Try it again on any new kind of imagery.
+segmentation_prompt: brown patch
