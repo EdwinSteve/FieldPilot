@@ -5,6 +5,7 @@ import { BackendStatus } from "./components/BackendStatus";
 import { CalendarPanel } from "./components/CalendarPanel";
 import { ChatPanel } from "./components/ChatPanel";
 import { ControlBar } from "./components/ControlBar";
+import { Icon } from "./components/icons";
 import { InboxPanel } from "./components/InboxPanel";
 import { SimulationPanel } from "./components/SimulationPanel";
 import { TimelinePanel } from "./components/TimelinePanel";
@@ -41,7 +42,10 @@ export function App() {
   return (
     <main className="app">
       <div className="app__title">
-        <h1>FieldPilot</h1>
+        <h1>
+          <Icon name="leaf" size={26} />
+          FieldPilot
+        </h1>
         <span className="muted">{plot ? `${plot.name} · ${plot.area_ha} ha` : ""}</span>
         <BackendStatus />
       </div>

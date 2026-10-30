@@ -83,7 +83,7 @@ export function ChatPanel({ plot, version, refresh }: ChatPanelProps) {
   }
 
   return (
-    <Panel title="Pregúntale al agente" error={error}>
+    <Panel title="Pregúntale al agente" error={error} icon="mic">
       <ul className="chat">
         {exchanges.map((exchange) => (
           <li key={exchange.id}>
@@ -122,11 +122,16 @@ export function ChatPanel({ plot, version, refresh }: ChatPanelProps) {
         >
           Preguntar
         </button>
-        <button type="button" disabled={busy || unavailable} onClick={() => void toggleRecording()}>
+        <button
+          type="button"
+          className={recording ? "button--recording" : undefined}
+          disabled={busy || unavailable}
+          onClick={() => void toggleRecording()}
+        >
           {recording ? "Detener y enviar" : "Hablar"}
         </button>
       </form>
-      {busy ? <p className="muted">El agente está pensando…</p> : null}
+      {busy ? <p className="chat__thinking">El agente está pensando…</p> : null}
     </Panel>
   );
 }

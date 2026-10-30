@@ -17,7 +17,7 @@ export function ZonesPanel({ plot, version }: ZonesPanelProps) {
   const scene = imagery.data?.scene;
 
   return (
-    <Panel title="Zonas" error={zones.error ?? imagery.error}>
+    <Panel title="Zonas" error={zones.error ?? imagery.error} icon="drop">
       {scene ? (
         <p className="muted">
           Imagen satelital del {scene.acquired_on}
