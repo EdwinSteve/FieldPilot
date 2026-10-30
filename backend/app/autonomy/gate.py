@@ -35,10 +35,19 @@ class ExecutionPermit:
     action_type: ActionType
     zone_id: int | None
     params: Mapping[str, float | str]
-    level: AutonomyLevel  # AUTONOMOUS or NOTIFY, never APPROVAL
+    level: AutonomyLevel  # AUTONOMOUS or NOTIFY; APPROVAL only when approved_by is set
+    approved_by: str | None  # the farmer whose approval it carries (D062)
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         raise PermissionError("an ExecutionPermit can only be issued by AutonomyGate")
+
+
+@dataclass(frozen=True)
+class FarmerApproval:
+    """What the farmer approved: the rule codes of the verdict they saw (D062)."""
+
+    actor: str
+    approved_codes: frozenset[RuleCode]
 
 
 @dataclass(frozen=True)
@@ -82,6 +91,23 @@ class AutonomyGate:
             return Authorization(verdict, permit=None)
         return Authorization(verdict, _issue_permit(action, verdict.effective_level))
 
+    def authorize_approved(
+        self, action: ProposedAction, context: GateContext, approval: FarmerApproval
+    ) -> Authorization:
+        """A permit for what the farmer approved, and nothing more (D062).
+
+        Never while the emergency stop is active (D022), and never when the
+        fresh verdict has a violation the farmer did not see: that is a new
+        situation, and only a new decision can cover it.
+        """
+        verdict = self.evaluate(action, context)
+        if verdict.outcome in _EXECUTABLE_OUTCOMES:
+            return Authorization(verdict, _issue_permit(action, verdict.effective_level))
+        if unapproved(verdict, approval):
+            return Authorization(verdict, permit=None)
+        permit = _issue_permit(action, AutonomyLevel.APPROVAL, approved_by=approval.actor)
+        return Authorization(verdict, permit)
+
     def _requested_level(self, action: ProposedAction, context: GateContext) -> AutonomyLevel:
         default = self._policy.default_level(action.action_type)
         if context.stage_level is None:
@@ -103,7 +129,18 @@ class AutonomyGate:
         return (*leading, always, *rest)
 
 
-def _issue_permit(action: ProposedAction, level: AutonomyLevel) -> ExecutionPermit:
+def unapproved(verdict: GateVerdict, approval: FarmerApproval) -> tuple[RuleViolation, ...]:
+    """Violations the approval does not cover. The emergency stop is never covered."""
+    return tuple(
+        v
+        for v in verdict.violations
+        if v.code is RuleCode.EMERGENCY_STOP_ACTIVE or v.code not in approval.approved_codes
+    )
+
+
+def _issue_permit(
+    action: ProposedAction, level: AutonomyLevel, approved_by: str | None = None
+) -> ExecutionPermit:
     permit = object.__new__(ExecutionPermit)
     values = {
         "proposal_key": action.proposal_key,
@@ -111,6 +148,7 @@ def _issue_permit(action: ProposedAction, level: AutonomyLevel) -> ExecutionPerm
         "zone_id": action.zone_id,
         "params": dict(action.params),
         "level": level,
+        "approved_by": approved_by,
     }
     for name, value in values.items():
         object.__setattr__(permit, name, value)
