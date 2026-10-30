@@ -239,7 +239,8 @@ class ExecutionPermit:                    # only AutonomyGate can build one (D03
     action_type: ActionType
     zone_id: int | None
     params: Mapping[str, float | str]
-    level: AutonomyLevel                  # AUTONOMOUS or NOTIFY, never APPROVAL
+    level: AutonomyLevel                  # AUTONOMOUS or NOTIFY; APPROVAL only when approved_by is set
+    approved_by: str | None               # the farmer who approved it (D062)
 
 @dataclass(frozen=True)
 class Authorization:
@@ -250,6 +251,14 @@ class AutonomyGate:
     def __init__(self, policy: AutonomyPolicy, limits: SafetyLimits) -> None: ...
     def evaluate(self, action: ProposedAction, context: GateContext) -> GateVerdict: ...
     def authorize(self, action: ProposedAction, context: GateContext) -> Authorization: ...
+    def authorize_approved(
+        self, action: ProposedAction, context: GateContext, approval: FarmerApproval
+    ) -> Authorization: ...                # D062
+
+@dataclass(frozen=True)
+class FarmerApproval:
+    actor: str
+    approved_codes: frozenset[RuleCode]   # the violations the farmer saw and accepted
 
 class MessageCatalog:                     # config/messages/es.yaml, every RuleCode required
     def render(self, code: RuleCode, params: Mapping[str, float | str]) -> str: ...
@@ -276,7 +285,17 @@ There is no "drop" outcome (D004).
 `EXECUTE_AND_NOTIFY`, attaches an `ExecutionPermit`. Its constructor
 always raises `PermissionError`, and so does `dataclasses.replace`; only a
 private factory in `gate.py` builds one (D039). The actuator accepts nothing else, so a raw action can
-never reach a valve (D037). Permits live in memory only: a task that runs
+never reach a valve (D037).
+
+**Approved permits (D062).** `authorize_approved` runs the same `evaluate`
+on a fresh context. It attaches a permit with `level=APPROVAL` and
+`approved_by` only when:
+- the emergency stop is not active (D022: an approval never overrides it);
+- every violation of the fresh verdict was in `approved_codes`. A new rule
+  that fails after the approval means a situation the farmer did not see,
+  so there is no permit.
+
+Otherwise it returns no permit, exactly like `authorize`. Permits live in memory only: a task that runs
 later gets a fresh permit from a fresh evaluation (D033).
 
 **Recording.** The gate does not log, so it stays pure.
@@ -429,12 +448,25 @@ the report in `app.state.runtime.reconciliation`.
 A restart therefore never irrigates twice, never irrigates late without a
 new decision, and never hides an irrigation of unknown size.
 
-Use cases that come with the API in step 9:
+Use cases that come with the API in step 9 (`app/services/approvals.py`,
+`app/services/control.py`):
 
-- `approve_task(task_id, actor)` re-checks the emergency stop, then
-  executes and logs `approval` and `execution`;
-- `reject_task(task_id, actor, reason)` logs `rejection` (D008);
-- `set_emergency_stop(active, actor)`.
+- `ApprovalService.approve(task_id, actor)`: moves a `pending_approval`
+  task to `scheduled` with an `approval` event whose inputs list the
+  `approved_codes` of its stored verdict. If the task is due and the
+  actuator supports it, it executes it at once with
+  `authorize_approved` (D062). A task the actuator does not support
+  (fertilizer, agrochemical) stays `scheduled` as a manual task.
+- `ApprovalService.reject(task_id, actor, reason)`: moves it to `rejected`
+  with a `rejection` event (D008).
+- `DueTaskRunner` uses `authorize_approved` for a task that has an
+  `approval` event, and `authorize` otherwise. A refused approved task
+  fails and names the new rule (D033, D062).
+- `EmergencyStopService.set(active, actor)`: through
+  `ControlStateRepository.set_emergency_stop`, with its event.
+- `SimulationTicker.tick()` (D065): at the current simulated time, records
+  the simulator's readings, runs `DueTaskRunner`, and counts the GDD of
+  every finished local day.
 
 Reverts go through `RevertService` (§4.4).
 
@@ -1140,20 +1172,36 @@ startup writes a `config_override` event with both values.
 | Method | Path | Service |
 |---|---|---|
 | GET | `/health` | — |
-| GET/POST | `/plots`, `/zones` | plots |
-| GET | `/readings` | readings |
-| GET | `/cycles`, `/cycles/{id}` | cycles |
-| GET | `/tasks` | tasks |
-| POST | `/tasks/{id}/approve` | `approve_task` |
-| POST | `/tasks/{id}/reject` | `reject_task` (D008) |
-| POST | `/tasks/{id}/revert` | `revert_task` |
-| GET | `/events` | event log |
-| GET | `/notifications` | notifications |
+| GET | `/plots`, `/plots/{id}/zones` | plots and zones |
+| GET | `/readings?zone_id=` | readings |
+| GET | `/cycles`, `/cycles/{id}` | cycles and stages |
+| GET | `/tasks?status=` | tasks, with `revert_deadline` and `revert_open` (D011) |
+| POST | `/tasks/{id}/approve` | `ApprovalService.approve` (D062) |
+| POST | `/tasks/{id}/reject` | `ApprovalService.reject` (D008) |
+| POST | `/tasks/{id}/revert` | `RevertService.revert` |
+| GET | `/events?task_id=&kind=` | event log, including the agent trace |
+| GET | `/notifications`, POST `/notifications/{id}/read` | notifications |
 | GET | `/reports` | reports |
-| POST | `/agent/chat` | `Orchestrator.run` (text or audio) |
-| POST | `/emergency-stop` | `set_emergency_stop` |
+| POST | `/agent/chat` | `ChatService.ask` (JSON; 503 under `MOCK_LLM=1`, D063) |
+| POST | `/agent/chat/voice` | `VoiceChatService.ask` (WAV in `multipart/form-data`, D064) |
+| POST | `/agent/daily-cycle` | `DailyCycle.run` (D064) |
+| GET, POST | `/clock` | `ClockService`: pause, resume, speed, advance (D011, D064) |
+| POST | `/simulation/tick` | `SimulationTicker.tick` (D065) |
+| GET, POST | `/emergency-stop` | `EmergencyStopService` |
 
 Route handlers parse the request, call one service function and map the
-result to a response. They contain no other logic. Domain errors map to HTTP
-codes in one place: not found is 404, an invalid state transition is 409,
-and an unsupported action is 422.
+result to a response. They contain no other logic. Every service is built
+once in `app/container.py` and reached through FastAPI dependencies; there
+is no global mutable state (principle 8).
+
+Errors map to HTTP codes in one place (`app/api/errors.py`):
+
+| Error | Code |
+|---|---|
+| `NotFoundError` | 404 |
+| `InvalidTransitionError`, `RevertRefusedError` | 409 |
+| `UnsupportedActionError`, `UnsupportedAudioError`, `NothingHeardError` | 422 |
+| `LLMUnavailableError`, `SpeechUnavailableError`, chat under `MOCK_LLM=1` | 503 |
+
+A 5xx response never carries an exception message, a key or a request
+body.
