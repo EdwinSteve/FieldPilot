@@ -835,7 +835,7 @@ class Observation:
     zone_id: int | None
     value: float | str | None
     unit: str                             # "%", "mm", "GDD", "" for none
-    at: datetime
+    at: datetime | None                   # None for a static fact (field capacity, stage)
 
 class ObservationLedger:                  # one per daily cycle or chat turn, in memory
     def add(self, observation: Observation) -> Observation: ...

@@ -1,4 +1,5 @@
 import json
+from collections.abc import Iterable
 
 import pytest
 
@@ -6,7 +7,7 @@ from app.agent.llm.mock import MockLLMClient
 from app.agent.llm.ports import FixtureExhaustedError, LLMUnavailableError
 from app.agent.loop import AgentLoop, RunStatus, Subagent
 from app.agent.messages import AssistantText, ToolCall, ToolResult, UserMessage
-from app.agent.tools.registry import Tool
+from app.agent.tools.registry import Tool, ToolRegistry
 from app.domain.errors import ConfigError
 from tests.fakes import FlakyLLM, RecordingTrace
 from tests.unit.agent.agents import (
@@ -284,3 +285,66 @@ def test_valid_subagents_build() -> None:
     loop = _build(MONITORING, CHAT, max_turns=2)
 
     assert isinstance(loop, AgentLoop)
+
+
+def _with_writer() -> ToolRegistry:
+    calls = Calls()
+    registry = make_registry(calls)
+    registry.register(Tool("propose_action", "Writes.", ZoneArgs, calls.read, writes=True))
+    return registry
+
+
+def test_a_writing_tool_without_may_write_is_refused_at_startup() -> None:
+    """D054, startup check: names the subagent and the tool."""
+    agent = Subagent(
+        "monitoring",
+        "",
+        frozenset({"propose_action", "submit_assessment"}),
+        closing_tool="submit_assessment",
+    )
+
+    with pytest.raises(ConfigError, match=r"'monitoring' holds writing tools without may_write"):
+        AgentLoop(MockLLMClient([]), _with_writer(), RecordingTrace(), [agent], 6)
+
+
+def test_a_subagent_with_may_write_may_hold_a_writing_tool() -> None:
+    agent = Subagent(
+        "irrigation",
+        "",
+        frozenset({"propose_action", "submit_assessment"}),
+        closing_tool="submit_assessment",
+        may_write=True,
+    )
+
+    loop = AgentLoop(MockLLMClient([]), _with_writer(), RecordingTrace(), [agent], 6)
+
+    assert isinstance(loop, AgentLoop)
+
+
+class SpyRegistry(ToolRegistry):
+    """Records the allow_writes each subset was asked with."""
+
+    def __init__(self, base: ToolRegistry) -> None:
+        super().__init__(tool for name in sorted(base.names()) if (tool := base.get(name)))
+        self.allow_writes: dict[frozenset[str], bool] = {}
+
+    def subset(self, names: Iterable[str], *, allow_writes: bool) -> ToolRegistry:
+        wanted = frozenset(names)
+        self.allow_writes[wanted] = allow_writes
+        return super().subset(wanted, allow_writes=allow_writes)
+
+
+def test_the_loop_asks_subset_for_writes_only_with_may_write() -> None:
+    """D054: the runtime check gets the subagent's own permission, never a blanket True."""
+    registry = SpyRegistry(_with_writer())
+    irrigation = Subagent(
+        "irrigation",
+        "",
+        frozenset({"propose_action", "submit_assessment"}),
+        closing_tool="submit_assessment",
+        may_write=True,
+    )
+
+    AgentLoop(MockLLMClient([]), registry, RecordingTrace(), [MONITORING, irrigation], 6)
+
+    assert registry.allow_writes == {MONITORING.tool_names: False, irrigation.tool_names: True}

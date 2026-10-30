@@ -28,6 +28,7 @@ class Tool[In: BaseModel]:
     input_model: type[In]
     handler: Callable[[In], JsonObject]
     closes_run: bool = False
+    writes: bool = False  # changes stored state; needs a subagent with may_write (D054)
 
     def spec(self) -> ToolSpec:
         return ToolSpec(self.name, self.description, self.input_model.model_json_schema())
@@ -70,11 +71,15 @@ class ToolRegistry:
     def names(self) -> frozenset[str]:
         return frozenset(self._tools)
 
-    def subset(self, names: Iterable[str]) -> "ToolRegistry":
+    def subset(self, names: Iterable[str], *, allow_writes: bool) -> "ToolRegistry":
+        """The named tools. Refuses a writing tool unless `allow_writes` (D054)."""
         wanted = sorted(set(names))
         missing = [name for name in wanted if name not in self._tools]
         if missing:
             raise ConfigError(f"unknown tools: {', '.join(missing)}")
+        writing = [name for name in wanted if self._tools[name].writes]
+        if writing and not allow_writes:
+            raise ConfigError(f"writing tools need allow_writes: {', '.join(writing)}")
         return ToolRegistry(self._tools[name] for name in wanted)
 
     def specs(self) -> tuple[ToolSpec, ...]:

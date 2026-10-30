@@ -38,7 +38,8 @@ class Subagent:
     name: str
     system_prompt: str
     tool_names: frozenset[str]
-    closing_tool: str | None  # None: a text answer ends the run (chat)
+    closing_tool: str | None  # None is valid here; the real catalogue always sets one (D053)
+    may_write: bool = False  # only irrigation may hold writing tools (D054)
 
 
 @dataclass(frozen=True)
@@ -214,8 +215,14 @@ class AgentLoop:
 
 
 def validated_tools(agent: Subagent, registry: ToolRegistry) -> ToolRegistry:
-    """The subagent's tools, or `ConfigError` if its closing tool is ambiguous (§4.8 rule 1)."""
-    tools = registry.subset(agent.tool_names)
+    """The subagent's tools, or `ConfigError` (§4.8 rule 1, D054)."""
+    if not agent.may_write:
+        writing = sorted(name for name in agent.tool_names if _writes(registry.get(name)))
+        if writing:
+            raise ConfigError(
+                f"subagent {agent.name!r} holds writing tools without may_write: {writing}"
+            )
+    tools = registry.subset(agent.tool_names, allow_writes=agent.may_write)
     closing = sorted(name for name in agent.tool_names if _closes(tools.get(name)))
     expected = [] if agent.closing_tool is None else [agent.closing_tool]
     if agent.closing_tool is not None and agent.closing_tool not in agent.tool_names:
@@ -232,6 +239,10 @@ def validated_tools(agent: Subagent, registry: ToolRegistry) -> ToolRegistry:
 
 def _closes(tool: Tool[Any] | None) -> bool:
     return tool is not None and tool.closes_run
+
+
+def _writes(tool: Tool[Any] | None) -> bool:
+    return tool is not None and tool.writes
 
 
 def _reminder(closing_tool: str) -> str:
