@@ -33,6 +33,7 @@ from app.services.gate_context import StoredGateContextProvider
 from app.services.imagery_reader import StoredImageryReader
 from app.services.phenology import PhenologyService
 from app.services.proposals import ProposalService
+from app.services.queries import FarmQueries
 from app.services.rain_forecast import PlotRainForecast
 from app.services.revert import RevertService
 from app.services.ticker import SimulationTicker
@@ -53,7 +54,9 @@ class Container:
     proposals: ProposalService
     approvals: ApprovalService
     revert: RevertService
+    queries: FarmQueries
     ticker: SimulationTicker
+    agent_deps: Callable[[LLMClient], AgentDeps]  # every agent service, around a given model
     cycle_llm: Callable[[], LLMClient]  # the live client, or a fresh replay per run (D063)
     daily_cycle: Callable[[], DailyCycle]
     chat: ChatService | None  # None under MOCK_LLM=1 (D063)
@@ -73,6 +76,7 @@ def build_container(settings: Settings, config: RuntimeConfig, runtime: Runtime)
     )
     due = DueTaskRunner(uow, gate, context, executor, config.messages)
     phenology = PhenologyService(uow, config.crops, clock)
+    revert = RevertService(uow, clock, runtime.actuator)
 
     def agent_deps(llm: LLMClient) -> AgentDeps:
         return AgentDeps(
@@ -115,8 +119,10 @@ def build_container(settings: Settings, config: RuntimeConfig, runtime: Runtime)
         emergency=EmergencyStopService(uow, clock),
         proposals=proposals,
         approvals=ApprovalService(uow, clock, due),
-        revert=RevertService(uow, clock, runtime.actuator),
+        revert=revert,
+        queries=FarmQueries(uow, clock, revert),
         ticker=SimulationTicker(uow, clock, runtime.simulator, due, phenology),
+        agent_deps=agent_deps,
         cycle_llm=cycle_llm,
         daily_cycle=daily_cycle,
         chat=chat,

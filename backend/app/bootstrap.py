@@ -30,6 +30,7 @@ from app.safety.rules import SafetyLimits
 from app.satellite.config import ImagingConfig, load_imaging_config
 from app.services.clock import load_or_start_clock
 from app.services.reconciliation import ReconciliationReport, reconcile_executions
+from app.services.simulation import ensure_simulated
 from app.settings import Settings
 from app.simulator.clock import SimClock, WallClock, system_wall_clock
 from app.simulator.field import FieldSimulator
@@ -125,8 +126,10 @@ def start_runtime(
 ) -> Runtime:
     """Open the database, restore the clock, and reconcile before serving (D013, D014).
 
-    The simulator always starts empty: its state is not resumed after a
-    restart, and the reconciliation report says so.
+    The simulator starts empty: its state is not resumed after a restart, and
+    the reconciliation report says so. After reconciliation each zone is
+    rebuilt from its latest moisture reading (§4.10); zones created later
+    join on the next simulation tick.
     """
     engine = create_db_engine(settings.database_url)
     init_schema(engine)
@@ -140,6 +143,7 @@ def start_runtime(
         simulator, StoredEmergencyStop(uow), clock, config.actuation.irrigation_rate_mm_per_h
     )
     report = reconcile_executions(uow, clock, actuator, config.messages)
+    ensure_simulated(uow, simulator)  # §4.10: rebuilt from the latest readings
     if revert_window.overridden:
         _log_override(uow, clock, settings, revert_window)
     return Runtime(uow, clock, simulator, actuator, report, revert_window)
