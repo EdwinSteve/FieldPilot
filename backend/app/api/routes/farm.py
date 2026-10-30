@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 
 from app.api.deps import ContainerDep
-from app.api.schemas import CycleOut, PlotOut, SensorReadingsOut, ZoneOut
+from app.api.schemas import CycleOut, ImageryOut, PlotOut, SensorReadingsOut, ZoneOut
 
 router = APIRouter(tags=["farm"])
 
@@ -18,6 +18,11 @@ def list_plots(container: ContainerDep) -> list[PlotOut]:
 @router.get("/plots/{plot_id}/zones")
 def list_zones(plot_id: int, container: ContainerDep) -> list[ZoneOut]:
     return [ZoneOut.of(z) for z in container.queries.zones(plot_id)]
+
+
+@router.get("/plots/{plot_id}/imagery")
+def plot_imagery(plot_id: int, container: ContainerDep) -> ImageryOut:
+    return ImageryOut.of(container.queries.imagery(plot_id))
 
 
 @router.get("/readings")

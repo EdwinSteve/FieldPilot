@@ -15,6 +15,7 @@ from app.domain.errors import (
     InvalidTransitionError,
     MissingDataError,
     NotFoundError,
+    ScenarioRejectedError,
     UnsupportedActionError,
 )
 from app.services.revert import RevertRefusedError
@@ -34,6 +35,7 @@ _CLIENT_ERRORS: dict[type[Exception], HTTPStatus] = {
     RevertRefusedError: HTTPStatus.CONFLICT,
     MissingDataError: HTTPStatus.CONFLICT,
     UnsupportedActionError: HTTPStatus.UNPROCESSABLE_ENTITY,
+    ScenarioRejectedError: HTTPStatus.UNPROCESSABLE_ENTITY,
     UnsupportedAudioError: HTTPStatus.UNPROCESSABLE_ENTITY,
     NothingHeardError: HTTPStatus.UNPROCESSABLE_ENTITY,
 }

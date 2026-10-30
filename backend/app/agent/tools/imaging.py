@@ -144,12 +144,12 @@ def _problems(ledger: ObservationLedger, view: ImageryView | None, args: Imaging
     for zone in args.zones:
         expected = truth.get(zone.zone_id)
         if view is not None and expected is not None:
-            problems += _zone_problems(ledger, view.low_ndvi_threshold, expected, zone)
+            problems += _zone_problems(ledger, view, expected, zone)
     return problems
 
 
 def _zone_problems(
-    ledger: ObservationLedger, threshold: float, expected: ZoneImagery, zone: ZoneImagingInput
+    ledger: ObservationLedger, view: ImageryView, expected: ZoneImagery, zone: ZoneImagingInput
 ) -> list[str]:
     problems = []
     unknown = [oid for oid in zone.cited if ledger.get(oid) is None]
@@ -168,11 +168,11 @@ def _zone_problems(
         for name in ("ndvi_mean", "low_ndvi_pct", "bare_soil_pct")
         if not _same(getattr(expected, name), getattr(zone, name))
     )
-    low = expected.ndvi_mean is not None and expected.ndvi_mean < threshold
+    low = view.low_vigor(expected)
     if zone.low_vigor != low:
         problems.append(
             f"Zone {zone.zone_id}: low_vigor must be {str(low).lower()} "
-            f"(mean NDVI {expected.ndvi_mean} vs threshold {threshold})."
+            f"(mean NDVI {expected.ndvi_mean} vs threshold {view.low_ndvi_threshold})."
         )
     return problems
 

@@ -1,54 +1,18 @@
 """Approve, reject and revert through HTTP, with the real gate (D008, D011, D062)."""
 
-from datetime import UTC, datetime, timedelta
-
 from fastapi.testclient import TestClient
 
 from app.container import Container
 from app.domain.enums import ActionType
-from app.domain.proposals import ProposedAction
-from app.services.gate_context import local_day
+from tests.integration.api.actions import hold_for_rain, propose
 from tests.integration.api.conftest import Farm
-
-
-def _propose(
-    container: Container,
-    farm: Farm,
-    action: ActionType = ActionType.IRRIGATION,
-    volume_mm: float = 15.0,
-    hours_ahead: float = 0,
-) -> int:
-    with container.runtime.uow() as u:
-        plot = u.plots.get(farm.plot_id)
-    at = container.runtime.clock.now() + timedelta(hours=hours_ahead)
-    result = container.proposals.propose(
-        ProposedAction.create(
-            action_type=action,
-            plot_id=farm.plot_id,
-            zone_id=farm.zone_id,
-            scheduled_for=at,
-            local_day=local_day(at, plot),
-            params={"volume_mm": volume_mm},
-            rationale="Prueba",
-            proposed_by="test",
-        )
-    )
-    assert result.task.id is not None
-    return result.task.id
-
-
-def _hold_for_rain(container: Container) -> None:
-    """Move the simulated clock to the morning of 2026-11-02, when the Open-Meteo fixture
-    forecasts 12 mm: the gate holds every irrigation for approval."""
-    rainy_morning = datetime(2026, 11, 2, 11, 0, tzinfo=UTC)
-    container.clock_service.advance("test", rainy_morning - container.runtime.clock.now())
 
 
 def test_a_held_task_is_listed_and_approved(
     client: TestClient, container: Container, farm: Farm
 ) -> None:
-    _hold_for_rain(container)
-    task_id = _propose(container, farm)
+    hold_for_rain(container)
+    task_id = propose(container, farm)
 
     [pending] = client.get("/tasks", params={"status": "pending_approval"}).json()
     approved = client.post(f"/tasks/{task_id}/approve")
@@ -61,8 +25,8 @@ def test_a_held_task_is_listed_and_approved(
 def test_approving_twice_is_a_conflict(
     client: TestClient, container: Container, farm: Farm
 ) -> None:
-    _hold_for_rain(container)
-    task_id = _propose(container, farm)
+    hold_for_rain(container)
+    task_id = propose(container, farm)
     client.post(f"/tasks/{task_id}/approve")
 
     again = client.post(f"/tasks/{task_id}/approve")
@@ -72,8 +36,8 @@ def test_approving_twice_is_a_conflict(
 
 
 def test_a_rejection_keeps_its_reason(client: TestClient, container: Container, farm: Farm) -> None:
-    _hold_for_rain(container)
-    task_id = _propose(container, farm)
+    hold_for_rain(container)
+    task_id = propose(container, farm)
 
     response = client.post(f"/tasks/{task_id}/reject", json={"reason": "Esperaré la lluvia"})
     [rejection] = client.get("/events", params={"task_id": task_id, "kind": "rejection"}).json()
@@ -86,7 +50,7 @@ def test_a_notify_task_carries_its_revert_window(
     client: TestClient, container: Container, farm: Farm
 ) -> None:
     """D011: the backend sends revert_deadline and revert_open; the UI decides nothing."""
-    task_id = _propose(container, farm, ActionType.EXTRA_IRRIGATION, 10.0, hours_ahead=24)
+    task_id = propose(container, farm, ActionType.EXTRA_IRRIGATION, 10.0, hours_ahead=24)
 
     [task] = [t for t in client.get("/tasks").json() if t["id"] == task_id]
 
@@ -97,7 +61,7 @@ def test_a_notify_task_carries_its_revert_window(
 
 
 def test_revert_then_revert_again(client: TestClient, container: Container, farm: Farm) -> None:
-    task_id = _propose(container, farm, ActionType.EXTRA_IRRIGATION, 10.0, hours_ahead=24)
+    task_id = propose(container, farm, ActionType.EXTRA_IRRIGATION, 10.0, hours_ahead=24)
 
     first = client.post(f"/tasks/{task_id}/revert")
     second = client.post(f"/tasks/{task_id}/revert")
@@ -112,7 +76,7 @@ def test_revert_then_revert_again(client: TestClient, container: Container, farm
 def test_an_autonomous_task_has_no_revert_window(
     client: TestClient, container: Container, farm: Farm
 ) -> None:
-    task_id = _propose(container, farm)
+    task_id = propose(container, farm)
 
     [task] = [t for t in client.get("/tasks").json() if t["id"] == task_id]
 

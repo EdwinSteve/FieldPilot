@@ -35,15 +35,25 @@ START = datetime(2026, 10, 28, 11, 0, tzinfo=UTC)
 
 
 @pytest.fixture
-def app(tmp_path: Path) -> FastAPI:
-    url = f"sqlite:///{tmp_path / 'api.db'}"
+def database_url(tmp_path: Path) -> str:
+    return f"sqlite:///{tmp_path / 'api.db'}"
+
+
+def restart(database_url: str) -> FastAPI:
+    """A new process on the same database: memory-only state is gone (D014)."""
+    return create_app(Settings(_env_file=None, database_url=database_url, mock_llm=True))
+
+
+@pytest.fixture
+def app(database_url: str) -> FastAPI:
+    url = database_url
     engine = create_db_engine(url)
     init_schema(engine)
     with SqlUnitOfWork(engine) as u:
         u.sim_clock.save(SimClockState(START, START, speed_factor=1.0, paused=True))
         u.commit()
     engine.dispose()
-    return create_app(Settings(_env_file=None, database_url=url, mock_llm=True))
+    return restart(url)
 
 
 @pytest.fixture

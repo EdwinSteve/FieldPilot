@@ -4,6 +4,8 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import timedelta
 
+from app.agent.field import ImageryReader, ImageryView
+from app.autonomy.messages import MessageCatalog
 from app.domain.enums import EventKind, TaskStatus
 from app.domain.models import (
     CropCycle,
@@ -18,6 +20,8 @@ from app.domain.models import (
     Zone,
 )
 from app.persistence.ports import UnitOfWork
+from app.services.gate_context import local_day
+from app.services.gate_decisions import verdict_from_event
 from app.services.revert import RevertService
 from app.simulator.clock import Clock
 
@@ -32,6 +36,7 @@ class TaskView:
     task: Task
     revert_open: bool | None  # None: the task never had a revert window
     revert_remaining: timedelta | None
+    reason_es: str | None = None  # why it is held, in the farmer's words (D067)
 
 
 @dataclass(frozen=True)
@@ -47,10 +52,19 @@ class CycleView:
 
 
 class FarmQueries:
-    def __init__(self, uow: UowFactory, clock: Clock, revert: RevertService) -> None:
+    def __init__(
+        self,
+        uow: UowFactory,
+        clock: Clock,
+        revert: RevertService,
+        messages: MessageCatalog,
+        imagery: ImageryReader,
+    ) -> None:
         self._uow = uow
         self._clock = clock
         self._revert = revert
+        self._messages = messages
+        self._imagery = imagery
 
     def plots(self) -> Sequence[Plot]:
         with self._uow() as u:
@@ -90,10 +104,29 @@ class FarmQueries:
 
     def task_view(self, task: Task) -> TaskView:
         """The backend decides whether the revert window is open; the UI only shows it."""
+        reason = self._held_reason(task)
         window = self._revert.window(task)
         if window is None:
-            return TaskView(task, None, None)
-        return TaskView(task, window.open and task.status in _REVERTIBLE, window.remaining)
+            return TaskView(task, None, None, reason)
+        open_now = window.open and task.status in _REVERTIBLE
+        return TaskView(task, open_now, window.remaining, reason)
+
+    def imagery(self, plot_id: int) -> ImageryView | None:
+        """The plot's latest scene, on its current local day (D067)."""
+        with self._uow() as u:
+            plot = u.plots.get(plot_id)
+        return self._imagery.imagery(plot_id, local_day(self._clock.now(), plot))
+
+    def _held_reason(self, task: Task) -> str | None:
+        """The stored verdict's rules, rendered from the catalogue (D067)."""
+        if task.status is not TaskStatus.PENDING_APPROVAL or task.id is None:
+            return None
+        with self._uow() as u:
+            verdicts = u.events.list(task_id=task.id, kind=EventKind.GATE_VERDICT)
+        if not verdicts:
+            return None
+        violations = verdict_from_event(verdicts[-1]).violations
+        return "; ".join(self._messages.render(v) for v in violations) or None
 
     def events(self, task_id: int | None, kind: EventKind | None, limit: int) -> Sequence[Event]:
         with self._uow() as u:
