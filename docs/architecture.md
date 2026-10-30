@@ -843,9 +843,12 @@ class SpeechToText(Protocol):
 
 `PlotRainForecast(uow, provider)` in `app/services` implements the
 `RainForecast` port of §4.3. It reads the plot's latitude and longitude and
-asks the `ForecastProvider`. `FixtureForecast` reads an hourly Open-Meteo
-response and sums the 24 hours from `at`; it returns `None` when any of
-those hours is missing (D047).
+asks the `ForecastProvider`. `FixtureForecast` reads hourly Open-Meteo
+responses from `data/fixtures/open_meteo/` and uses the one nearest the
+plot, within 0.1°. It sums every hour that overlaps the 24 h after `at`:
+24 hours on the hour, 25 off the hour, because a cut hour counts whole and
+can only overstate rain. It returns `None` when any of those hours is
+missing or null, or when no fixture is close enough (D047).
 
 ### 4.10 Persistence (`app/persistence`)
 
