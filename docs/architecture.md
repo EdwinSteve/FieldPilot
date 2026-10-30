@@ -863,6 +863,7 @@ not count; the model can fix it at no cost.
 
 | Subagent | Closing tool | Refused when |
 |---|---|---|
+| Imaging | `submit_imaging(zones)`, after `read_imagery` | a zone of the plot is missing or repeated; a cited id is not in the ledger or is another zone's; `ndvi_mean`, `low_ndvi_pct` or `bare_soil_pct` differs from the computed value; `low_vigor` disagrees with the threshold (D050, D060) |
 | Monitoring | `submit_assessment(zones, summary)` | a zone of the plot is missing or repeated; a cited id is not in the ledger; a value differs from the cited observation (D050) |
 | Irrigation | `finish(summary)`, after any number of `propose_action(action_type, zone_id, volume_mm, scheduled_for, rationale, cited)` | `propose_action`: the type is not `irrigation`, `extra_irrigation` or `stop_irrigation`; `scheduled_for` is naive or in the past; a cited id is not in the ledger. Everything else is the gate's decision |
 | Reporting | `submit_report(text_es, cited, actions)` | a number with a unit in the text does not match a cited observation (D050); a declared task status differs from the stored one. The third refusal escalates (D052) |
@@ -894,10 +895,12 @@ rule 1 and D054.
 
 ```python
 class DailyCycle:
-    def run(self, plot_id: int) -> DailyCycleResult: ...   # Monitoring -> Irrigation -> Reporting
+    def run(self, plot_id: int) -> DailyCycleResult: ...   # Monitoring -> Imaging -> Irrigation -> Reporting
 ```
 
-- Imaging joins in step 8.
+- Imaging runs after Monitoring (D044). With no scene for the plot it
+  submits an empty imaging result, so the cycle does not stop for lack of
+  imagery (D060).
 - Every subagent shares the cycle's ledger and receives the brief as JSON
   in its task. Run ids come from an injected `IdFactory`.
 - **Stop rules (D051).** The cycle stops at the first subagent that does
@@ -913,11 +916,22 @@ class DailyCycle:
 ### 4.9 Satellite, weather and voice
 
 ```python
-def compute_ndvi(red: NDArray[np.float32], nir: NDArray[np.float32]) -> NDArray[np.float32]: ...
-class ImageryLoader: def load(self, plot_id: int, date: date) -> Scene: ...   # data/satellite/
+Raster = tuple[tuple[float, ...], ...]   # rows of pixels; plain Python, no numpy (D058)
+
+def compute_ndvi(red: Raster, nir: Raster) -> tuple[tuple[float | None, ...], ...]: ...
+    # (nir - red) / (nir + red); None where nir + red == 0, never a guessed value
+def zone_ndvi(ndvi, area: NormalizedBox, low_threshold: float) -> NdviStats: ...
+    # mean over defined pixels, and the % of them below low_threshold
+
+class ImageryLoader:                     # data/satellite/<scene>/scene.json + rgb.png
+    def latest(self, lat: float, lon: float, on_or_before: date) -> Scene | None: ...
+    # nearest scene within 0.1°, as for the forecast; None when there is none
+
 class SegmentationProvider(Protocol):
-    def segment(self, image: NDArray[np.uint8], prompt: str) -> Mask: ...
-# Sam31Segmentation · MockSegmentation (rectangular mask)
+    def segment(self, image_png: bytes, prompt: str) -> tuple[Box, ...]: ...
+# Sam31Segmentation (boxes parsed from <|box;...|> tokens) · MockSegmentation (fixed boxes)
+def covered_pct(boxes: Sequence[Box], area: NormalizedBox) -> float: ...
+    # % of the zone covered by the union of the boxes (D059)
 
 class ForecastProvider(Protocol):
     def rain_next_24h_mm(self, lat: float, lon: float, at: datetime) -> float | None: ...
@@ -937,6 +951,14 @@ plot, within 0.1°. It sums every hour that overlaps the 24 h after `at`:
 24 hours on the hour, 25 off the hour, because a cut hour counts whole and
 can only overstate rain. It returns `None` when any of those hours is
 missing or null, or when no fixture is close enough (D047).
+
+**Imaging** (D058–D060). A scene holds the red and near-infrared bands,
+an RGB PNG, and each zone's area as a box in normalized coordinates, keyed
+by zone name. The Imaging subagent reads NDVI and the SAM segmentation per
+zone, and closes with `submit_imaging`. Its result joins the `FieldBrief`,
+which Irrigation and Reporting receive. Only the Muse adapters import
+`openai`: `app/agent/llm/muse.py`, `app/satellite/sam31.py` and, if voice
+lands, `app/voice/muse.py`.
 
 ### 4.10 Persistence (`app/persistence`)
 

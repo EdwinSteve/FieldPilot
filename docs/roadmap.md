@@ -164,7 +164,8 @@ Each step follows the usual process:
   parsing) and `MockSegmentation`; then the Imaging subagent.
 - **Voice (stretch):** `MuseVoiceTranscribe` and `MockSpeechToText`.
 - **Done when:** Imaging adds a low-NDVI zone to the `FieldBrief`, and
-  Monitoring and Irrigation use it.
+  Irrigation and Reporting use it. Monitoring runs before Imaging (D044),
+  so it cannot (D060).
 
 ### Step 9: REST API (2026-11-01 → 11-02)
 
