@@ -23,7 +23,7 @@ export function AutonomyLegend({ version, stopActive }: AutonomyLegendProps) {
   const always = (policy.data?.always_approval ?? []).map((a) => ACTION_LABELS[a] ?? a);
 
   return (
-    <Panel title="Autonomía: quién decide" error={policy.error} icon="shield">
+    <Panel title="Autonomía: quién decide" error={policy.error} icon="shield" loading={policy.loading}>
       {(["autonomous", "notify", "approval"] as const).map((level) => (
         <div key={level} className="legend-block">
           <span className="badge">{LEVEL_LABELS[level]}</span>

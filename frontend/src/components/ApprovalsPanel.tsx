@@ -18,7 +18,7 @@ export function ApprovalsPanel({ plot, version, clock, verdicts, refresh }: Appr
   const pending = useResource(useCallback(() => api.tasks("pending_approval"), []), version);
 
   return (
-    <Panel title="Pendientes de aprobación" error={pending.error} icon="shield">
+    <Panel title="Pendientes de aprobación" error={pending.error} icon="shield" loading={pending.loading}>
       {pending.data?.length === 0 ? <p className="muted">No hay nada esperando tu decisión.</p> : null}
       {pending.data?.map((task) => (
         <TaskCard

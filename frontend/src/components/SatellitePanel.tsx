@@ -20,7 +20,12 @@ export function SatellitePanel({ plot, version }: SatellitePanelProps) {
   const nameOf = (zoneId: number) => zones.data?.find((z) => z.id === zoneId)?.name ?? `Zona ${zoneId}`;
 
   return (
-    <Panel title="Vista satelital" error={zones.error ?? imagery.error} icon="satellite">
+    <Panel
+      title="Vista satelital"
+      error={zones.error ?? imagery.error}
+      icon="satellite"
+      loading={zones.loading || imagery.loading}
+    >
       {scene ? (
         <p className="muted">
           Imagen del {scene.acquired_on}

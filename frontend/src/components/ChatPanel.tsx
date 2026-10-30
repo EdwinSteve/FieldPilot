@@ -84,6 +84,9 @@ export function ChatPanel({ plot, version, refresh }: ChatPanelProps) {
 
   return (
     <Panel title="Pregúntale al agente" error={error} icon="mic">
+      {exchanges.length === 0 && !busy ? (
+        <p className="muted">Haz una pregunta para empezar.</p>
+      ) : null}
       <ul className="chat">
         {exchanges.map((exchange) => (
           <li key={exchange.id}>

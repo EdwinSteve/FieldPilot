@@ -35,7 +35,7 @@ export function SimulationPanel({ plot, version, clock, refresh }: SimulationPan
   };
 
   return (
-    <Panel title="Simulación" error={status.error ?? action.error}>
+    <Panel title="Simulación" error={status.error ?? action.error} loading={status.loading}>
       {status.data?.lost.map((scenario) => (
         <output key={`${String(scenario.name)}-${String(scenario.start)}`} className="notice">
           El simulador se reinició; el escenario «{NAMES[String(scenario.name)] ?? String(scenario.name)}» ya

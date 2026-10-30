@@ -79,7 +79,7 @@ export function TimelinePanel({ plot, version }: TimelinePanelProps) {
   }, [events.data]);
 
   return (
-    <Panel title="Libro de eventos" error={events.error} icon="clock">
+    <Panel title="Libro de eventos" error={events.error} icon="clock" loading={events.loading}>
       <fieldset className="filter-group">
         <legend>Filtrar por tipo</legend>
         {FILTERS.map(({ key, label }) => (

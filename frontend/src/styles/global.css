@@ -386,6 +386,54 @@ code {
   }
 }
 
+@media (min-width: 1200px) {
+  .app {
+    max-width: 1400px;
+  }
+}
+
+@media (max-width: 700px) {
+  .app {
+    padding: 12px 10px 24px;
+  }
+
+  .app__title h1 {
+    font-size: 1.3rem;
+  }
+
+  .control-bar {
+    position: static;
+    padding: 12px 14px;
+  }
+
+  .panel {
+    padding: 12px 14px 16px;
+  }
+
+  .stepper {
+    flex-direction: column;
+  }
+
+  .stepper__item {
+    flex-direction: column;
+  }
+
+  .stepper-node {
+    width: 100%;
+  }
+
+  .stepper__link {
+    width: 2px;
+    height: 10px;
+    margin: 3px auto;
+    flex: none;
+  }
+
+  .chat__form input {
+    flex: 1 1 100%;
+  }
+}
+
 .layout__main,
 .layout__side {
   display: flex;
@@ -419,6 +467,44 @@ code {
   border-radius: var(--radius-sm);
   padding: 8px 12px;
   margin: 4px 0 12px;
+}
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.skeleton span {
+  display: block;
+  height: 14px;
+  border-radius: 7px;
+  background: linear-gradient(
+    to right,
+    var(--color-border-soft) 25%,
+    var(--color-border) 50%,
+    var(--color-border-soft) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton span:nth-child(2) {
+  width: 82%;
+}
+
+.skeleton span:nth-child(3) {
+  width: 64%;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
 }
 
 /* Zones */
