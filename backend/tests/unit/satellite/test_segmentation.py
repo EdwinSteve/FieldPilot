@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from app.satellite.ndvi import NormalizedBox
@@ -11,9 +9,9 @@ from app.satellite.segmentation import (
     covered_pct,
     parse_boxes,
 )
-from tests.conftest import SATELLITE_DIR
+from tests.conftest import SAM_FIXTURES, SATELLITE_DIR
 
-RECORDED = Path(__file__).resolve().parents[2] / "fixtures" / "sam" / "neiva_brown_patch.txt"
+RECORDED = SAM_FIXTURES / "neiva_brown_patch.txt"
 WHOLE = NormalizedBox(0, 0, 1, 1)
 
 

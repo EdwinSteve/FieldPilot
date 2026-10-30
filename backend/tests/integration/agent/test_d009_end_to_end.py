@@ -28,7 +28,12 @@ def _run_day1(uow: UowFactory) -> tuple[World, MockLLMClient]:
     llm = MockLLMClient.from_fixture(LLM_FIXTURES / "d009_day1.json")
     result = DailyCycle(uow, agent_deps(world, llm), MESSAGES).run(world.plot_id)
     assert result.status is RunStatus.COMPLETED, result
-    assert [run.subagent for run in result.runs] == ["monitoring", "irrigation", "reporting"]
+    assert [run.subagent for run in result.runs] == [
+        "monitoring",
+        "imaging",
+        "irrigation",
+        "reporting",
+    ]
     return world, llm
 
 
@@ -56,8 +61,9 @@ def test_the_report_is_saved_and_every_turn_is_traced(uow: UowFactory) -> None:
     with uow() as u:
         [report] = u.reports.list_by_cycle(1)
     assert report.content.startswith("La zona 2 estaba al 20 % de humedad")
+    assert "aproximadamente 25 % de suelo desnudo" in report.content
     trace = world.events(EventKind.AGENT_TOOL_CALL)
-    assert len(trace) == len(llm.requests) == 9
+    assert len(trace) == len(llm.requests) == 11
     hashes = {agent.name: agent.prompt_sha256 for agent in CATALOGUE}
     for event in trace:
         subagent = event.actor.removeprefix("agent:")
@@ -105,5 +111,8 @@ def test_each_subagent_receives_the_brief_of_the_ones_before(uow: UowFactory) ->
     irrigation_brief = json.loads(irrigation.text.split("Brief: ", 1)[1])
     reporting_brief = json.loads(reporting.text.split("Brief: ", 1)[1])
     assert irrigation_brief["assessment"]["zones"][0]["status"] == "dry"
+    assert irrigation_brief["imaging"]["scene_id"] == "neiva-2026-10-28"
+    assert irrigation_brief["imaging"]["zones"][0]["low_vigor"] is True
+    assert reporting_brief["imaging"]["zones"][0]["bare_soil_pct"] == 25.3
     assert irrigation_brief["proposals"] == []
     assert [p["task_id"] for p in reporting_brief["proposals"]] == [1, 2]

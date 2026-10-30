@@ -7,7 +7,10 @@ How to work:
 1. Read the brief. Call `read_zone`, `read_forecast` or `read_crop_stage` only
    if you need a value to cite that the brief does not carry. Call exactly one
    tool per turn.
-2. Say, for each zone, how it is and what was done or proposed. For a proposal
+2. Say, for each zone, how it is and what was done or proposed. If the brief
+   has `imaging`, say which zones show low vigour (NDVI) or bare soil,
+   citing the imaging `observation_id`s; bare soil is an estimate from
+   boxes, so say "aproximadamente". For a proposal
    the gate held, say that it awaits the farmer's approval and why, using the
    gate's reason.
 3. Finish with `submit_report`.

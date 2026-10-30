@@ -7,7 +7,14 @@ from app.agent.brief import BriefDraft, ObservationLedger
 from app.agent.toolbox import cycle_registry
 from app.agent.tools.field_tools import ReadContext
 from app.agent.tools.registry import ToolOutcome, ToolRegistry
-from tests.unit.agent.field_fakes import NOW, FakeOutbox, FakeProposer, FakeReader, NoConsultant
+from tests.unit.agent.field_fakes import (
+    NOW,
+    FakeImagery,
+    FakeOutbox,
+    FakeProposer,
+    FakeReader,
+    NoConsultant,
+)
 
 
 @pytest.fixture
@@ -23,6 +30,7 @@ def tools(draft: BriefDraft) -> ToolRegistry:
         FakeProposer(),
         FakeOutbox(),
         NoConsultant(),
+        FakeImagery(),
     )
     for zone in (2, 3):
         registry.call("read_zone", json.dumps({"zone_id": zone}))

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from app.agent.brief import BriefDraft, ObservationLedger
-from app.agent.field import ActionProposer, FarmerOutbox, FieldReader
+from app.agent.field import ActionProposer, FarmerOutbox, FieldReader, ImageryReader
 from app.agent.llm.ports import LLMClient
 from app.agent.loop import AgentLoop, AgentRun, Subagent
 from app.agent.toolbox import cycle_registry
@@ -27,6 +27,7 @@ class AgentDeps:
     proposer: ActionProposer
     outbox: FarmerOutbox
     trace: TraceSink
+    imagery: ImageryReader
     clock: Clock
     subagents: Sequence[Subagent]
     max_turns: int
@@ -39,7 +40,7 @@ class AgentSession:
         self.ledger = ObservationLedger()
         self.draft = BriefDraft(plot_id, day)
         read = ReadContext(plot_id, deps.reader, self.ledger, deps.clock.now)
-        registry = cycle_registry(read, self.draft, deps.proposer, deps.outbox, self)
+        registry = cycle_registry(read, self.draft, deps.proposer, deps.outbox, self, deps.imagery)
         self.loop = AgentLoop(deps.llm, registry, deps.trace, deps.subagents, deps.max_turns)
 
     def consult(self, subagent: str, task: str) -> AgentRun:

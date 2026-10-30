@@ -13,7 +13,14 @@ from app.agent.tools.field_tools import ReadContext
 from app.domain.errors import ConfigError
 from tests.conftest import CONFIG_DIR
 from tests.fakes import RecordingTrace
-from tests.unit.agent.field_fakes import NOW, FakeOutbox, FakeProposer, FakeReader, NoConsultant
+from tests.unit.agent.field_fakes import (
+    NOW,
+    FakeImagery,
+    FakeOutbox,
+    FakeProposer,
+    FakeReader,
+    NoConsultant,
+)
 
 PROMPTS = CONFIG_DIR / "agents"
 
@@ -53,6 +60,7 @@ def test_the_real_catalogue_passes_loop_validation() -> None:
         FakeProposer(),
         FakeOutbox(),
         NoConsultant(),
+        FakeImagery(),
     )
 
     loop = AgentLoop(MockLLMClient([]), registry, RecordingTrace(), load_agent_catalog(PROMPTS), 12)
@@ -89,3 +97,10 @@ def test_the_orchestrator_is_read_only() -> None:
     assert not orchestrator.may_write
     assert "consult_irrigation" not in orchestrator.tool_names
     assert "propose_action" not in orchestrator.tool_names
+
+
+def test_imaging_reads_only() -> None:
+    imaging = next(a for a in load_agent_catalog(PROMPTS) if a.name == "imaging")
+
+    assert imaging.closing_tool == "submit_imaging" and not imaging.may_write
+    assert imaging.tool_names == {"list_zones", "read_imagery", "submit_imaging"}

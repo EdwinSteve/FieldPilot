@@ -19,6 +19,9 @@ class ObservationKind(StrEnum):
     KC = "kc"
     STAGE = "stage"
     IRRIGATION = "irrigation"
+    NDVI = "ndvi"
+    LOW_NDVI = "low_ndvi"
+    BARE_SOIL = "bare_soil"
 
 
 @dataclass(frozen=True)
@@ -81,12 +84,29 @@ class ProposalSummary:
 
 
 @dataclass(frozen=True)
+class ZoneImaging:
+    zone_id: int
+    ndvi_mean: float | None
+    low_ndvi_pct: float | None
+    bare_soil_pct: float | None  # None when segmentation was unavailable
+    low_vigor: bool
+    cited: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ImagingResult:
+    scene_id: str | None  # None: no scene for the plot, an empty result (D060)
+    zones: tuple[ZoneImaging, ...]
+
+
+@dataclass(frozen=True)
 class FieldBrief:
     """The structured handoff between subagents. Never free text (D044)."""
 
     plot_id: int
     day: date
     assessment: Assessment | None = None
+    imaging: ImagingResult | None = None
     proposals: tuple[ProposalSummary, ...] = field(default_factory=tuple)
 
     def to_json(self) -> str:
@@ -103,7 +123,10 @@ class BriefDraft:
         self.plot_id = plot_id
         self.day = day
         self.assessment: Assessment | None = None
+        self.imaging: ImagingResult | None = None
         self.proposals: list[ProposalSummary] = []
 
     def freeze(self) -> FieldBrief:
-        return FieldBrief(self.plot_id, self.day, self.assessment, tuple(self.proposals))
+        return FieldBrief(
+            self.plot_id, self.day, self.assessment, self.imaging, tuple(self.proposals)
+        )
