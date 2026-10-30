@@ -22,6 +22,7 @@ class SubagentSpec:
 SUBAGENTS: tuple[SubagentSpec, ...] = (
     SubagentSpec("monitoring", READ_TOOLS | {"submit_assessment"}, "submit_assessment"),
     SubagentSpec("irrigation", READ_TOOLS | {"propose_action", "finish"}, "finish", may_write=True),
+    SubagentSpec("reporting", READ_TOOLS | {"submit_report"}, "submit_report"),
 )
 
 

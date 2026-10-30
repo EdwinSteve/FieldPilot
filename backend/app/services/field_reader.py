@@ -54,6 +54,12 @@ class StoredFieldReader:
             kc=crop_coefficient_at(cycle.accumulated_gdd, crop),
         )
 
+    def task_status(self, plot_id: int, task_id: int) -> str | None:
+        with self._uow() as u:
+            cycle = active_cycle(u, plot_id)
+            task = next((t for t in u.tasks.list(cycle_id=cycle.id) if t.id == task_id), None)
+        return None if task is None else str(task.status)
+
     def _view(self, u: UnitOfWork, zone: Zone, tasks: Sequence[Task]) -> ZoneView:
         zone_id = _stored(zone.id, "zone")
         mine = [task for task in tasks if task.zone_id == zone_id]

@@ -852,7 +852,14 @@ class FieldBrief:
 *Tools.* Read tools (`list_zones`, `read_zone`, `read_forecast`,
 `read_crop_stage`) go through a `FieldReader` port implemented in
 `app/services`, so `app/agent` still never touches persistence. Writing
-tools have `writes=True`.
+tools have `writes=True`. Two more ports keep the closing tools free of
+storage: `ActionProposer` (`GateProposer` → `ProposalService`) and
+`FarmerOutbox` (`StoredOutbox`: verified reports and catalogue
+notifications, each with its event).
+
+Only refusals by `submit_report`'s own check count toward the D052
+escalation. A call the schema rejects never reaches the check, so it does
+not count; the model can fix it at no cost.
 
 | Subagent | Closing tool | Refused when |
 |---|---|---|

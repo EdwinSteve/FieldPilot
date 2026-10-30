@@ -115,3 +115,21 @@ def test_unknown_rule_code_refuses_to_load(tmp_path: Path) -> None:
 
     with pytest.raises(ConfigError, match="made_up_rule"):
         load_message_catalog(write(tmp_path, raw))
+
+
+@pytest.mark.parametrize(
+    "key", ["cycle.failed_turn_limit", "cycle.paused_retry_next_run", "report.escalated_unverified"]
+)
+def test_a_missing_agent_text_refuses_to_load(tmp_path: Path, key: str) -> None:
+    raw = shipped_raw()
+    section, name = key.split(".")
+    del raw[section][name]
+
+    with pytest.raises(ConfigError, match=f"no agent text {key}"):
+        load_message_catalog(write(tmp_path, raw))
+
+
+def test_agent_texts_are_addressed_by_section_and_key() -> None:
+    catalog = load_message_catalog(SHIPPED)
+
+    assert catalog.agent_text("report.escalated_unverified").startswith("El informe del día")
