@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stepStates, stepTurns } from "./cycle";
+import { contextStates, stepStates, stepTurns } from "./cycle";
 import type { DailyCycleResult } from "../types/api";
 
 function cycle(
@@ -73,5 +73,23 @@ describe("stepTurns", () => {
   it("reads each step's turns, null when it never ran", () => {
     expect(stepTurns(FULL)).toEqual({ monitoring: 6, imaging: 3, irrigation: 8, reporting: 4 });
     expect(stepTurns(null).monitoring).toBeNull();
+  });
+});
+
+describe("contextStates", () => {
+  it("is idle before the first cycle", () => {
+    expect(contextStates(null)).toEqual({ sources: "idle", gate: "idle" });
+  });
+
+  it("marks sources read and the gate passed as the cycle advances", () => {
+    const partial = cycle(
+      [
+        ["monitoring", "completed", 6],
+        ["irrigation", "turn_limit", 12],
+      ],
+      "irrigation",
+    );
+    expect(contextStates(partial)).toEqual({ sources: "done", gate: "todo" });
+    expect(contextStates(FULL)).toEqual({ sources: "done", gate: "done" });
   });
 });

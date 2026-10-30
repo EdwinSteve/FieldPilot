@@ -5,6 +5,7 @@ import { BackendStatus } from "./components/BackendStatus";
 import { CalendarPanel } from "./components/CalendarPanel";
 import { ChatPanel } from "./components/ChatPanel";
 import { ControlBar } from "./components/ControlBar";
+import { CycleStepper } from "./components/CycleStepper";
 import { HeroDiagram } from "./components/HeroDiagram";
 import { Icon } from "./components/icons";
 import { InboxPanel } from "./components/InboxPanel";
@@ -27,6 +28,7 @@ export function App() {
   const clock = useResource(useCallback(() => api.clock(), []), version);
   const [tickError, setTickError] = useState<string | null>(null);
   const [lastCycle, setLastCycle] = useState<DailyCycleResult | null>(null);
+  const [cycleRunning, setCycleRunning] = useState(false);
 
   const tick = useCallback(() => {
     api
@@ -45,7 +47,12 @@ export function App() {
   const plotId = plot?.id;
   const runCycle = useCallback(async () => {
     if (plotId === undefined) return;
-    setLastCycle(await api.dailyCycle(plotId));
+    setCycleRunning(true);
+    try {
+      setLastCycle(await api.dailyCycle(plotId));
+    } finally {
+      setCycleRunning(false);
+    }
   }, [plotId]);
 
   return (
@@ -77,6 +84,12 @@ export function App() {
             tickError={tickError}
             runCycle={runCycle}
             refresh={refresh}
+          />
+          <CycleStepper
+            plotId={plot.id}
+            version={version}
+            running={cycleRunning}
+            lastCycle={lastCycle}
           />
           <div className="layout">
             <div className="layout__main">

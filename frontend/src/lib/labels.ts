@@ -31,3 +31,15 @@ export const LEVEL_LABELS: Record<string, string> = {
   notify: "Con aviso",
   approval: "Con aprobación",
 };
+
+export const ZONE_STATUS_LABELS: Record<string, string> = {
+  dry: "Seca",
+  ok: "Bien",
+  wet: "Húmeda",
+};
+
+export const OUTCOME_LABELS: Record<string, string> = {
+  execute: "Ejecutada",
+  execute_notify: "Programada con aviso",
+  await_approval: "Pendiente de aprobación",
+};
