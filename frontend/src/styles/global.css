@@ -441,28 +441,86 @@ code {
   background: var(--color-sun-bg);
 }
 
-.zone-card h3 {
-  margin: 0 0 4px;
+.zone-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 4px;
 }
 
-.zone-card__imagery {
-  list-style: none;
-  padding: 0;
-  margin: 8px 0 0;
+.zone-card__head h3 {
+  margin: 0;
 }
 
-.sparkline {
+.zone-card__gauge-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.zone-card__gauge-row p {
+  margin: 0;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.gauge {
+  width: 110px;
+  height: 110px;
+  flex: none;
+}
+
+.gauge__track {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+
+.gauge__fill {
+  fill: none;
+  stroke: var(--color-leaf);
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+
+.gauge__limit {
+  stroke: var(--color-sun);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.gauge__value {
+  font-size: 17px;
+  font-weight: 700;
+  fill: var(--color-text);
+}
+
+.gauge__caption {
+  font-size: 10.5px;
+  fill: var(--color-muted);
+}
+
+.chart {
   width: 100%;
-  height: 48px;
+  height: 64px;
+  margin-top: 8px;
 }
 
-.sparkline__line {
+.chart__line {
   fill: none;
   stroke: var(--color-leaf);
   stroke-width: 2;
 }
 
-.sparkline__capacity {
+.chart__line--sky {
+  fill: none;
+  stroke: var(--color-sky);
+  stroke-width: 2;
+}
+
+.chart__reference {
   stroke: var(--color-muted);
   stroke-dasharray: 4 3;
 }
