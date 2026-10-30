@@ -6,10 +6,12 @@ Only the boxes are used; the masks are not decoded. Empty output means no
 match, which is a valid answer (0 %), not an error.
 """
 
+import hashlib
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import pairwise
+from pathlib import Path
 from typing import Protocol
 
 from app.satellite.ndvi import NormalizedBox
@@ -92,3 +94,26 @@ class MockSegmentation:
     def segment(self, image_png: bytes, prompt: str) -> tuple[Box, ...]:
         self.calls.append((image_png, prompt))
         return self._boxes
+
+
+class RecordedSegmentation:
+    """Replays SAM answers recorded per image and prompt (D063).
+
+    For MOCK_LLM=1: an image or prompt without a recording is unavailable, so
+    its bare soil stays unknown instead of looking like 0 %.
+    """
+
+    def __init__(self, directory: Path) -> None:
+        self._directory = directory
+
+    def segment(self, image_png: bytes, prompt: str) -> tuple[Box, ...]:
+        key = recording_key(image_png, prompt)
+        recording = self._directory / f"{key}.txt"
+        if not recording.is_file():
+            raise SegmentationUnavailableError(f"no recorded answer for {key[:12]}")
+        return parse_boxes(recording.read_text(encoding="utf-8"))
+
+
+def recording_key(image_png: bytes, prompt: str) -> str:
+    """SHA-256 of the image and the prompt: a new prompt never replays an old answer."""
+    return hashlib.sha256(image_png + b"\0" + prompt.encode("utf-8")).hexdigest()

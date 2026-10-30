@@ -1,0 +1,40 @@
+{
+  "responses": [
+    {"tool_call": {"name": "list_zones", "arguments": {}}},
+    {"tool_call": {"name": "read_zone", "arguments": {"zone_id": 1}}},
+    {"tool_call": {"name": "read_forecast", "arguments": {}}},
+    {"tool_call": {"name": "read_crop_stage", "arguments": {}}},
+    {"tool_call": {"name": "submit_assessment", "arguments": {
+      "zones": [{"zone_id": 1, "status": "dry", "moisture_pct": 20.0,
+                 "cited": ["reading-1", "zone-1-field-capacity", "forecast-plot-1-2026-10-28T11:00Z"]}],
+      "summary": "Zona 2 al 20 % frente a 32 % de capacidad de campo; sin lluvia prevista (0 mm)."
+    }}},
+    {"tool_call": {"name": "read_imagery", "arguments": {}}},
+    {"tool_call": {"name": "submit_imaging", "arguments": {
+      "zones": [{"zone_id": 1, "ndvi_mean": 0.378, "low_ndvi_pct": 21.2, "bare_soil_pct": 25.3,
+                 "low_vigor": true,
+                 "cited": ["ndvi-neiva-2026-10-28-zone-1", "low-ndvi-neiva-2026-10-28-zone-1",
+                           "bare-soil-neiva-2026-10-28-zone-1"]}]
+    }}},
+    {"tool_call": {"name": "propose_action", "arguments": {
+      "action_type": "irrigation", "zone_id": 1, "volume_mm": 15.0, "scheduled_for": "now",
+      "rationale": "Humedad del 20 % frente a 32 % de capacidad, sin lluvia prevista y vigor bajo en la imagen (suelo desnudo aproximado 25 %): riego de 15 mm.",
+      "cited": ["reading-1", "zone-1-field-capacity", "forecast-plot-1-2026-10-28T11:00Z",
+                "bare-soil-neiva-2026-10-28-zone-1"]
+    }}},
+    {"tool_call": {"name": "propose_action", "arguments": {
+      "action_type": "extra_irrigation", "zone_id": 1, "volume_mm": 10.0,
+      "scheduled_for": "2026-10-29T11:00:00+00:00",
+      "rationale": "Riego extra de 10 mm mañana, 24 h después del primero, para mantener la humedad.",
+      "cited": ["reading-1", "zone-1-field-capacity"]
+    }}},
+    {"tool_call": {"name": "finish", "arguments": {
+      "summary": "Riego de 15 mm hoy y riego extra de 10 mm programado para mañana."
+    }}},
+    {"tool_call": {"name": "submit_report", "arguments": {
+      "text_es": "La zona 2 estaba al 20 % de humedad, frente a una capacidad de 32 %. La imagen satelital muestra vigor bajo y aproximadamente 25 % de suelo desnudo. Hoy se regaron 15 mm y quedó programado un riego extra de 10 mm para mañana, que puedes revertir.",
+      "cited": ["reading-1", "zone-1-field-capacity", "bare-soil-neiva-2026-10-28-zone-1", "task-1", "task-2"],
+      "actions": [{"task_id": 1, "status": "executed"}, {"task_id": 2, "status": "scheduled"}]
+    }}}
+  ]
+}

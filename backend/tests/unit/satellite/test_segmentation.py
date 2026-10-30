@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from app.satellite.ndvi import NormalizedBox
@@ -6,8 +8,11 @@ from app.satellite.segmentation import (
     Box,
     MalformedSegmentationError,
     MockSegmentation,
+    RecordedSegmentation,
+    SegmentationUnavailableError,
     covered_pct,
     parse_boxes,
+    recording_key,
 )
 from tests.conftest import SAM_FIXTURES, SATELLITE_DIR
 
@@ -80,3 +85,30 @@ def test_the_mock_returns_its_boxes_and_records_calls() -> None:
 
     assert mock.segment(b"png", "brown patch") == (_box(0, 0, 10, 10),)
     assert mock.calls == [(b"png", "brown patch")]
+
+
+def test_a_recorded_answer_replays_for_its_image_and_prompt(tmp_path: Path) -> None:
+    image = b"\x89PNG image"
+    (tmp_path / f"{recording_key(image, 'brown patch')}.txt").write_text(
+        "0<|box;x1=0;y1=0;x2=10;y2=10;w=100;h=100|>", encoding="utf-8"
+    )
+    recorded = RecordedSegmentation(tmp_path)
+
+    assert recorded.segment(image, "brown patch") == (Box(0, 0, 10, 10, 100, 100),)
+
+
+def test_another_prompt_never_replays_an_old_answer(tmp_path: Path) -> None:
+    image = b"\x89PNG image"
+    (tmp_path / f"{recording_key(image, 'brown patch')}.txt").write_text("", encoding="utf-8")
+
+    with pytest.raises(SegmentationUnavailableError, match="no recorded answer"):
+        RecordedSegmentation(tmp_path).segment(image, "bare soil")
+
+
+def test_the_shipped_recording_matches_the_demo_scene() -> None:
+    scene = load_scene(SATELLITE_DIR / "neiva-2026-10-28" / "scene.json")
+    recorded = RecordedSegmentation(SATELLITE_DIR.parent / "fixtures" / "sam")
+
+    boxes = recorded.segment(scene.rgb_png(), "brown patch")
+
+    assert covered_pct(boxes, scene.zones["Zona 2"]) == 25.3

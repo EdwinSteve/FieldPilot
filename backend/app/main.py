@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from app.api.routes import health
 from app.bootstrap import load_runtime_config, resolve_revert_window, start_runtime
+from app.container import build_container
 from app.settings import Settings
 
 
@@ -22,5 +23,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = resolved_settings
     app.state.config = runtime_config
     app.state.runtime = runtime
+    app.state.container = build_container(resolved_settings, runtime_config, runtime)
     app.include_router(health.router)
     return app
