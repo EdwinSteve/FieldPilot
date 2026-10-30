@@ -7,7 +7,7 @@ RUFF_ARGS ?=
 .PHONY: help install install-backend install-frontend dev dev-backend dev-frontend \
 	test lint lint-backend lint-rules-backend format-check-backend format \
 	typecheck typecheck-backend typecheck-frontend build-frontend \
-	check check-backend check-frontend check-repo clean
+	check check-backend check-frontend check-repo preflight clean
 
 help: ## List available targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-22s %s\n", $$1, $$2}'
@@ -67,6 +67,9 @@ check-repo: ## Fail if a secret or database file is tracked by git (rule 7)
 	echo "No .env or database files are tracked."
 
 check: check-repo check-backend check-frontend ## Everything CI runs
+
+preflight: ## Check that MUSE_API_KEY can use the configured models (network; not in CI)
+	$(UV) run python -m app.agent.llm.preflight
 
 clean: ## Remove caches and build output
 	rm -rf $(BACKEND)/.pytest_cache $(BACKEND)/.mypy_cache $(BACKEND)/.ruff_cache $(FRONTEND)/dist
