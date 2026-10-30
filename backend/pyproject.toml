@@ -78,9 +78,9 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 no_implicit_optional = true
 
-# Strict mode for the safety-critical packages (per-module equivalent of --strict).
+# Strict mode (per-module --strict) for the safety-critical packages and the agent (§4.8).
 [[tool.mypy.overrides]]
-module = ["app.safety.*", "app.autonomy.*"]
+module = ["app.safety.*", "app.autonomy.*", "app.agent.*"]
 disallow_any_generics = true
 disallow_subclassing_any = true
 disallow_untyped_calls = true
