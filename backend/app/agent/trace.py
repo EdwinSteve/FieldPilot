@@ -19,6 +19,7 @@ class TraceEntry:
     duration_ms: int = 0
     usage: TokenUsage = field(default_factory=TokenUsage)
     pause: int | None = None  # k for the k-th pause of the run; None for a completed turn
+    prompt_sha256: str = ""  # ties the entry to the prompt version (D055)
 
     @property
     def key(self) -> str:

@@ -40,6 +40,7 @@ class Subagent:
     tool_names: frozenset[str]
     closing_tool: str | None  # None is valid here; the real catalogue always sets one (D053)
     may_write: bool = False  # only irrigation may hold writing tools (D054)
+    prompt_sha256: str = ""  # of config/agents/<name>.md; set by the catalogue (D055)
 
 
 @dataclass(frozen=True)
@@ -141,6 +142,7 @@ class AgentLoop:
                         error=type(exc).__name__,
                         duration_ms=self._elapsed_ms(started),
                         pause=progress.pauses,
+                        prompt_sha256=agent.prompt_sha256,
                     )
                 )
                 return progress.snapshot(RunStatus.PAUSED)
@@ -207,6 +209,7 @@ class AgentLoop:
                 error,
                 self._elapsed_ms(started),
                 response.usage,
+                prompt_sha256=progress.agent.prompt_sha256,
             )
         )
 

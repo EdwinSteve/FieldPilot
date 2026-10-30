@@ -91,3 +91,19 @@ class FieldBrief:
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), default=str, sort_keys=True)
+
+
+class BriefDraft:
+    """The brief while a cycle builds it. Closing tools fill it; `freeze` hands it on.
+
+    In memory only: filling it is not a write in the D054 sense.
+    """
+
+    def __init__(self, plot_id: int, day: date) -> None:
+        self.plot_id = plot_id
+        self.day = day
+        self.assessment: Assessment | None = None
+        self.proposals: list[ProposalSummary] = []
+
+    def freeze(self) -> FieldBrief:
+        return FieldBrief(self.plot_id, self.day, self.assessment, tuple(self.proposals))

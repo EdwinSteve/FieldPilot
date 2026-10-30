@@ -47,6 +47,7 @@ def trace_event(entry: TraceEntry, clock: Clock) -> Event:
                 "output_tokens": entry.usage.output_tokens,
             },
             "pause": entry.pause,
+            "prompt_sha256": entry.prompt_sha256,
         },
         idempotency_key=entry.key,
     )
