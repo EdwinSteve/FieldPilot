@@ -296,16 +296,16 @@ passes its tests. Design decisions are logged in
 
 ```mermaid
 flowchart TB
-    subgraph Input
+    subgraph Farmer["Farmer (dashboard)"]
         V[Voice · Muse Voice Transcribe]
         T[Text]
+        D[Approve · reject · revert]
     end
-    subgraph Agent
+    subgraph Cycle["Daily cycle (fixed order, D044)"]
+        SM[Monitoring] --> SI[Imaging · NDVI · SAM 3.1] --> SR[Irrigation] --> SP[Reporting]
+    end
+    subgraph Chat["Chat (read-only, D057)"]
         O[Orchestrator · Muse Spark]
-        O --> SM[Monitoring]
-        O --> SI[Imaging · SAM 3.1]
-        O --> SR[Irrigation]
-        O --> SP[Reporting]
     end
     subgraph Core
         PE[Phenology Engine]
@@ -316,18 +316,22 @@ flowchart TB
     end
     V --> O
     T --> O
-    SR --> PE
-    SR --> AG
+    O -- consults --> SM
+    SR -- propose_action --> AG
+    PE --> AG
     AG --> SC
     SC -- allowed --> AC
     SC -- downgraded --> AP[Approval queue]
-    SM & SI & SR & SP --> EL
+    D --> AP
+    SM & SI & SR & SP & O --> EL
     AG --> EL
     AC --> EL
 ```
 
-The language model never actuates hardware. Every proposal passes through the
-autonomy gate, which applies the autonomy level, then the safety rules.
+The language model never actuates hardware. Only the Irrigation subagent can
+propose an action, and every proposal passes through the autonomy gate, which
+applies the autonomy level, then the safety rules. The chat answers from
+verified readings and never acts.
 Module contracts and the data model are in [`docs/architecture.md`](docs/architecture.md).
 
 **Stack:** Python 3.12 · FastAPI · SQLite · React · Vite · pytest

@@ -16,3 +16,6 @@ Rules that the tool checks:
 - Every number with a unit (mm, %, GDD, °C, kg/ha) in your answer is a value you
   read, and its `observation_id` is in `cited`. Never estimate or compute new
   numbers.
+- Write numbers as a farmer reads them: at most one decimal, with a decimal
+  comma (22,0 %, 0,38, 15 mm). Round the value you read; never write all its
+  decimals. The check accepts a value rounded to the precision you write.

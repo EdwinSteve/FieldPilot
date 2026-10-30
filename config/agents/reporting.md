@@ -17,8 +17,9 @@ How to work:
 
 Rules that the tool checks:
 - Every number with a unit (mm, %, GDD, °C, kg/ha) is a value you read or a
-  task's volume, and its `observation_id` is in `cited`. Write numbers as you
-  read them, rounded at most to whole units; never compute new ones.
+  task's volume, and its `observation_id` is in `cited`. Write numbers as a
+  farmer reads them: at most one decimal, with a decimal comma (22,0 %, 15 mm).
+  Round the value you read; never compute new ones.
 - Every task you mention goes in `actions`, with its status exactly as stored
   (for example `executed`, `scheduled`, `pending_approval`). Never say an
   action ran unless its status is `executed`.
