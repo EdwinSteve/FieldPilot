@@ -1441,3 +1441,152 @@ outage.
 
 **Consequences.** A fixture that is out of step with the code fails loudly
 in CI instead of passing as a paused run.
+
+---
+
+## D050 — Every number the agent states traces to a ledger observation
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30)
+
+**Context.** The workshop refuses any quote that is not on the page. In
+FieldPilot, the page is the set of values the read tools returned. A report
+that says "21 %" when the sensor read 31 % misleads the farmer, even if the
+gate never let a wrong action through.
+
+**Decision.**
+- Every number the agent presents to the farmer, or uses to propose an
+  action, must come from an observation in the run's `ObservationLedger`.
+  The closing tools check it; there is no separate check tool.
+- **Numbers with a unit are checked** (mm, %, °C, GDD, kg/ha). Numbers
+  without a unit, such as "3 zonas" or "día 2", are **not** checked. This
+  is a stated limit of the check, not an oversight.
+- **Comparison.** The stored value is rounded to the precision the text
+  writes, and passes when it is within 0.05 of the written number. A stored
+  37.96 written as "38" passes. A stored 37.4 written as "38" fails.
+- Structured fields, such as `moisture_pct` in `submit_assessment`, are
+  compared to the cited observation with the same 0.05 tolerance.
+- **Required tests:** the two examples above, 37.96 → "38" passes and
+  37.4 → "38" fails.
+
+**Consequences.** A wrong number in farmer-facing text is refused and goes
+back to the model as an error. Claims made in words alone, without a
+number or a declared task, are not verified.
+
+---
+
+## D051 — The daily cycle stops at the first subagent that does not complete
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30). Consistent with D046 and D048.
+
+**Context.** The daily cycle runs Monitoring, Irrigation and Reporting in a
+fixed order (D044). Each one depends on the brief of the one before. A
+subagent can end without completing in two ways that mean different things.
+
+**Decision.**
+- `DailyCycle` stops at the first subagent that does not end in
+  `COMPLETED`. No later subagent runs, so there are no proposals without an
+  assessment, and no report without the proposals.
+- **`TURN_LIMIT` is a real failure.** The farmer is notified with the
+  catalogue text `cycle.failed_turn_limit`.
+- **`PAUSED` is not a failure.** The model service was unavailable
+  (`LLMUnavailableError`). The farmer gets no notification. The catalogue
+  text `cycle.paused_retry_next_run` is written to the event log as an
+  `agent_tool_call` event, not shown as an alert, and the next run retries
+  the cycle under new run ids.
+- As D046 and D048 require, a paused run does not act.
+
+**Consequences.** A short outage does not alarm the farmer, and a cycle
+that really failed always does. Proposals already made before a pause are
+not repeated, because proposals are idempotent (D023).
+
+---
+
+## D052 — The third refused report escalates; the check never gives way
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30)
+
+**Context.** The workshop hands the case to a person after three refusals.
+A Reporting subagent that keeps writing a report its check refuses would
+otherwise loop until the turn limit.
+
+**Decision.**
+- At the third refused `submit_report` in the same run, the tool stops the
+  loop but does **not** accept the report.
+- It creates the notification `report.escalated_unverified` and closes the
+  run with `{"escalated": true}`.
+- No `Report` is ever saved without passing the check. What stops is the
+  loop, never the verification.
+
+**Consequences.** The farmer learns that the day's report needs a look, and
+the stored reports are all verified. The escalated run ends as
+`COMPLETED`, so the cycle is not reported as a turn-limit failure.
+
+---
+
+## D053 — The orchestrator closes with a verified tool
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30). Amends §4.8, where the chat ended on a
+  text answer.
+
+**Context.** §4.8 let a subagent without a closing tool end on free text,
+meant for the chat. That text would reach the farmer without the number
+check of D050.
+
+**Decision.**
+- The orchestrator closes with `answer_farmer(text_es, cited)`, which
+  applies the D050 check.
+- `Subagent.closing_tool=None` stays valid in `AgentLoop`. But the
+  catalogue loader requires every subagent of the real catalogue to define
+  a closing tool. A new subagent without one stops the app at startup.
+
+**Consequences.** Everything the agent says to the farmer, in the chat or
+in a report, passes a check first.
+
+---
+
+## D054 — Writing tools need may_write, checked at startup and at subset time
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30). Implements the D044 rule that only
+  Irrigation holds `propose_action`.
+
+**Context.** D044 gives `propose_action` to Irrigation only. A
+configuration mistake that gave it to another subagent should be
+impossible, not merely unlikely.
+
+**Decision.**
+- `Tool.writes: bool` marks a tool that changes stored state.
+  `Subagent.may_write: bool` allows a subagent to hold one.
+- **Startup check.** `AgentLoop` refuses a subagent that lists a writing
+  tool without `may_write`. In the real catalogue, only `irrigation` has
+  `may_write=True`, and a test pins it.
+- **Runtime check.** `ToolRegistry.subset(names, allow_writes=...)` raises
+  `ConfigError` when a writing tool is requested with `allow_writes=False`.
+  The protection does not depend only on the startup check.
+
+**Consequences.** Removing either check alone still leaves the other, and
+each has its own test.
+
+---
+
+## D055 — Prompts are configuration, and every trace names its prompt
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30)
+
+**Context.** A subagent's behaviour depends on its prompt. A prompt kept in
+code is hard to review, and a decision in the log cannot be tied to the
+prompt that produced it.
+
+**Decision.**
+- Each subagent's prompt lives in `config/agents/<subagent>.md` and is
+  loaded at startup. The app refuses to start when any is missing.
+- The SHA-256 of each prompt file is written to every trace entry of every
+  run, as `prompt_sha256` in the `agent_tool_call` inputs.
+
+**Consequences.** Changing a prompt is a reviewed config change, and every
+decision in the event log can be tied to the prompt version that made it.
