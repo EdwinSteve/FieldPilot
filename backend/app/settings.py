@@ -7,7 +7,7 @@ Secrets and model ids are never hardcoded; they come from the environment
 from pathlib import Path
 from typing import Literal, Self
 
-from pydantic import SecretStr, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     muse_api_key: SecretStr | None = None
     muse_api_base_url: str | None = None
     muse_agent_model: str | None = None
+    # Read from step 8; `make preflight` checks every configured id (D043).
+    muse_segmentation_model: str | None = None
+    muse_transcribe_model: str | None = None
+    muse_timeout_seconds: float = Field(default=30.0, gt=0)
+    # At least 2: the last-turn nudge follows turn max_turns - 1 (§4.8 rule 5).
+    agent_max_turns: int = Field(default=12, ge=2)
 
     # D010: the demo override is honoured only under APP_PROFILE=demo; any
     # other profile with the variable set refuses to start (app/bootstrap.py).

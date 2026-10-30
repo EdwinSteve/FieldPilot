@@ -37,3 +37,22 @@ def test_the_default_profile_is_dev_without_override() -> None:
     settings = Settings(_env_file=None)
 
     assert (settings.app_profile, settings.demo_revert_window_seconds) == ("dev", None)
+
+
+def test_agent_defaults() -> None:
+    settings = Settings(_env_file=None)
+
+    assert settings.agent_max_turns == 12
+    assert settings.muse_timeout_seconds == 30.0
+    assert settings.muse_segmentation_model is None
+    assert settings.muse_transcribe_model is None
+
+
+def test_fewer_than_two_agent_turns_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="agent_max_turns"):
+        Settings(_env_file=None, agent_max_turns=1)
+
+
+def test_a_non_positive_timeout_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="muse_timeout_seconds"):
+        Settings(_env_file=None, muse_timeout_seconds=0)
