@@ -67,3 +67,23 @@ export const STAGE_LABELS: Record<string, string> = {
   grain_fill: "Llenado de grano",
   maturity_harvest: "Madurez y cosecha",
 };
+
+export const EVENT_KIND_LABELS: Record<string, string> = {
+  proposal: "Propuesta",
+  gate_verdict: "Veredicto del gate",
+  execution_requested: "Ejecución pedida",
+  execution: "Ejecución",
+  execution_failed: "Fallo de ejecución",
+  revert: "Reversión",
+  revert_refused: "Reversión denegada",
+  approval: "Aprobación",
+  rejection: "Rechazo",
+  notification: "Aviso",
+  emergency_stop: "Parada de emergencia",
+  stage_transition: "Etapa del cultivo",
+  agent_tool_call: "Agente",
+  config_override: "Cambio de config",
+  clock_changed: "Reloj",
+  scenario_injected: "Escenario",
+  phenology_gap: "Hueco de datos",
+};
