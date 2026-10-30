@@ -36,6 +36,7 @@ from app.services.proposals import ProposalService
 from app.services.queries import FarmQueries
 from app.services.rain_forecast import PlotRainForecast
 from app.services.revert import RevertService
+from app.services.scenarios import ScenarioService
 from app.services.ticker import SimulationTicker
 from app.services.voice_chat import VoiceChatService
 from app.settings import Settings
@@ -55,6 +56,7 @@ class Container:
     approvals: ApprovalService
     revert: RevertService
     queries: FarmQueries
+    scenarios: ScenarioService
     ticker: SimulationTicker
     agent_deps: Callable[[LLMClient], AgentDeps]  # every agent service, around a given model
     cycle_llm: Callable[[], LLMClient]  # the live client, or a fresh replay per run (D063)
@@ -77,6 +79,12 @@ def build_container(settings: Settings, config: RuntimeConfig, runtime: Runtime)
     due = DueTaskRunner(uow, gate, context, executor, config.messages)
     phenology = PhenologyService(uow, config.crops, clock)
     revert = RevertService(uow, clock, runtime.actuator)
+    imagery = StoredImageryReader(  # one reader, so each scene is segmented once
+        uow,
+        ImageryLoader.from_directory(settings.data_dir / "satellite"),
+        _segmentation(settings),
+        config.imaging,
+    )
 
     def agent_deps(llm: LLMClient) -> AgentDeps:
         return AgentDeps(
@@ -85,12 +93,7 @@ def build_container(settings: Settings, config: RuntimeConfig, runtime: Runtime)
             proposer=GateProposer(uow, proposals, config.messages),
             outbox=StoredOutbox(uow, clock, config.messages),
             trace=EventLogTraceSink(uow, clock),
-            imagery=StoredImageryReader(
-                uow,
-                ImageryLoader.from_directory(settings.data_dir / "satellite"),
-                _segmentation(settings),
-                config.imaging,
-            ),
+            imagery=imagery,
             clock=clock,
             subagents=config.subagents,
             max_turns=settings.agent_max_turns,
@@ -120,7 +123,8 @@ def build_container(settings: Settings, config: RuntimeConfig, runtime: Runtime)
         proposals=proposals,
         approvals=ApprovalService(uow, clock, due),
         revert=revert,
-        queries=FarmQueries(uow, clock, revert),
+        queries=FarmQueries(uow, clock, revert, config.messages, imagery),
+        scenarios=ScenarioService(uow, clock, runtime.simulator),
         ticker=SimulationTicker(uow, clock, runtime.simulator, due, phenology),
         agent_deps=agent_deps,
         cycle_llm=cycle_llm,

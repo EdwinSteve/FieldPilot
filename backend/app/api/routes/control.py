@@ -3,6 +3,7 @@
 from datetime import timedelta
 
 from fastapi import APIRouter, HTTPException
+from pydantic import JsonValue
 
 from app.api.deps import FARMER, ContainerDep
 from app.api.schemas import (
@@ -10,6 +11,8 @@ from app.api.schemas import (
     ClockOut,
     EmergencyStopIn,
     EmergencyStopOut,
+    ScenarioIn,
+    ScenarioStatusOut,
     TaskOut,
     TickOut,
 )
@@ -46,6 +49,16 @@ def tick(container: ContainerDep) -> TickOut:
     result = container.ticker.tick()
     tasks = [TaskOut.of(container.queries.task_view(t)) for t in result.tasks]
     return TickOut.of(result, tasks)
+
+
+@router.get("/simulation/status")
+def simulation_status(container: ContainerDep) -> ScenarioStatusOut:
+    return ScenarioStatusOut.of(container.scenarios.status())
+
+
+@router.post("/simulation/scenarios")
+def inject_scenario(body: ScenarioIn, container: ContainerDep) -> dict[str, JsonValue]:
+    return dict(container.scenarios.inject(body.scenario(), FARMER))
 
 
 @router.get("/emergency-stop")

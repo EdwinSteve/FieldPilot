@@ -2,10 +2,11 @@
 
 import json
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import AwareDatetime, BaseModel, Field, JsonValue, model_validator
 
+from app.agent.field import ImageryView
 from app.agent.loop import AgentRun
 from app.domain.enums import ActionType, AutonomyLevel, EventKind, TaskStatus
 from app.domain.models import (
@@ -20,7 +21,9 @@ from app.domain.models import (
 )
 from app.services.daily_cycle import DailyCycleResult
 from app.services.queries import CycleView, SensorReadings, TaskView
+from app.services.scenarios import ScenarioStatus
 from app.services.ticker import TickResult
+from app.simulator.scenarios import DroughtScenario, HeavyRainScenario
 
 
 class PlotOut(BaseModel):
@@ -143,6 +146,7 @@ class TaskOut(BaseModel):
     revert_deadline: datetime | None
     revert_open: bool | None
     revert_remaining_seconds: float | None
+    reason_es: str | None  # why it is held, from the message catalogue (D067)
 
     @classmethod
     def of(cls, view: TaskView) -> "TaskOut":
@@ -163,6 +167,7 @@ class TaskOut(BaseModel):
             revert_deadline=task.revert_deadline,
             revert_open=view.revert_open,
             revert_remaining_seconds=None if remaining is None else remaining.total_seconds(),
+            reason_es=view.reason_es,
         )
 
 
@@ -353,3 +358,93 @@ def _id(value: int | None) -> int:
     if value is None:
         raise ValueError("an unsaved entity cannot be returned")
     return value
+
+
+class ZoneImageryOut(BaseModel):
+    zone_id: int
+    ndvi_mean: float | None
+    low_ndvi_pct: float | None
+    bare_soil_pct: float | None  # from boxes: approximate, and null when unknown (D059)
+    low_vigor: bool
+
+
+class SceneOut(BaseModel):
+    scene_id: str
+    acquired_on: date
+    synthetic: bool
+    low_ndvi_threshold: float
+    segmentation_note: str | None
+
+
+class ImageryOut(BaseModel):
+    scene: SceneOut | None  # None: no scene for this plot
+    zones: list[ZoneImageryOut]
+
+    @classmethod
+    def of(cls, view: ImageryView | None) -> "ImageryOut":
+        if view is None:
+            return cls(scene=None, zones=[])
+        return cls(
+            scene=SceneOut(
+                scene_id=view.scene_id,
+                acquired_on=view.acquired_on,
+                synthetic=view.synthetic,
+                low_ndvi_threshold=view.low_ndvi_threshold,
+                segmentation_note=view.segmentation_note,
+            ),
+            zones=[
+                ZoneImageryOut(
+                    zone_id=z.zone_id,
+                    ndvi_mean=z.ndvi_mean,
+                    low_ndvi_pct=z.low_ndvi_pct,
+                    bare_soil_pct=z.bare_soil_pct,
+                    low_vigor=view.low_vigor(z),
+                )
+                for z in view.zones
+            ],
+        )
+
+
+class ScenarioStatusOut(BaseModel):
+    active: list[dict[str, JsonValue]]
+    upcoming: list[dict[str, JsonValue]]
+    lost: list[dict[str, JsonValue]]  # D014: show "El simulador se reinició..." for each
+
+    @classmethod
+    def of(cls, status: ScenarioStatus) -> "ScenarioStatusOut":
+        return cls(
+            active=[dict(s) for s in status.active],
+            upcoming=[dict(s) for s in status.upcoming],
+            lost=[dict(s) for s in status.lost],
+        )
+
+
+class _ScenarioWindow(BaseModel):
+    start: AwareDatetime
+    end: AwareDatetime
+
+    @model_validator(mode="after")
+    def _end_after_start(self) -> Self:
+        if self.end <= self.start:
+            raise ValueError("end must be after start")
+        return self
+
+
+class DroughtIn(_ScenarioWindow):
+    name: Literal["drought"]
+    et0_multiplier: float = Field(default=2.0, ge=1, le=5)
+    temperature_offset_c: float = Field(default=5.0, ge=0, le=15)
+
+    def scenario(self) -> DroughtScenario:
+        return DroughtScenario(self.start, self.end, self.et0_multiplier, self.temperature_offset_c)
+
+
+class HeavyRainIn(_ScenarioWindow):
+    name: Literal["heavy_rain"]
+    total_mm: float = Field(default=40.0, gt=0, le=500)
+
+    def scenario(self) -> HeavyRainScenario:
+        return HeavyRainScenario(self.start, self.end, self.total_mm)
+
+
+ScenarioIn = Annotated[DroughtIn | HeavyRainIn, Field(discriminator="name")]

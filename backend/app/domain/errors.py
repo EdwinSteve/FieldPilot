@@ -44,3 +44,7 @@ class PermitMismatchError(DomainError):
 
 class ConfigError(ValueError):
     """A configuration file is missing, malformed or unsafe. The app must not start."""
+
+
+class ScenarioRejectedError(DomainError):
+    """A scenario the simulator cannot apply, such as one starting in the simulated past."""

@@ -108,6 +108,10 @@ class ImageryView:
     zones: tuple[ZoneImagery, ...]  # the plot's zones the scene covers
     segmentation_note: str | None  # why bare_soil_pct is missing, if it is
 
+    def low_vigor(self, zone: ZoneImagery) -> bool:
+        """Mean NDVI strictly below the threshold; an unknown mean is not low (D059)."""
+        return zone.ndvi_mean is not None and zone.ndvi_mean < self.low_ndvi_threshold
+
 
 class ImageryReader(Protocol):
     def imagery(self, plot_id: int, day: date) -> ImageryView | None: ...  # None: no scene

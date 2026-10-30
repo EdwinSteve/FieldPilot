@@ -89,6 +89,10 @@ class FieldSimulator:
             raise ValueError("scenario cannot start before the current simulated time")
         self._scenarios.append(scenario)
 
+    def scenarios(self) -> tuple[Scenario, ...]:
+        """Every scenario this simulator holds, past, present or future. Memory only (D014)."""
+        return tuple(self._scenarios)
+
     def active_scenarios(self, at: datetime) -> tuple[Scenario, ...]:
         """Scenarios in effect at `at`. The UI reads this, not a stored copy (D014)."""
         return tuple(s for s in self._scenarios if is_active(s, at))
