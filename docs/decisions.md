@@ -1732,3 +1732,47 @@ result. D044 runs Monitoring first, so Monitoring cannot see it.
 **Consequences.** Low vigour informs the irrigation decision and the
 report, while the gate still decides every action. A missing scene is
 visible in the brief, not silently ignored.
+
+---
+
+## D061 — Voice goes through Meta's file endpoint, POST /v1/asr/transcribe
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30)
+
+**Context.** Voice was a stretch goal of step 8. A first probe tried the
+OpenAI-style calls and got HTTP 404 from all of them:
+`/v1/audio/transcriptions`, and `responses.create` with an audio part
+("The requested model was not found."). That was the wrong conclusion:
+Meta serves `muse-voice-transcribe-1.0` on its own routes
+(https://dev.meta.ai/docs/speech-to-text), and Edwin pointed to them.
+- **Files:** `POST /v1/asr/transcribe`, `multipart/form-data` with a JSON
+  `request` part and the `audio` WAV (mono, 16-bit PCM, 16 or 24 kHz, at
+  most 10 minutes and 32 MB).
+- **Live audio:** `wss://api.meta.ai/v1/asr/realtime`.
+
+On 2026-10-30 the file endpoint answered HTTP 200. Edwin's 5-second
+recording at 24 kHz came back as "¿Necesita agua el maíz de la zona dos?
+De casualidad?.".
+
+**Decision.**
+- `MuseVoiceTranscribe` implements `SpeechToText` with the file endpoint,
+  `mode: PUSH_TO_TALK`, `languageBias: ["Spanish"]` and optional
+  `keywords`.
+- It uses the standard library (`urllib`, `wave`): **no new dependency**.
+  The HTTP transport is injected, so tests never reach the network.
+- The WAV is checked locally before it is sent. Audio the service would
+  refuse is refused here with the reason.
+- Errors become `SpeechUnavailableError` with the HTTP status only, never
+  the body or the key.
+- `VoiceChatService` transcribes, then asks the text chat. It returns the
+  transcript with the answer, so the farmer sees what was understood. An
+  empty transcript raises `NothingHeardError`, and the model is never
+  asked an empty question.
+- The realtime WebSocket is not used: it would need the `websockets`
+  dependency, and push to talk (record, upload, answer) is enough for the
+  demo.
+
+**Consequences.** Before calling a provider's model "unavailable", read the
+provider's own documentation for its routes. The dashboard (step 10) must
+send mono 16-bit WAV at 16 or 24 kHz.
