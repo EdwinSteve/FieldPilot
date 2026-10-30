@@ -11,13 +11,14 @@ import { Panel } from "./Panel";
 interface CalendarPanelProps {
   plot: Plot;
   version: number;
+  /** The shared clock read; the App owns the only interval (D071). */
+  clock: Clock | null;
   refresh: () => void;
 }
 
 /** Every task by the plot's local day, newest day first, with the D011 revert card. */
-export function CalendarPanel({ plot, version, refresh }: CalendarPanelProps) {
-  const tasks = useResource(useCallback(() => api.tasks(), []), version, 3_000);
-  const clock = useResource(useCallback(() => api.clock(), []), version, 2_000);
+export function CalendarPanel({ plot, version, clock, refresh }: CalendarPanelProps) {
+  const tasks = useResource(useCallback(() => api.tasks(), []), version);
   const days = groupByDay(tasks.data ?? [], plot.utc_offset_hours);
 
   return (
@@ -27,7 +28,7 @@ export function CalendarPanel({ plot, version, refresh }: CalendarPanelProps) {
         <div key={day} className="calendar-day">
           <h3>{day}</h3>
           {dayTasks.map((task) => (
-            <CalendarTask key={task.id} task={task} plot={plot} clock={clock.data} refresh={refresh} />
+            <CalendarTask key={task.id} task={task} plot={plot} clock={clock} refresh={refresh} />
           ))}
         </div>
       ))}

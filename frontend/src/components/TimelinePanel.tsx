@@ -18,7 +18,6 @@ export function TimelinePanel({ plot, version }: TimelinePanelProps) {
   const events = useResource(
     useCallback(() => api.events({ kind: "agent_tool_call", limit: 400 }), []),
     version,
-    4_000,
   );
   const runs = groupRuns(events.data ?? []).toReversed().slice(0, MAX_RUNS);
 

@@ -14,8 +14,8 @@ interface InboxPanelProps {
 
 /** What the farmer was told: notifications, and the verified daily reports. */
 export function InboxPanel({ plot, version, refresh }: InboxPanelProps) {
-  const notes = useResource(useCallback(() => api.notifications(), []), version, 5_000);
-  const reports = useResource(useCallback(() => api.reports(), []), version, 10_000);
+  const notes = useResource(useCallback(() => api.notifications(), []), version);
+  const reports = useResource(useCallback(() => api.reports(), []), version);
   const action = useAction(refresh);
   const time = (iso: string) => formatPlotTime(iso, plot.utc_offset_hours);
 

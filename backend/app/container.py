@@ -50,6 +50,7 @@ MOCK_CYCLE_FIXTURE = "demo_day1.json"
 class Container:
     runtime: Runtime
     config: RuntimeConfig
+    mock_llm: bool  # from settings; the dashboard shows the chat state up front (D072)
     clock_service: ClockService
     emergency: EmergencyStopService
     proposals: ProposalService
@@ -118,6 +119,7 @@ def build_container(settings: Settings, config: RuntimeConfig, runtime: Runtime)
     return Container(
         runtime=runtime,
         config=config,
+        mock_llm=settings.mock_llm,
         clock_service=ClockService(clock, uow),
         emergency=EmergencyStopService(uow, clock),
         proposals=proposals,
