@@ -623,7 +623,38 @@ code {
 }
 
 .task-card__rationale {
-  margin: 6px 0;
+  margin: 4px 0 0;
+}
+
+.task-step {
+  border-top: 1px solid var(--color-border-soft);
+  margin-top: 10px;
+  padding-top: 8px;
+}
+
+.task-step__label {
+  display: block;
+  font-size: 0.82em;
+  font-weight: 700;
+  color: var(--color-soil);
+  margin-bottom: 2px;
+}
+
+.task-step p {
+  margin: 2px 0;
+}
+
+.verdict-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.verdict-flow__rules {
+  margin: 0;
+  padding-left: 18px;
+  flex-basis: 100%;
 }
 
 .calendar-day h3 {

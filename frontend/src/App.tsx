@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api/endpoints";
 import { ApprovalsPanel } from "./components/ApprovalsPanel";
 import { BackendStatus } from "./components/BackendStatus";
@@ -14,6 +14,7 @@ import { TimelinePanel } from "./components/TimelinePanel";
 import { ZonesPanel } from "./components/ZonesPanel";
 import { describeError, useResource } from "./hooks/useResource";
 import { isTickDue, shouldAutoTick } from "./lib/autoTick";
+import { eventsByTask } from "./lib/verdict";
 import type { DailyCycleResult } from "./types/api";
 
 /** The single refresh cadence of the app: one interval bumps `version` (D071). */
@@ -26,6 +27,17 @@ export function App() {
   const plot = plots.data?.[0];
   // The one clock read of the app; every panel that needs it gets this (D071).
   const clock = useResource(useCallback(() => api.clock(), []), version);
+  // The gate's paper trail, read once and joined onto tasks by the panels.
+  const verdictEvents = useResource(
+    useCallback(() => api.events({ kind: "gate_verdict", limit: 500 }), []),
+    version,
+  );
+  const failedEvents = useResource(
+    useCallback(() => api.events({ kind: "execution_failed", limit: 200 }), []),
+    version,
+  );
+  const verdicts = useMemo(() => eventsByTask(verdictEvents.data ?? []), [verdictEvents.data]);
+  const failures = useMemo(() => eventsByTask(failedEvents.data ?? []), [failedEvents.data]);
   const [tickError, setTickError] = useState<string | null>(null);
   const [lastCycle, setLastCycle] = useState<DailyCycleResult | null>(null);
   const [cycleRunning, setCycleRunning] = useState(false);
@@ -93,9 +105,22 @@ export function App() {
           />
           <div className="layout">
             <div className="layout__main">
-              <ApprovalsPanel plot={plot} version={version} refresh={refresh} />
+              <ApprovalsPanel
+                plot={plot}
+                version={version}
+                clock={clock.data}
+                verdicts={verdicts}
+                refresh={refresh}
+              />
               <ZonesPanel plot={plot} version={version} />
-              <CalendarPanel plot={plot} version={version} clock={clock.data} refresh={refresh} />
+              <CalendarPanel
+                plot={plot}
+                version={version}
+                clock={clock.data}
+                verdicts={verdicts}
+                failures={failures}
+                refresh={refresh}
+              />
               <TimelinePanel plot={plot} version={version} />
             </div>
             <aside className="layout__side">
