@@ -13,7 +13,7 @@ from app.agent.tools.field_tools import ReadContext
 from app.domain.errors import ConfigError
 from tests.conftest import CONFIG_DIR
 from tests.fakes import RecordingTrace
-from tests.unit.agent.field_fakes import NOW, FakeProposer, FakeReader
+from tests.unit.agent.field_fakes import NOW, FakeOutbox, FakeProposer, FakeReader
 
 PROMPTS = CONFIG_DIR / "agents"
 
@@ -51,6 +51,7 @@ def test_the_real_catalogue_passes_loop_validation() -> None:
         ReadContext(1, FakeReader(), ObservationLedger(), lambda: NOW),
         BriefDraft(1, date(2026, 10, 28)),
         FakeProposer(),
+        FakeOutbox(),
     )
 
     loop = AgentLoop(MockLLMClient([]), registry, RecordingTrace(), load_agent_catalog(PROMPTS), 12)
@@ -71,3 +72,9 @@ def test_a_subagent_without_closing_tool_stops_startup(tmp_path: Path) -> None:
 
     with pytest.raises(ConfigError, match=r"chat: no closing tool \(D053\)"):
         load_agent_catalog(tmp_path, [spec])
+
+
+def test_the_catalogue_includes_reporting() -> None:
+    reporting = next(a for a in load_agent_catalog(PROMPTS) if a.name == "reporting")
+
+    assert reporting.closing_tool == "submit_report" and not reporting.may_write

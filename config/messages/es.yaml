@@ -46,3 +46,20 @@ labels:
   irrigation_interrupted: >-
     El riego de {requested_mm} mm en la zona {zone} pudo haber seguido después
     del reinicio del sistema. La cantidad de agua aplicada se desconoce
+
+# Agent pipeline texts (D051, D052), addressed in code as "cycle.<key>" and
+# "report.<key>".
+cycle:
+  # D051: a subagent ran out of turns. A real failure: the farmer is told.
+  failed_turn_limit: >-
+    El ciclo diario se detuvo sin terminar: el asistente agotó sus turnos.
+    No se propuso ninguna acción nueva; revisa el registro
+  # D051: the model service was unavailable. Written to the log, never an alert.
+  paused_retry_next_run: >-
+    Ciclo diario en pausa: el servicio del modelo no respondió. Se reintentará
+    en la próxima ejecución
+report:
+  # D052: the third refused report. Nothing unverified is saved.
+  escalated_unverified: >-
+    El informe del día no pasó la verificación de datos y no se guardó.
+    Revisa el registro de eventos

@@ -46,6 +46,9 @@ class FakeReader:
     def crop_stage(self, plot_id: int) -> StageView:
         return StageView(4, "v6", "V6 (seis hojas)", 412.5, 0.71)
 
+    def task_status(self, plot_id: int, task_id: int) -> str | None:
+        return {7: "executed", 9: "scheduled", 21: "executed"}.get(task_id)
+
 
 class FakeProposer:
     """Answers like the gate allowing the action; keeps every request."""
@@ -57,3 +60,18 @@ class FakeProposer:
     def propose(self, request: ActionRequest) -> ProposalView:
         self.requests.append(request)
         return self.view
+
+
+class FakeOutbox:
+    """Keeps saved reports and notifications in memory."""
+
+    def __init__(self) -> None:
+        self.reports: list[str] = []
+        self.notifications: list[str] = []
+
+    def save_report(self, plot_id: int, text_es: str) -> int:
+        self.reports.append(text_es)
+        return len(self.reports)
+
+    def notify(self, plot_id: int, text_key: str) -> None:
+        self.notifications.append(text_key)

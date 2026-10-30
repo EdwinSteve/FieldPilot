@@ -50,6 +50,7 @@ class FieldReader(Protocol):
     def zone(self, plot_id: int, zone_id: int) -> ZoneView | None: ...  # None: not in this plot
     def rain_mm_next_24h(self, plot_id: int, at: datetime) -> float | None: ...
     def crop_stage(self, plot_id: int) -> StageView: ...
+    def task_status(self, plot_id: int, task_id: int) -> str | None: ...  # None: not this plot's
 
 
 @dataclass(frozen=True)
@@ -81,3 +82,10 @@ class ActionProposer(Protocol):
     """The agent's only way to change anything: through ProposalService and the gate."""
 
     def propose(self, request: ActionRequest) -> ProposalView: ...
+
+
+class FarmerOutbox(Protocol):
+    """What reaches the farmer: verified reports and catalogue notifications (D052)."""
+
+    def save_report(self, plot_id: int, text_es: str) -> int: ...
+    def notify(self, plot_id: int, text_key: str) -> None: ...

@@ -24,6 +24,10 @@ REQUIRED_LABELS = frozenset(
         "irrigation_interrupted",
     }
 )
+# Agent texts, addressed as "<section>.<key>" (D051, D052).
+REQUIRED_AGENT_TEXTS = frozenset(
+    {"cycle.failed_turn_limit", "cycle.paused_retry_next_run", "report.escalated_unverified"}
+)
 
 
 class _MessagesFile(BaseModel):
@@ -32,6 +36,8 @@ class _MessagesFile(BaseModel):
     rules: dict[RuleCode, str]
     inputs: dict[str, str]
     labels: dict[str, str]
+    cycle: dict[str, str]
+    report: dict[str, str]
 
 
 @dataclass(frozen=True)
@@ -39,6 +45,7 @@ class MessageCatalog:
     rules: Mapping[RuleCode, str]
     inputs: Mapping[str, str]
     labels: Mapping[str, str]
+    agent_texts: Mapping[str, str]
 
     def render(self, violation: RuleViolation) -> str:
         """The violation as the farmer reads it, numbers in Spanish format."""
@@ -47,6 +54,10 @@ class MessageCatalog:
 
     def label(self, name: str, **params: str) -> str:
         return self.labels[name].format_map(params)
+
+    def agent_text(self, key: str) -> str:
+        """An agent text by its dotted key, e.g. "report.escalated_unverified"."""
+        return self.agent_texts[key]
 
     def _display(self, name: str, value: float | str) -> str:
         if name == "input" and isinstance(value, str):
@@ -71,6 +82,14 @@ def load_message_catalog(path: Path) -> MessageCatalog:
         raise ConfigError(f"{path.name}: {error}") from error
     problems = [f"no message for rule code {code}" for code in RuleCode if code not in parsed.rules]
     problems += [f"no label {name}" for name in sorted(REQUIRED_LABELS - set(parsed.labels))]
+    agent_texts = {
+        f"{section}.{key}": text
+        for section, texts in (("cycle", parsed.cycle), ("report", parsed.report))
+        for key, text in texts.items()
+    }
+    problems += [f"no agent text {key}" for key in sorted(REQUIRED_AGENT_TEXTS - set(agent_texts))]
     if problems:
         raise ConfigError(f"{path.name}: " + "; ".join(problems))
-    return MessageCatalog(rules=parsed.rules, inputs=parsed.inputs, labels=parsed.labels)
+    return MessageCatalog(
+        rules=parsed.rules, inputs=parsed.inputs, labels=parsed.labels, agent_texts=agent_texts
+    )
