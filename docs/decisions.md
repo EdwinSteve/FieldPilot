@@ -1970,3 +1970,38 @@ that must be tested.
 
 **Consequences.** Frontend logic has the same "tests before the box is
 ticked" rule as the backend.
+
+---
+
+## D069 — Oxlint instead of ESLint, because typescript-eslint does not support TypeScript 7
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30), chosen by Edwin. Supersedes the lint
+  part of D068.
+
+**Context.** D068 approved ESLint with typescript-eslint. Every published
+`typescript-eslint` (latest 8.72.1, and the 8.72.2 canary) requires
+`typescript >=4.8.4 <6.1.0`, and the frontend uses TypeScript 7.
+`--legacy-peer-deps` would install a combination that npm itself warns may
+be broken.
+
+**Decision.**
+- The frontend linter is **Oxlint** (`oxlint` 1.90.0), a single dev
+  dependency. It parses TypeScript without the TypeScript compiler. It
+  replaces `eslint`, `@eslint/js`, `typescript-eslint`,
+  `eslint-plugin-react-hooks` and `globals`, none of which are installed.
+- `.oxlintrc.json` sets the `correctness` and `suspicious` categories to
+  errors. It turns on `react/rules-of-hooks` and `react/exhaustive-deps`
+  as errors, the reason D068 asked for a linter, and adds the import,
+  vitest and jsx-a11y plugins. `npm run lint` runs with
+  `--deny-warnings`.
+- On 2026-10-30 both hooks rules were checked on a deliberately wrong
+  component: a hook called conditionally and an effect with a missing
+  dependency. Both failed the lint.
+- The only rule exception: `import/no-unassigned-import` allows `*.css`
+  imports (global styles), and nothing else.
+- Vitest (D068) is unchanged.
+
+**Consequences.** One fast linter that works with the TypeScript version
+in use. If typescript-eslint adds TypeScript 7 support, a switch back
+would come with its own decision.

@@ -6,7 +6,7 @@ RUFF_ARGS ?=
 
 .PHONY: help install install-backend install-frontend dev dev-backend dev-frontend \
 	test lint lint-backend lint-rules-backend format-check-backend format \
-	typecheck typecheck-backend typecheck-frontend build-frontend \
+	typecheck typecheck-backend typecheck-frontend build-frontend lint-frontend test-frontend \
 	check check-backend check-frontend check-repo preflight clean
 
 help: ## List available targets
@@ -59,7 +59,13 @@ build-frontend: ## Type-check and build the frontend bundle
 
 check-backend: lint-backend typecheck-backend test ## Backend checks, as run by CI
 
-check-frontend: build-frontend ## Frontend checks, as run by CI (build includes tsc)
+lint-frontend: ## Oxlint: correctness, suspicious code and the React hooks rules (D068, D069)
+	npm --prefix $(FRONTEND) run lint
+
+test-frontend: ## Vitest unit tests of the frontend's pure logic (D068)
+	npm --prefix $(FRONTEND) test
+
+check-frontend: lint-frontend test-frontend build-frontend ## Frontend checks, as run by CI (build includes tsc)
 
 check-repo: ## Fail if a secret or database file is tracked by git (rule 7)
 	@tracked="$$(git ls-files | grep -E '(^|/)\.env(\..+)?$$|\.(db|sqlite3?)$$' | grep -v '\.env\.example$$' || true)"; \
