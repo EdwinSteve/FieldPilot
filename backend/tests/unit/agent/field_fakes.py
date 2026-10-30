@@ -92,16 +92,24 @@ SCENE = ImageryView(
     date(2026, 10, 27),
     True,
     0.4,
-    (ZoneImagery(2, 0.378, 21.2, 25.3), ZoneImagery(3, 0.802, 0.0, 0.0)),
+    (
+        ZoneImagery(2, 0.378, 21.2, 25.3, (0.5, 0.0, 1.0, 1.0)),
+        ZoneImagery(3, 0.802, 0.0, 0.0, (0.0, 0.0, 0.5, 1.0)),
+    ),
     None,
+    ((0.55, 0.15, 0.7, 0.4),),
 )
 
 
 class FakeImagery:
     """Returns a fixed view (or None for "no scene")."""
 
-    def __init__(self, view: ImageryView | None = SCENE) -> None:
+    def __init__(self, view: ImageryView | None = SCENE, png: bytes | None = None) -> None:
         self.view = view
+        self.png = png
 
     def imagery(self, plot_id: int, day: date) -> ImageryView | None:
         return self.view
+
+    def scene_png(self, plot_id: int, day: date) -> bytes | None:
+        return self.png

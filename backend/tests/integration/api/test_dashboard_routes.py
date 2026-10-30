@@ -1,10 +1,11 @@
-"""What the dashboard reads beyond step 9: imagery, held reasons, scenarios (D014, D067)."""
+"""What the dashboard reads beyond step 9: imagery, held reasons, scenarios (D014, D067, D073)."""
 
 from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
 
 from app.container import Container
+from app.domain.enums import ActionType
 from app.domain.models import Plot
 from tests.integration.api.actions import hold_for_rain, propose
 from tests.integration.api.conftest import START, Farm, restart
@@ -23,7 +24,14 @@ def test_imagery_per_zone_with_low_vigour(client: TestClient, farm: Farm) -> Non
             "low_ndvi_pct": 21.2,
             "bare_soil_pct": 25.3,  # the recorded SAM answer, replayed in mock mode
             "low_vigor": True,
+            "area": {"x1": 0.5, "y1": 0.0, "x2": 1.0, "y2": 1.0},  # Zona 2: right half
         }
+    ]
+    # SAM's three brown patches, normalized to the 512x256 image (D073).
+    assert body["boxes"] == [
+        {"x1": 0.734375, "y1": 0.4921875, "x2": 0.90625, "y2": 0.8359375},
+        {"x1": 0.529296875, "y1": 0.62890625, "x2": 0.642578125, "y2": 0.85546875},
+        {"x1": 0.572265625, "y1": 0.12890625, "x2": 0.716796875, "y2": 0.41796875},
     ]
 
 
@@ -32,8 +40,47 @@ def test_a_plot_without_a_scene_has_none(client: TestClient, container: Containe
         far = u.plots.add(Plot("Bogotá", 4.6, -74.1, 1.0, START, utc_offset_hours=-5.0))
         u.commit()
 
-    assert client.get(f"/plots/{far.id}/imagery").json() == {"scene": None, "zones": []}
+    body = client.get(f"/plots/{far.id}/imagery").json()
+
+    assert body == {"scene": None, "zones": [], "boxes": []}
     assert client.get("/plots/99/imagery").status_code == 404
+
+
+def test_the_scene_image_is_the_png(client: TestClient, farm: Farm) -> None:
+    response = client.get(f"/plots/{farm.plot_id}/imagery/image")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content[:8] == b"\x89PNG\r\n\x1a\n"
+    assert len(response.content) > 100_000  # the 512x256 demo scene
+
+
+def test_the_scene_image_is_404_without_a_scene(client: TestClient, container: Container) -> None:
+    with container.runtime.uow() as u:
+        far = u.plots.add(Plot("Bogotá", 4.6, -74.1, 1.0, START, utc_offset_hours=-5.0))
+        u.commit()
+
+    assert client.get(f"/plots/{far.id}/imagery/image").status_code == 404
+    assert client.get("/plots/99/imagery/image").status_code == 404
+
+
+def test_the_policy_lists_every_level(client: TestClient) -> None:
+    body = client.get("/autonomy/policy").json()
+
+    assert set(body["defaults"]) == {str(a) for a in ActionType}
+    assert body["defaults"]["irrigation"] == "autonomous"
+    assert body["defaults"]["extra_irrigation"] == "notify"
+    assert body["always_approval"] == sorted(body["always_approval"])
+    assert set(body["always_approval"]) >= {
+        "fertilizer",
+        "agrochemical",
+        "planting_date_change",
+        "harvest_timing",
+        "product_listing",
+        "price_change",
+        "chemical_injection",
+    }
+    assert all(body["defaults"][a] == "approval" for a in body["always_approval"])
 
 
 def test_a_held_task_says_why_in_spanish(

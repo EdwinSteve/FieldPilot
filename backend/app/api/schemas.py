@@ -8,6 +8,7 @@ from pydantic import AwareDatetime, BaseModel, Field, JsonValue, model_validator
 
 from app.agent.field import ImageryView
 from app.agent.loop import AgentRun
+from app.autonomy.policy import AutonomyPolicy
 from app.domain.enums import ActionType, AutonomyLevel, EventKind, TaskStatus
 from app.domain.models import (
     ControlState,
@@ -360,12 +361,27 @@ def _id(value: int | None) -> int:
     return value
 
 
+class BoxOut(BaseModel):
+    """A rectangle in normalized [0, 1] image coordinates: x right, y down."""
+
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+
+    @classmethod
+    def of(cls, box: tuple[float, float, float, float]) -> "BoxOut":
+        x1, y1, x2, y2 = box
+        return cls(x1=x1, y1=y1, x2=x2, y2=y2)
+
+
 class ZoneImageryOut(BaseModel):
     zone_id: int
     ndvi_mean: float | None
     low_ndvi_pct: float | None
     bare_soil_pct: float | None  # from boxes: approximate, and null when unknown (D059)
     low_vigor: bool
+    area: BoxOut  # the zone's outline in the scene image (D073)
 
 
 class SceneOut(BaseModel):
@@ -379,11 +395,12 @@ class SceneOut(BaseModel):
 class ImageryOut(BaseModel):
     scene: SceneOut | None  # None: no scene for this plot
     zones: list[ZoneImageryOut]
+    boxes: list[BoxOut]  # SAM's normalized boxes; empty when unknown (D073)
 
     @classmethod
     def of(cls, view: ImageryView | None) -> "ImageryOut":
         if view is None:
-            return cls(scene=None, zones=[])
+            return cls(scene=None, zones=[], boxes=[])
         return cls(
             scene=SceneOut(
                 scene_id=view.scene_id,
@@ -399,9 +416,25 @@ class ImageryOut(BaseModel):
                     low_ndvi_pct=z.low_ndvi_pct,
                     bare_soil_pct=z.bare_soil_pct,
                     low_vigor=view.low_vigor(z),
+                    area=BoxOut.of(z.area),
                 )
                 for z in view.zones
             ],
+            boxes=[BoxOut.of(box) for box in view.boxes],
+        )
+
+
+class PolicyOut(BaseModel):
+    """The autonomy policy the gate enforces, for the dashboard legend (D073)."""
+
+    defaults: dict[str, str]  # action type -> level, sorted by action
+    always_approval: list[str]  # sorted action types
+
+    @classmethod
+    def of(cls, policy: AutonomyPolicy) -> "PolicyOut":
+        return cls(
+            defaults={str(a): str(policy.defaults[a]) for a in sorted(policy.defaults, key=str)},
+            always_approval=sorted(str(a) for a in policy.always_approval),
         )
 
 

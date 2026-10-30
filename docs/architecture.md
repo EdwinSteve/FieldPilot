@@ -1173,7 +1173,9 @@ startup writes a `config_override` event with both values.
 |---|---|---|
 | GET | `/health` | — |
 | GET | `/plots`, `/plots/{id}/zones` | plots and zones |
-| GET | `/plots/{id}/imagery` | NDVI, low-NDVI %, bare soil and low vigour per zone (D067) |
+| GET | `/plots/{id}/imagery` | NDVI, low-NDVI %, bare soil and low vigour per zone (D067), SAM boxes and zone areas (D073) |
+| GET | `/plots/{id}/imagery/image` | The scene's RGB PNG; 404 without a scene (D073) |
+| GET | `/autonomy/policy` | Default level per action type and the always-approval list (D073) |
 | GET | `/readings?zone_id=` | readings |
 | GET | `/cycles`, `/cycles/{id}` | cycles and stages |
 | GET | `/tasks?status=` | tasks, with `revert_deadline` and `revert_open` (D011), and `reason_es` when held (D067) |
