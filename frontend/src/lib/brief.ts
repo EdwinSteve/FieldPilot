@@ -48,15 +48,17 @@ export function parseBrief(brief: Record<string, Json>): ParsedBrief {
 
 function zoneAssessment(value: Json): BriefZoneAssessment[] {
   const zone = asRecord(value);
-  const zoneId = zone === null ? null : asNumber(zone.zone_id);
-  const status = zone === null ? null : asString(zone.status);
+  if (zone === null) return [];
+  const zoneId = asNumber(zone.zone_id);
+  const status = asString(zone.status);
   if (zoneId === null || status === null) return [];
   return [{ zoneId, status, moisturePct: asNumber(zone.moisture_pct) }];
 }
 
 function zoneImaging(value: Json): BriefZoneImaging[] {
   const zone = asRecord(value);
-  const zoneId = zone === null ? null : asNumber(zone.zone_id);
+  if (zone === null) return [];
+  const zoneId = asNumber(zone.zone_id);
   if (zoneId === null) return [];
   return [
     {
@@ -70,11 +72,12 @@ function zoneImaging(value: Json): BriefZoneImaging[] {
 
 function proposal(value: Json): BriefProposal[] {
   const item = asRecord(value);
-  const taskId = item === null ? null : asNumber(item.task_id);
-  const actionType = item === null ? null : asString(item.action_type);
-  const outcome = item === null ? null : asString(item.outcome);
-  const level = item === null ? null : asString(item.effective_level);
-  const status = item === null ? null : asString(item.status);
+  if (item === null) return [];
+  const taskId = asNumber(item.task_id);
+  const actionType = asString(item.action_type);
+  const outcome = asString(item.outcome);
+  const level = asString(item.effective_level);
+  const status = asString(item.status);
   if (taskId === null || actionType === null || outcome === null || level === null || status === null)
     return [];
   return [{ taskId, actionType, zoneId: asNumber(item.zone_id), outcome, level, status }];

@@ -4,7 +4,7 @@ import { useResource } from "../hooks/useResource";
 import { seriesRange, toPoints } from "../lib/chart";
 import { formatNumber } from "../lib/format";
 import { arcPath, gaugeFraction, polar } from "../lib/gauge";
-import type { Plot, Reading, SensorReadings, Zone, ZoneImagery } from "../types/api";
+import type { Plot, Reading, Zone } from "../types/api";
 import { Panel } from "./Panel";
 
 interface ZonesPanelProps {
