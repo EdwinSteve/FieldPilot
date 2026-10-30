@@ -1776,3 +1776,109 @@ De casualidad?.".
 **Consequences.** Before calling a provider's model "unavailable", read the
 provider's own documentation for its routes. The dashboard (step 10) must
 send mono 16-bit WAV at 16 or 24 kHz.
+
+---
+
+## D062 — A farmer's approval is a gate-issued permit for the situation they saw
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30). Specifies `approve_task` of §4.3, and
+  extends D039 and D033.
+
+**Context.** D004 sends a proposal with a safety violation to APPROVAL so
+that the farmer decides. But only the gate issues permits (D039), and only
+for EXECUTE or EXECUTE_AND_NOTIFY. An approved irrigation, held by "rain
+forecast 8 mm > 5 mm", would be held again when re-evaluated. Once due,
+`DueTaskRunner` would fail it (D033). The farmer's approval would have no
+effect.
+
+**Decision.**
+- `AutonomyGate.authorize_approved(action, context, FarmerApproval)` runs
+  `evaluate` on a fresh context. It issues a permit with
+  `level=APPROVAL` and `approved_by=<actor>` only when the emergency stop
+  is not active and every violation in the fresh verdict was among the
+  `approved_codes`. The permit is still built only inside the gate.
+- **The emergency stop is never approved away** (D022).
+- **A new violation is a new situation.** If a rule fails that was not in
+  the verdict the farmer saw (for example, another irrigation the same
+  day), there is no permit. When the task is due it fails and names the
+  rule, as D033 says.
+- The same rule with a new number is the same situation: an approval
+  accepted with 8 mm of rain still holds at 12 mm. The comparison is by
+  rule code.
+- `ApprovalService.approve` writes an `approval` event with the
+  `approved_codes`. `DueTaskRunner` reads that event and calls
+  `authorize_approved` for approved tasks.
+- A type the actuator does not support (fertilizer, agrochemical) stays
+  `scheduled` as a manual task for the farmer.
+
+**Consequences.** The farmer's decision has effect, and it is bounded by
+what they saw. **Required tests:**
+- an approved irrigation held for rain executes;
+- the same approval with the emergency stop active does not;
+- an approved task that gains a new violation before it is due fails and
+  names the rule.
+
+---
+
+## D063 — Under MOCK_LLM=1 the chat answers 503; the daily cycle replays a fixture
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30)
+
+**Context.** `MockLLMClient` replays recorded responses in order. That
+reproduces the daily cycle, which always asks the same things, but it
+cannot answer an arbitrary farmer question.
+
+**Decision.**
+- With `MOCK_LLM=1`, `POST /agent/chat` and `POST /agent/chat/voice`
+  answer **503** with "El chat necesita MOCK_LLM=0 y una clave de API".
+  They never answer with a canned reply that looks real.
+- With `MOCK_LLM=1`, the daily cycle replays a fixture from
+  `data/fixtures/llm/` (the demo recording of step 11; until then, the D009
+  fixture).
+- With `MOCK_LLM=0`, both use the real Muse client.
+
+**Consequences.** Mock mode never pretends to understand a question. The
+demo can run offline for everything except the free chat.
+
+---
+
+## D064 — Endpoints beyond §7: clock, daily cycle and voice
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30). Extends the §7 table.
+
+**Decision.**
+- `GET, POST /clock`: the simulated clock's state, and pause, resume,
+  speed or advance through `ClockService`, which logs `clock_changed`. The
+  dashboard needs it to show and drive the clock (D011).
+- `POST /agent/daily-cycle`: runs `DailyCycle` for one plot and returns
+  its result. It is how the demo triggers the cycle.
+- `POST /agent/chat/voice`: a WAV in `multipart/form-data`. It returns the
+  transcript and the answer. It is kept apart from the JSON
+  `POST /agent/chat`, so that each endpoint has one body format.
+
+**Consequences.** The dashboard can drive the whole demo through the API.
+
+---
+
+## D065 — The simulation advances only when asked, through one tick
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30)
+
+**Context.** Nothing records new readings, runs due tasks or counts degree
+days by itself. Scheduled tasks would never run.
+
+**Decision.**
+- `POST /simulation/tick` calls `SimulationTicker.tick()`. At the current
+  simulated time it records the simulator's readings, runs
+  `DueTaskRunner`, and counts the GDD of every local day that has ended.
+- In step 9 the dashboard or the demo script calls it. A background timer
+  is an option for step 11, decided there.
+- A tick is idempotent for the same simulated time. `DueTaskRunner` only
+  takes `scheduled` tasks, and phenology skips counted days.
+
+**Consequences.** The demo controls time explicitly, and tests stay
+deterministic. Nothing runs behind the farmer's back.
