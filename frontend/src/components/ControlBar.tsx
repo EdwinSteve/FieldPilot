@@ -4,6 +4,7 @@ import { useAction } from "../hooks/useAction";
 import { useResource } from "../hooks/useResource";
 import { formatPlotTime } from "../lib/format";
 import type { Clock, Plot } from "../types/api";
+import { Icon } from "./icons";
 
 const SPEEDS = [1, 60, 360];
 
@@ -27,7 +28,10 @@ export function ControlBar({ plot, version, clock, autoTickOn, tickError, refres
   return (
     <header className="control-bar">
       <div className="control-bar__clock">
-        <span className="control-bar__label">Reloj simulado</span>
+        <span className="control-bar__label">
+          <Icon name="clock" size={14} />
+          Reloj simulado
+        </span>
         <strong>{now ? formatPlotTime(now.now, plot.utc_offset_hours) : "…"}</strong>
         <span className="control-bar__speed">
           {now ? (now.paused ? "en pausa" : `×${now.speed_factor}`) : ""}
