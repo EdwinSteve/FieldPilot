@@ -1,9 +1,10 @@
 """The agent trace in the real event log (D045, D048)."""
 
 from collections.abc import Callable
+from dataclasses import replace
 
 from app.agent.llm.mock import MockLLMClient
-from app.agent.loop import RunStatus
+from app.agent.loop import AgentLoop, RunStatus
 from app.agent.messages import TokenUsage
 from app.agent.trace import TraceEntry
 from app.domain.enums import EventKind
@@ -12,7 +13,7 @@ from app.persistence.unit_of_work import SqlUnitOfWork
 from app.services.agent_trace import EventLogTraceSink
 from tests.conftest import T0
 from tests.fakes import FakeClock, FlakyLLM
-from tests.unit.agent.agents import READ, SUBMIT, Calls, make_loop
+from tests.unit.agent.agents import MONITORING, READ, SUBMIT, Calls, make_loop, make_registry
 
 UowFactory = Callable[[], SqlUnitOfWork]
 
@@ -54,6 +55,7 @@ def test_an_entry_becomes_one_agent_tool_call_event(uow: UowFactory) -> None:
         "duration_ms": 5,
         "usage": {"input_tokens": 120, "output_tokens": 14},
         "pause": None,
+        "prompt_sha256": "",
     }
 
 
@@ -105,3 +107,17 @@ def test_resuming_twice_records_each_turn_once(uow: UowFactory) -> None:
     ]
     assert len(keys) == len(set(keys))
     assert calls.read_moisture == 1 and calls.submitted == 1
+
+
+def test_every_entry_names_the_prompt_version(uow: UowFactory) -> None:
+    """D055: the trace ties each turn to the prompt file that produced it."""
+    sink = EventLogTraceSink(uow, FakeClock(T0))
+    agent = replace(MONITORING, prompt_sha256="ab" * 32)
+    llm = FlakyLLM(MockLLMClient([READ, SUBMIT]), failing_attempts=[2])
+    loop = AgentLoop(llm, make_registry(Calls()), sink, [agent], max_turns=6)
+
+    loop.resume(loop.run("monitoring", "Assess.", "r1"))
+
+    hashes = {e.inputs["prompt_sha256"] for e in _trace_events(uow)}
+    assert hashes == {"ab" * 32}
+    assert len(_trace_events(uow)) == 3  # a turn, a pause and the closing turn
