@@ -146,7 +146,8 @@ Each step follows the usual process:
   closing-tool checks; the daily cycle; the chat orchestrator.
 - **Escalation:** a report refused three times notifies the farmer instead
   of looping.
-- **Record and replay:** record the D009 demo once against Muse.
+- **Record and replay:** `RecordingLLMClient`, and a hand-written fixture
+  for the D009 end-to-end test. Recording from real Muse moves to step 11.
 - **Done when:**
   - the D009 scenario runs end to end on replayed fixtures: a 15 mm
     irrigation, a 10 mm NOTIFY extra irrigation for the next day, and the
@@ -188,6 +189,13 @@ Each step follows the usual process:
 
 - **Seed:** `make seed` builds the demo farm and the maize cycle.
 - **End-to-end tests:** the ones required by D009 and D016.
+- **Recorded Muse run:** record the D009 demo once against the real model,
+  now that `make seed` exists.
+
+The hand-written fixture of step 7b verifies the business logic of D009. A
+recording from the real Muse model verifies that the model's output format
+stays compatible with the tools. They are different tests, and neither
+replaces the other.
 - **Delivery:** the demo script, the video, and a final README pass.
 - **Done when:** every box in the README Status list is ticked, and the
   demo runs with `MOCK_LLM=1` and with the real key.

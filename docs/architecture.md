@@ -730,10 +730,12 @@ class Tool(Generic[In]):
     input_model: type[In]                 # pydantic model -> JSON schema the model sees
     handler: Callable[[In], JsonObject]
     closes_run: bool = False              # submit_* and finish
+    writes: bool = False                  # changes stored state, e.g. propose_action (D054)
 
 class ToolRegistry:
     def register(self, tool: Tool[Any]) -> None: ...      # a duplicate name raises ConfigError
-    def subset(self, names: Iterable[str]) -> "ToolRegistry": ...
+    def subset(self, names: Iterable[str], *, allow_writes: bool) -> "ToolRegistry": ...
+    # a writing tool with allow_writes=False raises ConfigError (D054)
     def specs(self) -> tuple[ToolSpec, ...]: ...
     def call(self, name: str, arguments_json: str) -> ToolOutcome: ...
 ```
@@ -750,9 +752,11 @@ handlers, never in a separate tool the model may skip.
 @dataclass(frozen=True)
 class Subagent:
     name: str                             # monitoring | imaging | irrigation | reporting | orchestrator
-    system_prompt: str
+    system_prompt: str                    # loaded from config/agents/<name>.md (D055)
+    prompt_sha256: str                    # of that file, written to every trace entry
     tool_names: frozenset[str]
-    closing_tool: str | None              # None: a text answer ends the run (chat)
+    closing_tool: str | None              # None is valid in the loop; never in the catalogue (D053)
+    may_write: bool = False               # only irrigation (D054)
 
 class AgentLoop:
     def __init__(
@@ -808,7 +812,7 @@ each entry as one `agent_tool_call` event, in its own transaction:
 
 - **actor:** `agent:<subagent>`;
 - **inputs:** `run_id`, `turn`, `tool`, `arguments`, `result` or `error`,
-  `duration_ms` and `usage`;
+  `duration_ms`, `usage` and `prompt_sha256` (D055);
 - **idempotency key:** `agent-run-{run_id}:turn-{n}` for a completed turn,
   and `agent-run-{run_id}:turn-{n}:pause-{k}` for the k-th pause before
   turn n.
@@ -817,10 +821,75 @@ A paused attempt is recorded with `tool: null` and the error class name.
 The sink skips an entry whose key already exists, so resuming a run never
 duplicates a turn.
 
-Only the Irrigation subagent holds `propose_action`, which calls
-`ProposalPort.propose`. The other subagents have read-only tools. The
-orchestrator for the farmer chat and the subagents themselves arrive in
-step 7b (D044).
+**Pipeline** (step 7b; D044, D050–D055).
+
+*Observations and the brief* (`app/agent/brief.py`). Read tools record
+every value they return in an `ObservationLedger`, which is the page the
+agent may cite. Subagents hand over a `FieldBrief`, never free text.
+
+```python
+@dataclass(frozen=True)
+class Observation:
+    id: str                               # "reading-412", "forecast-1-2026-10-28T11:00Z", ...
+    kind: ObservationKind                 # SOIL_MOISTURE | FIELD_CAPACITY | RAIN_FORECAST | GDD | STAGE | IRRIGATION
+    zone_id: int | None
+    value: float | str | None
+    unit: str                             # "%", "mm", "GDD", "" for none
+    at: datetime
+
+class ObservationLedger:                  # one per daily cycle or chat turn, in memory
+    def add(self, observation: Observation) -> Observation: ...
+    def get(self, observation_id: str) -> Observation | None: ...
+
+@dataclass(frozen=True)
+class FieldBrief:
+    plot_id: int
+    day: date
+    assessment: Assessment | None         # from Monitoring
+    proposals: tuple[ProposalSummary, ...]  # from Irrigation: task_id, action, outcome, level
+```
+
+*Tools.* Read tools (`list_zones`, `read_zone`, `read_forecast`,
+`read_crop_stage`) go through a `FieldReader` port implemented in
+`app/services`, so `app/agent` still never touches persistence. Writing
+tools have `writes=True`.
+
+| Subagent | Closing tool | Refused when |
+|---|---|---|
+| Monitoring | `submit_assessment(zones, summary)` | a zone of the plot is missing or repeated; a cited id is not in the ledger; a value differs from the cited observation (D050) |
+| Irrigation | `finish(summary)`, after any number of `propose_action(action_type, zone_id, volume_mm, scheduled_for, rationale, cited)` | `propose_action`: the type is not `irrigation`, `extra_irrigation` or `stop_irrigation`; `scheduled_for` is naive or in the past; a cited id is not in the ledger. Everything else is the gate's decision |
+| Reporting | `submit_report(text_es, cited, actions)` | a number with a unit in the text does not match a cited observation (D050); a declared task status differs from the stored one. The third refusal escalates (D052) |
+| Orchestrator | `answer_farmer(text_es, cited)` | the same number check as `submit_report` (D050, D053) |
+
+Only Irrigation has `may_write=True` and holds `propose_action`, which
+calls `ProposalPort.propose`. The orchestrator consults Monitoring and
+Irrigation through `consult_monitoring` and `consult_irrigation`, which run
+those subagents in the same loop and return their closing results.
+
+*Catalogue.* `load_agent_catalog(config_dir / "agents")` builds the real
+subagents. It refuses to start when a prompt file is missing (D055) or a
+subagent has no closing tool (D053). `AgentLoop` validation then applies
+rule 1 and D054.
+
+*Daily cycle* (`app/services/daily_cycle.py`).
+
+```python
+class DailyCycle:
+    def run(self, plot_id: int) -> DailyCycleResult: ...   # Monitoring -> Irrigation -> Reporting
+```
+
+- Imaging joins in step 8.
+- Every subagent shares the cycle's ledger and receives the brief as JSON
+  in its task. Run ids come from an injected `IdFactory`.
+- **Stop rules (D051).** The cycle stops at the first subagent that does
+  not end in `COMPLETED`, and no later subagent runs.
+  - `TURN_LIMIT` is a failure. The farmer is notified with
+    `cycle.failed_turn_limit`.
+  - `PAUSED` is not a failure. The farmer gets no notification. The cycle
+    writes `cycle.paused_retry_next_run` to the event log as an
+    `agent_tool_call` event with `actor: system:daily_cycle` and
+    `tool: null`, and the next run retries the cycle under new run ids
+    (D048).
 
 ### 4.9 Satellite, weather and voice
 
