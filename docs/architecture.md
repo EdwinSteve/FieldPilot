@@ -326,7 +326,7 @@ class GateContextProvider(Protocol):             # built from stored facts, neve
                     exclude_task_id: int | None = None) -> GateContext: ...
                     # exclude_task_id: a due task never counts its own water (D033)
 
-class RainForecast(Protocol):                    # fake in tests; Open-Meteo in step 8
+class RainForecast(Protocol):                    # PlotRainForecast over a ForecastProvider (D047)
     def rain_mm_next_24h(self, plot_id: int, at: datetime) -> float | None: ...
 
 @dataclass(frozen=True)
@@ -686,46 +686,139 @@ All of this runs in one transaction. The update is idempotent through
 `MissingDataError` and writes nothing. The next day with data counts only
 itself and logs a `phenology_gap` event that lists the skipped days (D019).
 
-### 4.8 Agent (`app/agent`)
+### 4.8 Agent (`app/agent`): mypy strict
+
+The agent package follows the workshop loop (D043, D044). It depends on
+ports only: `LLMClient`, `ToolRegistry`, `TraceSink` and, through the
+`propose_action` tool, `ProposalPort`. It never sees the actuator or a
+unit of work.
+
+**Client** (`app/agent/llm/`).
 
 ```python
 class LLMClient(Protocol):
-    def complete(self, messages: Sequence[Message], tools: Sequence[ToolSpec]) -> LLMResponse: ...
-# MuseClient(model=settings.muse_agent_model, ...) · MockLLMClient(fixtures_dir)
+    def complete(
+        self, instructions: str, messages: Sequence[Message], tools: Sequence[ToolSpec]
+    ) -> LLMResponse: ...
+
+Message = UserMessage | AssistantText | ToolCall | ToolResult
+# ToolCall(call_id, name, arguments_json) · ToolResult(call_id, output_json)
 
 @dataclass(frozen=True)
-class Tool(Generic[In, Out]):
-    name: str
-    description: str
-    input_model: type[In]                 # pydantic model -> JSON schema
-    handler: Callable[[In], Out]
+class LLMResponse:
+    text: str | None
+    tool_call: ToolCall | None            # at most one per turn (parallel_tool_calls=False)
+    usage: TokenUsage                     # input_tokens, output_tokens
 
-class ToolRegistry:
-    def register(self, tool: Tool) -> None: ...
-    def subset(self, names: Iterable[str]) -> "ToolRegistry": ...
-    def call(self, name: str, raw_args: Mapping[str, object]) -> ToolCallRecord: ...
-
-@dataclass(frozen=True)
-class Subagent:
-    name: str                             # monitoring | irrigation | imaging | reporting
-    system_prompt: str
-    tool_names: frozenset[str]
-
-class Orchestrator:
-    def run(self, user_message: str, plot_id: int) -> AgentResult: ...
-    # bounded loop: at most settings.agent_max_steps model calls
-
-@dataclass(frozen=True)
-class AgentResult:
-    answer: str
-    trace: tuple[ToolCallRecord, ...]     # name, args, result or error, duration, step
-    stopped_by_step_limit: bool
+class LLMUnavailableError(Exception): ... # the service could not answer (D048)
+class FixtureExhaustedError(Exception): ...  # the mock has no response for this call (D049)
 ```
 
+- `MuseClient(settings)` calls `responses.create` with `store=False` and
+  `parallel_tool_calls=False`. It is the only module that imports `openai`,
+  and it translates every SDK error into `LLMUnavailableError`.
+- `MockLLMClient(fixture_path)` replays a JSON list of responses in order.
+  A call past the end raises `FixtureExhaustedError`.
+
+**Tools** (`app/agent/tools/`).
+
+```python
+@dataclass(frozen=True)
+class Tool(Generic[In]):
+    name: str
+    description: str
+    input_model: type[In]                 # pydantic model -> JSON schema the model sees
+    handler: Callable[[In], JsonObject]
+    closes_run: bool = False              # submit_* and finish
+
+class ToolRegistry:
+    def register(self, tool: Tool[Any]) -> None: ...      # a duplicate name raises ConfigError
+    def subset(self, names: Iterable[str]) -> "ToolRegistry": ...
+    def specs(self) -> tuple[ToolSpec, ...]: ...
+    def call(self, name: str, arguments_json: str) -> ToolOutcome: ...
+```
+
+`call` never raises into the loop. An unknown tool, invalid JSON, a
+validation error or a `ToolRefusedError` from the handler comes back as
+`{"error": "..."}`, so the model can correct itself. Checks live inside the
+handlers, never in a separate tool the model may skip.
+
+**Subagents and the loop** (`app/agent/loop.py`).
+
+```python
+@dataclass(frozen=True)
+class Subagent:
+    name: str                             # monitoring | imaging | irrigation | reporting | orchestrator
+    system_prompt: str
+    tool_names: frozenset[str]
+    closing_tool: str | None              # None: a text answer ends the run (chat)
+
+class AgentLoop:
+    def __init__(
+        self, llm: LLMClient, registry: ToolRegistry, trace: TraceSink,
+        subagents: Sequence[Subagent], max_turns: int,
+        timer: Callable[[], float] = time.perf_counter,
+    ) -> None: ...                        # validates every subagent; raises ConfigError
+    def run(self, subagent: str, task: str, run_id: str) -> AgentRun: ...
+    def resume(self, run: AgentRun) -> AgentRun: ...   # only from PAUSED, same process (D046)
+
+@dataclass(frozen=True)
+class AgentRun:
+    run_id: str
+    subagent: str
+    status: RunStatus                     # COMPLETED | TURN_LIMIT | PAUSED
+    output: JsonObject | str | None       # closing-tool result, text answer, or None
+    transcript: tuple[Message, ...]       # what resume() continues from
+    turns: int                            # completed model calls
+```
+
+**Rules of the loop.**
+
+1. **Startup validation.** For every subagent, each name in `tool_names`
+   must be registered. When `closing_tool` is set, it must be in
+   `tool_names` and have `closes_run=True`, and no other tool in the set may
+   have `closes_run=True`. When `closing_tool` is `None`, no tool in the set
+   may have `closes_run=True`. Any violation raises `ConfigError` when the
+   loop is built, so the app does not start.
+2. **A turn** is one completed model call. Turns are numbered from 1 up to
+   `max_turns`.
+3. **Ending.** A successful call to the closing tool ends the run as
+   `COMPLETED`, with the tool's result as `output`. A refused call to the
+   closing tool does not end it. For a subagent without a closing tool, a
+   text answer ends the run as `COMPLETED`, with the text as `output`.
+4. **Text without closing.** For a subagent with a closing tool, a text
+   answer consumes its turn, and the loop appends a reminder to call the
+   closing tool.
+5. **Last-turn nudge.** When turn `max_turns - 1` ends without closing the
+   run, the loop appends one nudge, so the model reads it on turn
+   `max_turns`. If that turn's answer was text, the reminder and the nudge
+   are appended together and no extra turn is granted.
+6. **Turn limit.** If turn `max_turns` ends without closing, the run ends
+   as `TURN_LIMIT` with `output=None`. Exactly `max_turns` model calls are
+   made.
+7. **Pause.** Only `LLMUnavailableError` pauses a run (D048). Tool and
+   validation errors go back to the model as `{"error": ...}`.
+   `FixtureExhaustedError` and any other exception propagate (D049).
+
+**Trace** (D045). `TraceSink` is a port with one method,
+`record(entry: TraceEntry) -> None`. `EventLogTraceSink(uow, clock)` writes
+each entry as one `agent_tool_call` event, in its own transaction:
+
+- **actor:** `agent:<subagent>`;
+- **inputs:** `run_id`, `turn`, `tool`, `arguments`, `result` or `error`,
+  `duration_ms` and `usage`;
+- **idempotency key:** `agent-run-{run_id}:turn-{n}` for a completed turn,
+  and `agent-run-{run_id}:turn-{n}:pause-{k}` for the k-th pause before
+  turn n.
+
+A paused attempt is recorded with `tool: null` and the error class name.
+The sink skips an entry whose key already exists, so resuming a run never
+duplicates a turn.
+
 Only the Irrigation subagent holds `propose_action`, which calls
-`ProposalPort.propose`. The other subagents have read-only tools. The mock
-client replays recorded responses keyed by scenario and step, so it is
-deterministic.
+`ProposalPort.propose`. The other subagents have read-only tools. The
+orchestrator for the farmer chat and the subagents themselves arrive in
+step 7b (D044).
 
 ### 4.9 Satellite, weather and voice
 
@@ -737,13 +830,20 @@ class SegmentationProvider(Protocol):
 # Sam31Segmentation · MockSegmentation (rectangular mask)
 
 class ForecastProvider(Protocol):
-    def rain_next_24h_mm(self, lat: float, lon: float, at: datetime) -> float: ...
+    def rain_next_24h_mm(self, lat: float, lon: float, at: datetime) -> float | None: ...
 # OpenMeteoForecast (httpx) · FixtureForecast (data/fixtures/open_meteo/)
+# None: the 24 h window is not fully covered; the gate then holds the action (D027, D047)
 
 class SpeechToText(Protocol):
     def transcribe(self, audio: bytes, language: str) -> str: ...
 # MuseVoiceTranscribe · MockSpeechToText
 ```
+
+`PlotRainForecast(uow, provider)` in `app/services` implements the
+`RainForecast` port of §4.3. It reads the plot's latitude and longitude and
+asks the `ForecastProvider`. `FixtureForecast` reads an hourly Open-Meteo
+response and sums the 24 hours from `at`; it returns `None` when any of
+those hours is missing (D047).
 
 ### 4.10 Persistence (`app/persistence`)
 
