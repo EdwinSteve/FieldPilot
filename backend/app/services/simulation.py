@@ -1,6 +1,6 @@
 """Use cases that connect the field simulator with persistence."""
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 
 from app.domain.enums import EventKind, SensorKind
 from app.domain.models import Event, Reading
@@ -32,14 +32,19 @@ def inject_scenario(
 
 
 def record_readings(
-    source: SensorSource, uow: UowFactory, clock: Clock, plot_id: int
+    source: SensorSource,
+    uow: UowFactory,
+    clock: Clock,
+    plot_id: int,
+    zone_ids: Collection[int] | None = None,
 ) -> Sequence[Reading]:
-    """Read every zone of a plot and store one reading per sensor, in one transaction."""
+    """Read the plot's zones (all, or only `zone_ids`) and store one reading per sensor,
+    in one transaction."""
     at = clock.now()
     with uow() as u:
         readings: list[Reading] = []
         for zone in u.zones.list_by_plot(plot_id):
-            if zone.id is None:
+            if zone.id is None or (zone_ids is not None and zone.id not in zone_ids):
                 continue
             snapshot = source.read(zone.id, at)
             readings.extend(

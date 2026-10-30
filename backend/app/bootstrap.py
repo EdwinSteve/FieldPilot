@@ -1,4 +1,4 @@
-"""Load and cross-validate every configuration file at startup.
+"""Load and cross-validate every configuration file at startup, agent prompts included.
 
 Any inconsistency raises ConfigError, and `create_app()` lets it propagate,
 so the application never runs on an unsafe configuration (D005, D006, D025).
@@ -14,6 +14,8 @@ from pathlib import Path
 from app.actuation.config import ActuationConfig, load_actuation_config
 from app.actuation.emergency import StoredEmergencyStop
 from app.actuation.simulated import SimulatedActuator
+from app.agent.catalog import load_agent_catalog
+from app.agent.loop import Subagent
 from app.autonomy.messages import MessageCatalog, load_message_catalog
 from app.autonomy.policy import AutonomyPolicy, load_autonomy_policy, validate_stage_overrides
 from app.domain.enums import EventKind
@@ -25,6 +27,7 @@ from app.persistence.unit_of_work import SqlUnitOfWork
 from app.phenology.catalog import CatalogError, CropCatalog, load_crop_catalog
 from app.safety.limits import load_safety_limits
 from app.safety.rules import SafetyLimits
+from app.satellite.config import ImagingConfig, load_imaging_config
 from app.services.clock import load_or_start_clock
 from app.services.reconciliation import ReconciliationReport, reconcile_executions
 from app.settings import Settings
@@ -41,6 +44,8 @@ class RuntimeConfig:
     crops: CropCatalog
     messages: MessageCatalog
     actuation: ActuationConfig
+    imaging: ImagingConfig
+    subagents: tuple[Subagent, ...]
 
 
 def load_runtime_config(config_dir: Path) -> RuntimeConfig:
@@ -56,7 +61,13 @@ def load_runtime_config(config_dir: Path) -> RuntimeConfig:
     messages = load_message_catalog(config_dir / "messages" / "es.yaml")
     actuation = load_actuation_config(config_dir / "actuation.yaml")
     return RuntimeConfig(
-        policy=policy, limits=limits, crops=crops, messages=messages, actuation=actuation
+        policy=policy,
+        limits=limits,
+        crops=crops,
+        messages=messages,
+        actuation=actuation,
+        imaging=load_imaging_config(config_dir / "imaging.yaml"),
+        subagents=load_agent_catalog(config_dir / "agents"),  # D053, D055
     )
 
 

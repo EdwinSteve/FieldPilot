@@ -75,6 +75,9 @@ class FieldSimulator:
             raise ValueError(f"zone {zone_id} already simulated")
         self._zones[zone_id] = _ZoneState(soil, initial_vwc, crop_coefficient)
 
+    def simulates(self, zone_id: int) -> bool:
+        return zone_id in self._zones
+
     def set_crop_coefficient(self, zone_id: int, crop_coefficient: float) -> None:
         self._zone(zone_id).crop_coefficient = crop_coefficient
 
