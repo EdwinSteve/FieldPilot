@@ -19,7 +19,7 @@ export function resample(samples: Float32Array, fromRate: number, toRate: number
 }
 
 /** A RIFF/WAVE file: mono, 16-bit little-endian PCM at `sampleRate`. Samples are clamped to [-1, 1]. */
-export function encodeWav(samples: Float32Array, sampleRate: number): Uint8Array {
+export function encodeWav(samples: Float32Array, sampleRate: number): Uint8Array<ArrayBuffer> {
   const dataBytes = samples.length * 2;
   const buffer = new ArrayBuffer(44 + dataBytes);
   const view = new DataView(buffer);
