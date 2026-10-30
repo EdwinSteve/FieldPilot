@@ -269,7 +269,8 @@ so the simulator, calendar and autonomy gate can still be exercised.
 
 [![CI](https://github.com/EdwinSteve/FieldPilot/actions/workflows/ci.yml/badge.svg)](https://github.com/EdwinSteve/FieldPilot/actions/workflows/ci.yml)
 
-Work in progress during the hackathon. Every pull request runs the same
+Work in progress during the hackathon. The plan for steps 7–11 is in
+[`docs/roadmap.md`](docs/roadmap.md). Every pull request runs the same
 Makefile targets as `make check`, in three jobs: repository hygiene, backend
 and frontend ([D041](docs/decisions.md)). The backend job enforces readability
 rules: complexity, unused code, no `print` and no naive datetimes. Findings

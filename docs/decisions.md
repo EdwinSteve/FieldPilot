@@ -1259,3 +1259,84 @@ were enforced only by review.
   a dev dependency.
 - Existing findings were fixed in the same change, for example an unused
   argument in `ExecutionService` and a loop rewritten as `extend`.
+
+---
+
+## D043 — Muse models through the official OpenAI Python SDK
+
+- **Date:** 2026-10-29
+- **Status:** Accepted (2026-10-29)
+
+**Context.** The agent phase needs Muse Spark, SAM 3.1 and Muse Voice
+Transcribe. The Meta workshop (`meta-models/legal-agent-workshop`) reaches
+the Meta Model API with the official OpenAI Python SDK, using
+`responses.create` against `https://api.meta.ai/v1`.
+
+**Decision.**
+- The `openai` package becomes a backend dependency, approved by Edwin on
+  2026-10-29. The commit that adds it lists it and explains why (brief
+  rule 9).
+- `MuseClient` implements the `LLMClient` port with `responses.create`,
+  `store=False` and `parallel_tool_calls=False`. The rest of the agent
+  depends only on the port.
+- **Model ids come from the environment:**
+  - `MUSE_AGENT_MODEL=muse-spark-1.3`;
+  - `MUSE_SEGMENTATION_MODEL=sam-3.1`;
+  - `MUSE_TRANSCRIBE_MODEL=muse-voice-transcribe-1.0`.
+
+  All three were confirmed with `GET /v1/models` on 2026-10-29.
+- The variables keep the `MUSE_` prefix of `.env.example`, instead of the
+  workshop's `MODEL_API_*`.
+- `MOCK_LLM=1` remains the default and never reaches the network.
+
+**Consequences.** The client can be swapped without touching the loop, the
+tools or the subagents. Tests use `MockLLMClient` only.
+
+---
+
+## D044 — One loop engine; a fixed daily pipeline and an orchestrator for chat
+
+- **Date:** 2026-10-29
+- **Status:** Accepted (2026-10-29)
+
+**Context.** The architecture plans four subagents (monitoring, irrigation,
+imaging, reporting) and an orchestrator. The workshop teaches one agent in
+one loop, where the model chooses every tool call. A model that also chose
+the order of the subagents could route wrongly during the demo.
+
+**Decision.**
+- **One `AgentLoop`**, shared by every subagent. A subagent is a system
+  prompt, a subset of tools and a closing tool.
+- **Daily cycle:** Monitoring, Imaging, Irrigation, Reporting, in a fixed
+  order. Inside each subagent, the model chooses every tool call.
+- **Farmer chat:** the orchestrator is an agent whose tools consult the
+  subagents and return their structured results.
+- **Handoffs** are validated objects that cite observation ids (the
+  `FieldBrief`), never free text.
+- **Only Irrigation holds `propose_action`.** The other subagents have
+  read-only tools.
+
+**Consequences.** The demo is deterministic in its order and still agentic
+in its decisions. A routing mistake can only happen in the chat, where the
+gate still guards every action.
+
+---
+
+## D045 — The agent trace lives in the event log
+
+- **Date:** 2026-10-29
+- **Status:** Accepted (2026-10-29)
+
+**Context.** The workshop saves progress every turn and shows it in a
+console. FieldPilot already has an append-only event log and an
+`agent_tool_call` event kind.
+
+**Decision.**
+- Every turn writes one `agent_tool_call` event. Its inputs hold the run
+  id, the subagent, the turn, the tool, the arguments, the result or
+  error, and the token usage.
+- There is no new table: a run is the set of events that share its run id.
+- API keys and environment values are never written to the trace.
+
+**Consequences.** The dashboard draws the agent timeline from the event
+log, so there is one audit trail for the agent and for the gate.
