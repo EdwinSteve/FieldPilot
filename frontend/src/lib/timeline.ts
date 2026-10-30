@@ -75,3 +75,58 @@ export const SUBAGENT_LABELS: Record<string, string> = {
   reporting: "Informe",
   orchestrator: "Chat",
 };
+
+export type StoryFilter = "all" | "agent" | "gate" | "system";
+
+export type EventCategory = "agent" | "gate" | "system";
+
+const GATE_KINDS = new Set([
+  "proposal",
+  "gate_verdict",
+  "execution_requested",
+  "execution",
+  "execution_failed",
+  "revert",
+  "revert_refused",
+  "approval",
+  "rejection",
+]);
+
+/** Agent work, gate-and-task decisions, or everything else (clock, scenarios, stops). */
+export function eventCategory(kind: string): EventCategory {
+  if (kind === "agent_tool_call") return "agent";
+  if (GATE_KINDS.has(kind)) return "gate";
+  return "system";
+}
+
+export interface StoryEntry {
+  sortId: number;
+  run: TimelineRun | null;
+  event: LogEvent | null;
+}
+
+/**
+ * Agent runs and single entries merged newest-first. Agent turns stay inside
+ * their run; anything that is not a turn shows on its own, so nothing hides.
+ */
+export function storyEntries(
+  events: readonly LogEvent[],
+  filter: StoryFilter,
+): StoryEntry[] {
+  const runs = filter === "gate" || filter === "system" ? [] : groupRuns(events);
+  const inRun = new Set<number>();
+  for (const run of runs) {
+    for (const turn of run.turns) inRun.add(turn.eventId);
+  }
+  const entries: StoryEntry[] = runs.map((run) => ({
+    sortId: Math.max(...run.turns.map((turn) => turn.eventId)),
+    run,
+    event: null,
+  }));
+  for (const event of events) {
+    if (inRun.has(event.id)) continue;
+    if (filter !== "all" && eventCategory(event.kind) !== filter) continue;
+    entries.push({ sortId: event.id, run: null, event });
+  }
+  return entries.toSorted((a, b) => b.sortId - a.sortId);
+}

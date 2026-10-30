@@ -883,22 +883,74 @@ code {
   font-weight: 600;
 }
 
-/* Timeline */
+/* Event story */
 
-.timeline-run {
-  border-top: 1px solid var(--color-border-soft);
-  padding: 8px 0;
+.filter-group {
+  border: none;
+  padding: 0;
+  margin: 0 0 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 
-.timeline-run__turns {
-  margin: 4px 0;
+.filter-group legend {
+  font-size: 0.85em;
+  color: var(--color-muted);
+  padding: 0;
+  margin-right: 4px;
+}
+
+.story {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.story-run,
+.story-event {
+  border-top: 1px solid var(--color-border-soft);
+  padding: 10px 0;
+}
+
+.story-run__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.story-run__turns {
+  margin: 6px 0 0;
   padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.story-event {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.story-event .icon {
+  margin-top: 3px;
+  color: var(--color-soil);
+}
+
+.story-event__reason {
+  margin: 2px 0 0;
 }
 
 .turn {
   display: flex;
   flex-direction: column;
-  margin-bottom: 4px;
+  gap: 1px;
 }
 
 .turn--refused .turn__observe {
@@ -907,6 +959,27 @@ code {
 
 .turn--paused {
   color: var(--color-sun);
+}
+
+.turn details {
+  margin: 2px 0;
+}
+
+.turn summary {
+  cursor: pointer;
+  color: var(--color-sky);
+  font-size: 0.85em;
+  width: fit-content;
+}
+
+.turn__detail {
+  display: block;
+  white-space: pre-wrap;
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-top: 4px;
+  font-size: 0.78em;
 }
 
 /* Autonomy legend */

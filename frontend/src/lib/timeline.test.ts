@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Json, LogEvent } from "../types/api";
-import { groupRuns } from "./timeline";
+import { eventCategory, groupRuns, storyEntries } from "./timeline";
 
 let nextId = 1;
 
@@ -68,5 +68,55 @@ describe("groupRuns", () => {
     const other: LogEvent = { ...call("s1-monitoring", 1, {}), kind: "gate_verdict" };
 
     expect(groupRuns([cycleEntry, other])).toEqual([]);
+  });
+});
+
+describe("eventCategory", () => {
+  it("sorts agent work, gate decisions and the rest", () => {
+    expect(eventCategory("agent_tool_call")).toBe("agent");
+    expect(eventCategory("gate_verdict")).toBe("gate");
+    expect(eventCategory("approval")).toBe("gate");
+    expect(eventCategory("execution_failed")).toBe("gate");
+    expect(eventCategory("clock_changed")).toBe("system");
+    expect(eventCategory("scenario_injected")).toBe("system");
+    expect(eventCategory("something_new")).toBe("system");
+  });
+});
+
+function single(kind: string): LogEvent {
+  return { ...call("x", 0, {}), kind };
+}
+
+describe("storyEntries", () => {
+  it("merges runs and single entries newest-first", () => {
+    const verdict = single("gate_verdict"); // id n
+    const entries = storyEntries(
+      [verdict, call("r1", 1, { tool: "read_zone" }), call("r1", 2, { tool: "submit_assessment" })],
+      "all",
+    );
+
+    expect(entries).toHaveLength(2);
+    expect(entries[0]?.run?.runId).toBe("r1");
+    expect(entries[1]?.event?.kind).toBe("gate_verdict");
+  });
+
+  it("filters by category without hiding agent turns", () => {
+    const events = [
+      single("gate_verdict"),
+      single("clock_changed"),
+      call("r1", 1, { tool: "read_zone" }),
+    ];
+
+    expect(storyEntries(events, "agent")).toHaveLength(1);
+    expect(storyEntries(events, "gate").map((e) => e.event?.kind)).toEqual(["gate_verdict"]);
+    expect(storyEntries(events, "system").map((e) => e.event?.kind)).toEqual(["clock_changed"]);
+  });
+
+  it("shows an agent entry that is not a turn on its own", () => {
+    const stray = call("r1", 1, {}, "system:daily_cycle");
+    const entries = storyEntries([stray], "agent");
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.event?.id).toBe(stray.id);
   });
 });
