@@ -1173,9 +1173,10 @@ startup writes a `config_override` event with both values.
 |---|---|---|
 | GET | `/health` | — |
 | GET | `/plots`, `/plots/{id}/zones` | plots and zones |
+| GET | `/plots/{id}/imagery` | NDVI, low-NDVI %, bare soil and low vigour per zone (D067) |
 | GET | `/readings?zone_id=` | readings |
 | GET | `/cycles`, `/cycles/{id}` | cycles and stages |
-| GET | `/tasks?status=` | tasks, with `revert_deadline` and `revert_open` (D011) |
+| GET | `/tasks?status=` | tasks, with `revert_deadline` and `revert_open` (D011), and `reason_es` when held (D067) |
 | POST | `/tasks/{id}/approve` | `ApprovalService.approve` (D062) |
 | POST | `/tasks/{id}/reject` | `ApprovalService.reject` (D008) |
 | POST | `/tasks/{id}/revert` | `RevertService.revert` |
@@ -1187,6 +1188,8 @@ startup writes a `config_override` event with both values.
 | POST | `/agent/daily-cycle` | `DailyCycle.run` (D064) |
 | GET, POST | `/clock` | `ClockService`: pause, resume, speed, advance (D011, D064) |
 | POST | `/simulation/tick` | `SimulationTicker.tick` (D065) |
+| GET | `/simulation/status` | scenarios the simulator applies now, and scenarios lost to a restart (D014, D067) |
+| POST | `/simulation/scenarios` | inject a drought or heavy-rain scenario, logged (D067) |
 | GET, POST | `/emergency-stop` | `EmergencyStopService` |
 
 Route handlers parse the request, call one service function and map the

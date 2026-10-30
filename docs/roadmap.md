@@ -184,8 +184,11 @@ Each step follows the usual process:
 - **Views:** the agent timeline (plan → act → observe, from
   `agent_tool_call`), approvals, the revert card worded as D011 requires,
   the calendar, the zones with NDVI, and the D014 restart notice.
-- **Frontend lint:** decide whether to add ESLint now (new npm
-  dependencies, which need approval under rule 9).
+- **Frontend tooling (D068):** ESLint with typescript-eslint and the
+  React hooks rules, and Vitest for pure logic (WAV encoding, the D011
+  card, the timeline). Both run in `make check` and CI.
+- **Backend for the views (D067):** imagery per zone, simulation status
+  and scenario injection, and the farmer's reason on held tasks.
 - **Done when:** the whole demo flow is visible in the browser.
 
 ### Step 11: seed, end to end and demo (2026-11-03 → 11-04)
