@@ -738,9 +738,10 @@ class ToolRegistry:
     def call(self, name: str, arguments_json: str) -> ToolOutcome: ...
 ```
 
-`call` never raises into the loop. An unknown tool, invalid JSON, a
-validation error or a `ToolRefusedError` from the handler comes back as
-`{"error": "..."}`, so the model can correct itself. Checks live inside the
+`call` never raises into the loop for a mistake the model can fix. An
+unknown tool, invalid JSON, a validation error or a `ToolRefusedError` from
+the handler comes back as `{"error": "..."}`, so the model can correct
+itself. Any other exception from a handler is a bug and propagates (rule 7). Checks live inside the
 handlers, never in a separate tool the model may skip.
 
 **Subagents and the loop** (`app/agent/loop.py`).
@@ -770,6 +771,7 @@ class AgentRun:
     output: JsonObject | str | None       # closing-tool result, text answer, or None
     transcript: tuple[Message, ...]       # what resume() continues from
     turns: int                            # completed model calls
+    pauses: int                           # numbers the pause entries of the trace
 ```
 
 **Rules of the loop.**
