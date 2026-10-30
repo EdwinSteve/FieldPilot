@@ -55,12 +55,12 @@ def test_a_pause_in_irrigation_skips_reporting_and_keeps_earlier_proposals(
 ) -> None:
     world = World(uow)
     fixture = MockLLMClient.from_fixture(LLM_FIXTURES / "d009_day1.json")
-    llm = FlakyLLM(fixture, failing_attempts=[7])  # after the first proposal
+    llm = FlakyLLM(fixture, failing_attempts=[9])  # after the first proposal
 
     result = DailyCycle(uow, agent_deps(world, llm), MESSAGES).run(world.plot_id)
 
     assert (result.status, result.stopped_at) == (RunStatus.PAUSED, "irrigation")
-    assert [run.subagent for run in result.runs] == ["monitoring", "irrigation"]
+    assert [run.subagent for run in result.runs] == ["monitoring", "imaging", "irrigation"]
     assert [p.task_id for p in result.brief.proposals] == [1]
     with uow() as u:
         assert u.reports.list_by_cycle(1) == []
@@ -69,7 +69,7 @@ def test_a_pause_in_irrigation_skips_reporting_and_keeps_earlier_proposals(
 def test_the_next_run_retries_under_new_ids_and_repeats_no_proposal(uow: UowFactory) -> None:
     """D048 and D023: the retry starts over; the first irrigation is not duplicated."""
     world = World(uow)
-    paused = FlakyLLM(MockLLMClient.from_fixture(LLM_FIXTURES / "d009_day1.json"), [7])
+    paused = FlakyLLM(MockLLMClient.from_fixture(LLM_FIXTURES / "d009_day1.json"), [9])
     deps = agent_deps(world, paused)
     DailyCycle(uow, deps, MESSAGES).run(world.plot_id)
 
@@ -82,4 +82,4 @@ def test_the_next_run_retries_under_new_ids_and_repeats_no_proposal(uow: UowFact
     run_ids = {e.inputs.get("run_id") for e in world.events(EventKind.AGENT_TOOL_CALL)}
     # Both deps count from s1, so the retry's runs share ids with the first cycle's;
     # the trace keys still differ by turn, and nothing is written twice.
-    assert {"s1-monitoring", "s1-irrigation", "s1-reporting"} <= run_ids
+    assert {"s1-monitoring", "s1-imaging", "s1-irrigation", "s1-reporting"} <= run_ids

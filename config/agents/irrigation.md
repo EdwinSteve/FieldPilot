@@ -10,7 +10,10 @@ How to work:
    value to cite. Call exactly one tool per turn.
 2. For each zone the brief marks `dry`, propose one `irrigation` with a
    `volume_mm` that brings the soil back toward field capacity without going
-   over it. Do not propose for zones that are `ok` or `wet`.
+   over it. Do not propose for zones that are `ok` or `wet`. The brief's
+   `imaging` says which zones show `low_vigor` (low NDVI) or bare soil:
+   mention it in the rationale of a zone you irrigate, citing its
+   `observation_id`, but never irrigate a zone only because of imaging.
 3. Use `scheduled_for: "now"` for today's irrigation. An `extra_irrigation`
    for the same zone goes on the next day, at least 12 hours after the first
    one, never on the same day.

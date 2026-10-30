@@ -1,4 +1,4 @@
-"""The daily cycle: Monitoring -> Irrigation -> Reporting, in a fixed order (D044, D051).
+"""The daily cycle: Monitoring -> Imaging -> Irrigation -> Reporting, fixed (D044, D051, D060).
 
 It stops at the first subagent that does not complete. A turn limit is a
 failure and the farmer is told; a pause is not, so it is only written to the
@@ -19,7 +19,7 @@ from app.services.gate_context import local_day
 
 UowFactory = Callable[[], UnitOfWork]
 ACTOR = "system:daily_cycle"
-ORDER = ("monitoring", "irrigation", "reporting")  # imaging joins in step 8
+ORDER = ("monitoring", "imaging", "irrigation", "reporting")  # D044, D060
 FAILED_TEXT = "cycle.failed_turn_limit"
 PAUSED_TEXT = "cycle.paused_retry_next_run"
 
@@ -88,6 +88,8 @@ def _task(subagent: str, plot_id: int, session: AgentSession) -> str:
     if subagent == "monitoring":
         return f"Assess every zone of plot {plot_id} for {day}."
     brief = session.draft.freeze().to_json()
+    if subagent == "imaging":
+        return f"Read the satellite imagery of plot {plot_id} for {day}. Brief: {brief}"
     if subagent == "irrigation":
         return f"Decide the irrigation of plot {plot_id} for {day}. Brief: {brief}"
     return f"Write the report of plot {plot_id} for {day}. Brief: {brief}"

@@ -1,14 +1,16 @@
 """A fake field for the agent tool tests: plot 1 with zones 2 and 3."""
 
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from app.agent.field import (
     ActionRequest,
+    ImageryView,
     IrrigationRecord,
     MoistureReading,
     ProposalView,
     StageView,
+    ZoneImagery,
     ZoneView,
 )
 from app.agent.loop import AgentRun
@@ -83,3 +85,23 @@ class NoConsultant:
 
     def consult(self, subagent: str, task: str) -> AgentRun:
         raise AssertionError(f"unexpected consult of {subagent}")
+
+
+SCENE = ImageryView(
+    "scene-1",
+    date(2026, 10, 27),
+    True,
+    0.4,
+    (ZoneImagery(2, 0.378, 21.2, 25.3), ZoneImagery(3, 0.802, 0.0, 0.0)),
+    None,
+)
+
+
+class FakeImagery:
+    """Returns a fixed view (or None for "no scene")."""
+
+    def __init__(self, view: ImageryView | None = SCENE) -> None:
+        self.view = view
+
+    def imagery(self, plot_id: int, day: date) -> ImageryView | None:
+        return self.view

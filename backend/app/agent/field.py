@@ -6,7 +6,7 @@ implements this port over the unit of work.
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from typing import Protocol
 
 
@@ -89,3 +89,25 @@ class FarmerOutbox(Protocol):
 
     def save_report(self, plot_id: int, text_es: str) -> int: ...
     def notify(self, plot_id: int, text_key: str) -> None: ...
+
+
+@dataclass(frozen=True)
+class ZoneImagery:
+    zone_id: int
+    ndvi_mean: float | None
+    low_ndvi_pct: float | None
+    bare_soil_pct: float | None  # None when segmentation was unavailable
+
+
+@dataclass(frozen=True)
+class ImageryView:
+    scene_id: str
+    acquired_on: date
+    synthetic: bool
+    low_ndvi_threshold: float
+    zones: tuple[ZoneImagery, ...]  # the plot's zones the scene covers
+    segmentation_note: str | None  # why bare_soil_pct is missing, if it is
+
+
+class ImageryReader(Protocol):
+    def imagery(self, plot_id: int, day: date) -> ImageryView | None: ...  # None: no scene
