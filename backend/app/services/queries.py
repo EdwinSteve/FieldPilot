@@ -7,6 +7,7 @@ from datetime import timedelta
 from app.agent.field import ImageryReader, ImageryView
 from app.autonomy.messages import MessageCatalog
 from app.domain.enums import EventKind, TaskStatus
+from app.domain.errors import NotFoundError
 from app.domain.models import (
     CropCycle,
     Event,
@@ -116,6 +117,15 @@ class FarmQueries:
         with self._uow() as u:
             plot = u.plots.get(plot_id)
         return self._imagery.imagery(plot_id, local_day(self._clock.now(), plot))
+
+    def imagery_image(self, plot_id: int) -> bytes:
+        """The plot's latest scene as PNG bytes, for the dashboard overlay (D073)."""
+        with self._uow() as u:
+            plot = u.plots.get(plot_id)
+        png = self._imagery.scene_png(plot_id, local_day(self._clock.now(), plot))
+        if png is None:
+            raise NotFoundError("scene", plot_id)
+        return png
 
     def _held_reason(self, task: Task) -> str | None:
         """The stored verdict's rules, rendered from the catalogue (D067)."""

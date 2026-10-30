@@ -50,7 +50,11 @@ class StoredImageryReader:
                 continue
             stats = zone_ndvi(ndvi, area, self._config.low_ndvi_threshold)
             bare = None if boxes is None else covered_pct(boxes, area)
-            views.append(ZoneImagery(zone.id, stats.mean, stats.low_pct, bare))
+            views.append(
+                ZoneImagery(
+                    zone.id, stats.mean, stats.low_pct, bare, (area.x1, area.y1, area.x2, area.y2)
+                )
+            )
         return ImageryView(
             scene.scene_id,
             scene.acquired_on,
@@ -58,7 +62,15 @@ class StoredImageryReader:
             self._config.low_ndvi_threshold,
             tuple(views),
             note,
+            () if boxes is None else tuple(box.normalized() for box in boxes),
         )
+
+    def scene_png(self, plot_id: int, day: date) -> bytes | None:
+        """The scene's RGB image for the dashboard overlay; None when there is no scene."""
+        with self._uow() as u:
+            plot = u.plots.get(plot_id)
+        scene = self._loader.latest(plot.latitude, plot.longitude, day)
+        return None if scene is None else scene.rgb_png()
 
     def _segment(self, scene: Scene) -> tuple[tuple[Box, ...] | None, str | None]:
         """The scene's boxes, or None with the reason. An outage is not cached."""

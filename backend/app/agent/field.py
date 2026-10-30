@@ -97,6 +97,7 @@ class ZoneImagery:
     ndvi_mean: float | None
     low_ndvi_pct: float | None
     bare_soil_pct: float | None  # None when segmentation was unavailable
+    area: tuple[float, float, float, float]  # normalized (x1, y1, x2, y2) in the scene image
 
 
 @dataclass(frozen=True)
@@ -107,6 +108,7 @@ class ImageryView:
     low_ndvi_threshold: float
     zones: tuple[ZoneImagery, ...]  # the plot's zones the scene covers
     segmentation_note: str | None  # why bare_soil_pct is missing, if it is
+    boxes: tuple[tuple[float, float, float, float], ...]  # normalized SAM boxes; () when unknown
 
     def low_vigor(self, zone: ZoneImagery) -> bool:
         """Mean NDVI strictly below the threshold; an unknown mean is not low (D059)."""
@@ -115,3 +117,4 @@ class ImageryView:
 
 class ImageryReader(Protocol):
     def imagery(self, plot_id: int, day: date) -> ImageryView | None: ...  # None: no scene
+    def scene_png(self, plot_id: int, day: date) -> bytes | None: ...  # None: no scene

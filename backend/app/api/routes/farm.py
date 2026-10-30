@@ -3,6 +3,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Query
+from fastapi.responses import Response
 
 from app.api.deps import ContainerDep
 from app.api.schemas import CycleOut, ImageryOut, PlotOut, SensorReadingsOut, ZoneOut
@@ -23,6 +24,12 @@ def list_zones(plot_id: int, container: ContainerDep) -> list[ZoneOut]:
 @router.get("/plots/{plot_id}/imagery")
 def plot_imagery(plot_id: int, container: ContainerDep) -> ImageryOut:
     return ImageryOut.of(container.queries.imagery(plot_id))
+
+
+@router.get("/plots/{plot_id}/imagery/image")
+def plot_imagery_image(plot_id: int, container: ContainerDep) -> Response:
+    """The scene's PNG for the dashboard overlay; 404 when there is no scene (D073)."""
+    return Response(container.queries.imagery_image(plot_id), media_type="image/png")
 
 
 @router.get("/readings")

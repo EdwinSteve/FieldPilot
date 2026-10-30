@@ -2092,3 +2092,32 @@ only learned that after asking. The dashboard should say so up front.
 
 **Consequences.** Mock mode never looks broken, and a real outage never
 looks like mock mode.
+
+---
+
+## D073 — The dashboard draws the scene, the boxes and the policy
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30). Extends §7 and D067.
+
+**Context.** The redesign shows the satellite scene with SAM's boxes over
+it, and a legend of the autonomy policy. The API offers neither the image
+nor the boxes nor the policy.
+
+**Decision.**
+- `GET /plots/{id}/imagery/image` returns the scene's RGB PNG
+  (`image/png`). A plot without a scene, or an unknown plot, answers 404.
+- `GET /plots/{id}/imagery` gains `boxes`: SAM's boxes in normalized
+  `[0, 1]` image coordinates, in detection order, `[]` when segmentation
+  is unknown. Each zone gains `area`: its outline in the same
+  coordinates, from the scene file. The agent's `read_imagery` output is
+  unchanged: it builds its JSON field by field and never sees these.
+- `GET /autonomy/policy` returns the enforced policy: `defaults` (every
+  action type to its level, sorted by action) and `always_approval`
+  (sorted). It reads the loaded configuration; there is nothing to
+  decide at request time.
+- All three are read-only. The §7 table lists them.
+
+**Consequences.** The overlay, the legend and the "how it works" diagram
+read facts only from the API. Pixel boxes stay in the backend: the
+dashboard positions everything in fractions of the image.
