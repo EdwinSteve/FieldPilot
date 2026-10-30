@@ -1622,9 +1622,8 @@ test.
 ## D057 — The chat orchestrator is read-only for now
 
 - **Date:** 2026-10-30
-- **Status:** Accepted (2026-10-30), pending Edwin's review before the step
-  7b pull request. Amends the §4.8 line that gave the orchestrator
-  `consult_irrigation`.
+- **Status:** Accepted (2026-10-30), confirmed by Edwin on 2026-10-30.
+  Amends the §4.8 line that gave the orchestrator `consult_irrigation`.
 
 **Context.** §4.8 gave the orchestrator `consult_monitoring` and
 `consult_irrigation`. `consult_irrigation` would run the Irrigation subagent,
