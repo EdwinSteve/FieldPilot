@@ -95,6 +95,7 @@ export function App() {
         <>
           <ControlBar
             plot={plot}
+            version={version}
             clock={clock.data}
             autoTickOn={autoTickOn}
             tickError={tickError}

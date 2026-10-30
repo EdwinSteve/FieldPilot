@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { api } from "../api/endpoints";
 import { fetchHealth } from "../api/health";
 import { describeError, useResource } from "../hooks/useResource";
-import { isMockModeChatError } from "../lib/chatMode";
+import { isMockModeChatError } from "../lib/mockMode";
 import { type Recording, startRecording } from "../lib/recorder";
 import type { ChatAnswer, Plot, VoiceAnswer } from "../types/api";
 import { Panel } from "./Panel";

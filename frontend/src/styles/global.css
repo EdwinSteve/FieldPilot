@@ -324,6 +324,11 @@ code {
   margin: 0;
 }
 
+.control-bar .notice {
+  width: 100%;
+  margin: 0;
+}
+
 .control-bar__stop {
   display: block;
   color: var(--color-danger);
