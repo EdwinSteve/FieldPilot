@@ -1340,3 +1340,104 @@ console. FieldPilot already has an append-only event log and an
 
 **Consequences.** The dashboard draws the agent timeline from the event
 log, so there is one audit trail for the agent and for the gate.
+
+---
+
+## D046 — An agent run reports its status and can be resumed in the same process
+
+- **Date:** 2026-10-29
+- **Status:** Accepted (2026-10-29). Amends the `AgentResult` contract of §4.8.
+
+**Context.** §4.8 returned `AgentResult(answer, trace, stopped_by_step_limit)`.
+The workshop loop has three endings: done, out of turns, and paused when
+the API fails, with a way to resume. A boolean cannot express the pause,
+and a result without the conversation cannot be resumed.
+
+**Decision.**
+- `AgentLoop.run` returns `AgentRun` with `status` (`COMPLETED`,
+  `TURN_LIMIT` or `PAUSED`), `output`, `transcript` and `turns`.
+- `AgentLoop.resume(run)` continues a `PAUSED` run from its transcript. It
+  refuses any other status.
+- Resuming happens only in the same process. The transcript is not
+  persisted; the trace in the event log is enough to audit a run (D045).
+- `Orchestrator.run` moves to step 7b, together with the subagents.
+
+**Consequences.** A caller can tell a finished run from a stopped one and
+retry only what paused. What happens to a paused run on restart is set by
+D048.
+
+---
+
+## D047 — The rain forecast may be unknown, and coordinates stay in the adapter
+
+- **Date:** 2026-10-29
+- **Status:** Accepted (2026-10-29)
+
+**Context.** §4.9 declared `ForecastProvider.rain_next_24h_mm(lat, lon, at)
+-> float`. The gate already uses `RainForecast.rain_mm_next_24h(plot_id,
+at) -> float | None` (§4.3), and D027 holds an irrigation when the forecast
+is unknown. A provider that must return a number would have to invent one
+when its data does not cover the window.
+
+**Decision.**
+- `ForecastProvider.rain_next_24h_mm` returns `float | None`.
+- `FixtureForecast` sums the 24 hourly values from `at` in an Open-Meteo
+  response. If any of those hours is missing, it returns `None`.
+- `PlotRainForecast(uow, provider)` in `app/services` implements
+  `RainForecast`: it looks up the plot's coordinates and asks the provider.
+  The gate keeps depending on `RainForecast` only.
+
+**Consequences.** Missing weather data never becomes "no rain". The
+provider is swappable (fixture now, Open-Meteo later) without touching the
+gate.
+
+---
+
+## D048 — Only an unavailable model pauses a run; a paused run never acts
+
+- **Date:** 2026-10-29
+- **Status:** Accepted (2026-10-29). Complements D046.
+
+**Context.** D046 resumes a paused run only in the same process. It did not
+say what happens to a paused run when the process restarts, nor which
+failures pause a run.
+
+**Decision.**
+- **Only `LLMUnavailableError` pauses a run.** A validation error, a
+  refused tool call or an unknown tool goes back to the model as
+  `{"error": ...}` and consumes the turn. It never pauses.
+- **A paused run executes no tool.** While `PAUSED`, nothing is called
+  until `resume()`; a tool call is only ever run in reply to a model
+  response that arrived.
+- **On restart, a paused run is abandoned, never resumed.** Its
+  `agent_tool_call` events stay in the log as information only. Nothing
+  reads them to continue or to act. The daily cycle runs again from the
+  start under a new run id.
+- Any proposal made before the pause already went through the gate, and a
+  repeated proposal returns the existing task (D023). Running the cycle
+  again does not duplicate it.
+
+**Consequences.** A trace may end without a closing event. The dashboard
+shows such a run as paused or abandoned, not as failed or completed.
+
+---
+
+## D049 — An exhausted mock fixture is an error, not an outage
+
+- **Date:** 2026-10-29
+- **Status:** Accepted (2026-10-29)
+
+**Context.** `MockLLMClient` replays recorded responses. If the loop asked
+for a response the fixture does not have, and the mock raised
+`LLMUnavailableError`, the loop would pause the run (D048). That would hide
+a broken fixture or a changed prompt behind what looks like a service
+outage.
+
+**Decision.**
+- The mock raises `FixtureExhaustedError` when the fixture has no response
+  for the call.
+- `FixtureExhaustedError` is not a subclass of `LLMUnavailableError`. The
+  loop never turns it into `PAUSED`; it propagates and the test fails.
+
+**Consequences.** A fixture that is out of step with the code fails loudly
+in CI instead of passing as a paused run.
