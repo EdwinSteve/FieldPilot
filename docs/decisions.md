@@ -1906,3 +1906,67 @@ not a dependency. Adding one needs Edwin's approval (brief rule 9).
 **Consequences.** The endpoint stays one format, like the JSON chat
 endpoint. If a form upload is ever needed, `python-multipart` comes with
 its own decision.
+
+---
+
+## D067 — What the dashboard needs from the API
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30). Extends §7.
+
+**Context.** The step 10 views need four things the API does not offer:
+- imaging per zone, which only lives inside the daily cycle's brief;
+- the scenarios the simulator applies now, which D014 requires to come
+  from the simulator, never from the log;
+- a way to inject the drought of the README demo;
+- the farmer's reason for a held task. The stored verdict reason is
+  English and technical.
+
+**Decision.**
+- `GET /plots/{id}/imagery` returns the `ImageryView` of
+  `StoredImageryReader` for the plot's current local day: NDVI mean,
+  low-NDVI %, bare soil (null when unknown) and `low_vigor` per zone, with
+  the scene id and whether it is synthetic. No scene gives `scene: null`.
+- `GET /simulation/status` returns
+  `FieldSimulator.active_scenarios(now)`. It also lists every
+  `scenario_injected` event whose window is still open but which the
+  simulator no longer applies. The UI shows those as "El simulador se
+  reinició; el escenario «…» ya no se está aplicando" (D014).
+- `POST /simulation/scenarios` takes `drought` or `heavy_rain` with its
+  window and parameters, and injects it through `inject_scenario`, which
+  logs `scenario_injected`. The window must start no earlier than the
+  current simulated time.
+- Every task held for approval carries `reason_es`: the stored verdict's
+  violations rendered with the message catalogue, the same text the
+  farmer sees elsewhere.
+
+**Consequences.** The dashboard reads facts only from the API, and the
+D014 restart notice is decided by the backend.
+
+---
+
+## D068 — Frontend lint and tests: ESLint and Vitest
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30). Approved by Edwin on 2026-10-30
+  (brief rule 9).
+
+**Context.** The frontend grows from a status line to the whole demo. `tsc`
+does not catch misused React hooks. The D011 card wording is a safety rule
+that must be tested.
+
+**Decision.**
+- **New dev dependencies:** `eslint`, `@eslint/js`, `typescript-eslint`,
+  `eslint-plugin-react-hooks` and `globals` for lint, and `vitest` for
+  unit tests. Each commit that adds them lists them.
+- `npm run lint` and `npm test` join `make check-frontend` and the
+  frontend CI job.
+- Vitest tests pure modules only: WAV encoding, the D011 revert-card text,
+  the timeline grouping and formatting. There is no DOM environment and
+  no component test library.
+- No UI or chart library. The CSS is our own, and simple charts are
+  hand-written SVG.
+- The farmer-facing text is in Spanish; the code is in English (D003).
+
+**Consequences.** Frontend logic has the same "tests before the box is
+ticked" rule as the backend.
