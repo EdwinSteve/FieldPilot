@@ -25,7 +25,7 @@ export function StageBar({ plot, version, clock }: StageBarProps) {
 
   const crop = cycle === null ? "—" : (CROP_LABELS[cycle.crop] ?? cycle.crop);
   return (
-    <Panel title={`Cultivo: ${crop}`} error={cycles.error} icon="leaf">
+    <Panel title={`Cultivo: ${crop}`} error={cycles.error} icon="leaf" loading={cycles.loading}>
       {cycle === null ? <p className="muted">Todavía no hay un cultivo en esta parcela.</p> : null}
       {cycle === null ? null : (
         <>

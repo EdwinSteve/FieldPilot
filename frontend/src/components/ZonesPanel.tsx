@@ -18,7 +18,7 @@ export function ZonesPanel({ plot, version }: ZonesPanelProps) {
   const imagery = useResource(useCallback(() => api.imagery(plot.id), [plot.id]), version);
 
   return (
-    <Panel title="Zonas" error={zones.error ?? imagery.error} icon="drop">
+    <Panel title="Zonas" error={zones.error ?? imagery.error} icon="drop" loading={zones.loading}>
       {zones.data?.length === 0 ? <p className="muted">Todavía no hay zonas.</p> : null}
       <div className="zone-grid">
         {zones.data?.map((zone) => (

@@ -21,7 +21,7 @@ export function InboxPanel({ plot, version, refresh }: InboxPanelProps) {
 
   return (
     <>
-      <Panel title="Avisos" error={notes.error ?? action.error} icon="alert">
+      <Panel title="Avisos" error={notes.error ?? action.error} icon="alert" loading={notes.loading}>
         {notes.data?.length === 0 ? <p className="muted">Sin avisos.</p> : null}
         <ul className="inbox">
           {notes.data?.toReversed().map((note) => (
@@ -36,7 +36,7 @@ export function InboxPanel({ plot, version, refresh }: InboxPanelProps) {
           ))}
         </ul>
       </Panel>
-      <Panel title="Informes del día" error={reports.error} icon="leaf">
+      <Panel title="Informes del día" error={reports.error} icon="leaf" loading={reports.loading}>
         {reports.data?.length === 0 ? <p className="muted">Todavía no hay informes.</p> : null}
         {reports.data?.toReversed().map((report) => (
           <article key={report.id} className="report">

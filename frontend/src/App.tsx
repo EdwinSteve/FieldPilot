@@ -117,9 +117,6 @@ export function App() {
                 verdicts={verdicts}
                 refresh={refresh}
               />
-              <ZonesPanel plot={plot} version={version} />
-              <SatellitePanel plot={plot} version={version} />
-              <StageBar plot={plot} version={version} clock={clock.data} />
               <CalendarPanel
                 plot={plot}
                 version={version}
@@ -128,6 +125,9 @@ export function App() {
                 failures={failures}
                 refresh={refresh}
               />
+              <ZonesPanel plot={plot} version={version} />
+              <SatellitePanel plot={plot} version={version} />
+              <StageBar plot={plot} version={version} clock={clock.data} />
               <TimelinePanel plot={plot} version={version} />
             </div>
             <aside className="layout__side">
