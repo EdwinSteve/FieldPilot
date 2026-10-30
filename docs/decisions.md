@@ -2121,3 +2121,34 @@ nor the boxes nor the policy.
 **Consequences.** The overlay, the legend and the "how it works" diagram
 read facts only from the API. Pixel boxes stay in the backend: the
 dashboard positions everything in fractions of the image.
+
+---
+
+## D074 — The mock demo day is single-shot; make seed rebuilds the farm
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30).
+
+**Context.** The mock cycle replays `demo_day1.json`, whose answers cite
+day-one observation ids; the forecast id even embeds the date
+(`forecast-plot-1-2026-10-28T11:00Z`). Verified against a seeded farm: a
+same-day repeat replays idempotently but duplicates the report, and a run
+on any other simulated day dies with 503 `FixtureExhaustedError`. There
+was no way back: `make seed` did not exist yet.
+
+**Decision.**
+- `backend/scripts/seed_demo.py` plus `make seed` rebuild the exact fresh
+  state the fixture assumes: clock paused at 28 Oct 06:00 local, plot 1,
+  zone 1, one soil-moisture sensor, reading 1 at 20.0, maize sown 1 Oct,
+  then one tick. A test runs the mock day on it and asserts the day-one
+  outcome, so the seed and the fixture cannot drift apart silently.
+- Stop `make dev` before reseeding: the file is replaced while the
+  simulator keeps the old state in memory.
+- In mock mode the dashboard disables "Ejecutar ciclo diario" once any
+  report exists, and says to reseed to replay. A `FixtureExhaustedError`
+  shows the same way back next to the backend's message.
+
+**Consequences.** Rehearsals reset with one command, and the jury never
+meets the dead end: repeats are refused up front with instructions. Step
+11's real recording replaces the fixture, but the seed and the guard stay:
+any recording is single-shot the same way.
