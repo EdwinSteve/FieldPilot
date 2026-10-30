@@ -94,7 +94,7 @@ def test_duplicate_tool_names_are_refused(registry: ToolRegistry) -> None:
 
 
 def test_subset_keeps_only_the_named_tools(registry: ToolRegistry) -> None:
-    subset = registry.subset(["read_moisture"])
+    subset = registry.subset(["read_moisture"], allow_writes=False)
 
     assert subset.names() == frozenset({"read_moisture"})
     assert subset.call("submit_assessment", "{}").error is not None
@@ -102,7 +102,7 @@ def test_subset_keeps_only_the_named_tools(registry: ToolRegistry) -> None:
 
 def test_subset_with_an_unknown_name_is_refused(registry: ToolRegistry) -> None:
     with pytest.raises(ConfigError, match="unknown tools: open_valve"):
-        registry.subset(["read_moisture", "open_valve"])
+        registry.subset(["read_moisture", "open_valve"], allow_writes=False)
 
 
 def test_specs_carry_the_json_schema(registry: ToolRegistry) -> None:
@@ -111,3 +111,13 @@ def test_specs_carry_the_json_schema(registry: ToolRegistry) -> None:
     schema = specs["read_moisture"].parameters
     assert schema["required"] == ["zone_id"]
     assert specs["submit_assessment"].description.endswith("Closes the run.")
+
+
+def test_subset_refuses_a_writing_tool_without_allow_writes(calls: Calls) -> None:
+    """D054, runtime check: independent of the startup validation."""
+    registry = make_registry(calls)
+    registry.register(Tool("propose_action", "Writes.", ZoneArgs, calls.read, writes=True))
+
+    with pytest.raises(ConfigError, match="writing tools need allow_writes: propose_action"):
+        registry.subset(["read_moisture", "propose_action"], allow_writes=False)
+    assert registry.subset(["propose_action"], allow_writes=True).names() == {"propose_action"}
