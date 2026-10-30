@@ -168,6 +168,14 @@ export interface EmergencyStop {
   changed_by: string | null;
 }
 
+/** A rectangle in normalized [0, 1] image coordinates (D073). */
+export interface NormBox {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
 export interface ZoneImagery {
   zone_id: number;
   ndvi_mean: number | null;
@@ -175,6 +183,7 @@ export interface ZoneImagery {
   /** Approximate: from boxes, and null when unknown (D059). */
   bare_soil_pct: number | null;
   low_vigor: boolean;
+  area: NormBox;
 }
 
 export interface Imagery {
@@ -186,6 +195,7 @@ export interface Imagery {
     segmentation_note: string | null;
   } | null;
   zones: ZoneImagery[];
+  boxes: NormBox[];
 }
 
 export interface ScenarioStatus {

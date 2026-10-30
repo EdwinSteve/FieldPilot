@@ -1,5 +1,10 @@
 const API_BASE = "/api";
 
+/** The dashboard URL of a backend path (for resources an <img> loads itself). */
+export function apiUrl(path: string): string {
+  return `${API_BASE}${path}`;
+}
+
 /** The backend's error body (§7): an error class name and a safe message. */
 interface ErrorBody {
   error?: string;
@@ -42,7 +47,7 @@ async function request<T>(
   body?: BodyInit,
   headers?: Record<string, string>,
 ): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, { method, body, headers });
+  const response = await fetch(apiUrl(path), { method, body, headers });
   if (!response.ok) {
     throw await toApiError(response, `${method} ${path}`);
   }

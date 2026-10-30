@@ -21,12 +21,13 @@ import type {
   VoiceAnswer,
   Zone,
 } from "../types/api";
-import { getJson, postBytes, postJson } from "./client";
+import { apiUrl, getJson, postBytes, postJson } from "./client";
 
 export const api = {
   plots: () => getJson<Plot[]>("/plots"),
   zones: (plotId: number) => getJson<Zone[]>(`/plots/${plotId}/zones`),
   imagery: (plotId: number) => getJson<Imagery>(`/plots/${plotId}/imagery`),
+  imageryImageUrl: (plotId: number) => apiUrl(`/plots/${plotId}/imagery/image`),
   readings: (zoneId: number, limit = 200) =>
     getJson<SensorReadings[]>(`/readings?zone_id=${zoneId}&limit=${limit}`),
   cycles: () => getJson<Cycle[]>("/cycles"),

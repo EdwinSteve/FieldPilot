@@ -9,6 +9,7 @@ import { CycleStepper } from "./components/CycleStepper";
 import { HeroDiagram } from "./components/HeroDiagram";
 import { Icon } from "./components/icons";
 import { InboxPanel } from "./components/InboxPanel";
+import { SatellitePanel } from "./components/SatellitePanel";
 import { SimulationPanel } from "./components/SimulationPanel";
 import { TimelinePanel } from "./components/TimelinePanel";
 import { ZonesPanel } from "./components/ZonesPanel";
@@ -113,6 +114,7 @@ export function App() {
                 refresh={refresh}
               />
               <ZonesPanel plot={plot} version={version} />
+              <SatellitePanel plot={plot} version={version} />
               <CalendarPanel
                 plot={plot}
                 version={version}
