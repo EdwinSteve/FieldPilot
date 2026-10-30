@@ -286,7 +286,7 @@ passes its tests. Design decisions are logged in
 - [x] 6. Simulated actuator and NOTIFY revert window
 - [x] 7. Agent orchestrator and subagents
 - [x] 8. Satellite NDVI and segmentation
-- [ ] 9. REST API
+- [x] 9. REST API
 - [ ] 10. Frontend dashboard
 - [ ] 11. Demo seed and end-to-end test
 

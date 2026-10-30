@@ -9,6 +9,7 @@ from app.simulator.clock import Clock
 from app.simulator.field import FieldSimulator
 from app.simulator.ports import SensorSource, ZoneSnapshot
 from app.simulator.scenarios import Scenario
+from app.simulator.water_balance import SoilParams
 
 UowFactory = Callable[[], UnitOfWork]
 
@@ -65,3 +66,35 @@ def _value_for(kind: SensorKind, snapshot: ZoneSnapshot) -> float:
             return snapshot.temperature_c
         case SensorKind.HUMIDITY:
             return snapshot.relative_humidity_pct
+
+
+def ensure_simulated(uow: UowFactory, simulator: FieldSimulator) -> list[int]:
+    """Give the simulator every stored zone it lacks, from the zone's latest moisture.
+
+    The simulator starts empty after a restart (D014, §4.10). A zone with no
+    moisture reading is left out and returned, never given a guessed value (D019).
+    """
+    missing = []
+    with uow() as u:
+        for plot in u.plots.list():
+            if plot.id is None:
+                continue
+            for zone in u.zones.list_by_plot(plot.id):
+                if zone.id is None or simulator.simulates(zone.id):
+                    continue
+                moisture = _latest_moisture(u, zone.id)
+                if moisture is None:
+                    missing.append(zone.id)
+                    continue
+                soil = SoilParams(field_capacity_vwc=zone.field_capacity_pct)
+                simulator.add_zone(zone.id, soil, initial_vwc=moisture)
+    return missing
+
+
+def _latest_moisture(u: UnitOfWork, zone_id: int) -> float | None:
+    for sensor in u.sensors.list_by_zone(zone_id):
+        if sensor.kind is SensorKind.SOIL_MOISTURE and sensor.id is not None:
+            reading = u.readings.latest(sensor.id)
+            if reading is not None:
+                return reading.value
+    return None

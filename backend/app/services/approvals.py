@@ -29,6 +29,7 @@ class ApprovalService:
         """
         now = self._clock.now()
         with self._uow() as u:
+            u.tasks.get(stored_id)  # an unknown task is not found, before anything else
             codes = _held_codes(u, stored_id)
             task = u.tasks.transition(
                 stored_id,

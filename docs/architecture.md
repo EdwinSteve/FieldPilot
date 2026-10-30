@@ -1183,7 +1183,7 @@ startup writes a `config_override` event with both values.
 | GET | `/notifications`, POST `/notifications/{id}/read` | notifications |
 | GET | `/reports` | reports |
 | POST | `/agent/chat` | `ChatService.ask` (JSON; 503 under `MOCK_LLM=1`, D063) |
-| POST | `/agent/chat/voice` | `VoiceChatService.ask` (WAV in `multipart/form-data`, D064) |
+| POST | `/agent/chat/voice?plot_id=` | `VoiceChatService.ask` (raw WAV body, `Content-Type: audio/wav`, D066) |
 | POST | `/agent/daily-cycle` | `DailyCycle.run` (D064) |
 | GET, POST | `/clock` | `ClockService`: pause, resume, speed, advance (D011, D064) |
 | POST | `/simulation/tick` | `SimulationTicker.tick` (D065) |
@@ -1199,9 +1199,15 @@ Errors map to HTTP codes in one place (`app/api/errors.py`):
 | Error | Code |
 |---|---|
 | `NotFoundError` | 404 |
-| `InvalidTransitionError`, `RevertRefusedError` | 409 |
+| `InvalidTransitionError`, `RevertRefusedError`, `MissingDataError` | 409 |
 | `UnsupportedActionError`, `UnsupportedAudioError`, `NothingHeardError` | 422 |
-| `LLMUnavailableError`, `SpeechUnavailableError`, chat under `MOCK_LLM=1` | 503 |
+| `LLMUnavailableError` (or a `PAUSED` chat run), `SpeechUnavailableError`, chat under `MOCK_LLM=1`, `FixtureExhaustedError` (a replay that does not match the farm) | 503 |
 
 A 5xx response never carries an exception message, a key or a request
-body.
+body: each 5xx error has one fixed message.
+
+Read-only views come from `FarmQueries` (`app/services/queries.py`).
+`revert_open` is true only while the window is open **and** the task is
+still `scheduled` or `executed` (D011). `create_app` rebuilds the
+simulator from the latest readings after reconciliation (§4.10). Zones
+created later join on the next `POST /simulation/tick`.

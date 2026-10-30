@@ -9,17 +9,15 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
-from app.domain.enums import SensorKind
 from app.domain.errors import MissingDataError
-from app.domain.models import CropCycle, Plot, Task, Zone
+from app.domain.models import CropCycle, Plot, Task
 from app.persistence.ports import UnitOfWork
 from app.services.due_tasks import DueTaskRunner
 from app.services.gate_context import local_day
 from app.services.phenology import PhenologyService
-from app.services.simulation import record_readings
+from app.services.simulation import ensure_simulated, record_readings
 from app.simulator.clock import Clock
 from app.simulator.field import FieldSimulator
-from app.simulator.water_balance import SoilParams
 
 UowFactory = Callable[[], UnitOfWork]
 
@@ -53,30 +51,11 @@ class SimulationTicker:
         with self._uow() as u:
             plots = list(u.plots.list())
             cycles = [c for p in plots if p.id is not None for c in u.cycles.list_by_plot(p.id)]
-        missing = self._ensure_simulated(plots)
+        missing = ensure_simulated(self._uow, self._simulator)
         readings = sum(self._record(plot, at) for plot in plots)
         tasks = tuple(self._due.run_due(at))
         days = tuple(d for cycle in cycles for d in self._count_days(cycle, plots, at))
         return TickResult(at, readings, tasks, days, tuple(missing))
-
-    def _ensure_simulated(self, plots: list[Plot]) -> list[int]:
-        """The simulator starts empty after a restart (D014): rebuild each zone from its
-        latest stored moisture. A zone with none is left out, never given a guessed value."""
-        missing = []
-        with self._uow() as u:
-            for plot in plots:
-                if plot.id is None:
-                    continue
-                for zone in u.zones.list_by_plot(plot.id):
-                    if zone.id is None or self._simulator.simulates(zone.id):
-                        continue
-                    moisture = _latest_moisture(u, zone)
-                    if moisture is None:
-                        missing.append(zone.id)
-                        continue
-                    soil = SoilParams(field_capacity_vwc=zone.field_capacity_pct)
-                    self._simulator.add_zone(zone.id, soil, initial_vwc=moisture)
-        return missing
 
     def _record(self, plot: Plot, at: datetime) -> int:
         """Readings at `at` for the simulated zones, unless this time is already recorded."""
@@ -119,14 +98,3 @@ class SimulationTicker:
                 counted.append(day)
             day += timedelta(days=1)
         return counted
-
-
-def _latest_moisture(u: UnitOfWork, zone: Zone) -> float | None:
-    if zone.id is None:
-        return None
-    for sensor in u.sensors.list_by_zone(zone.id):
-        if sensor.kind is SensorKind.SOIL_MOISTURE and sensor.id is not None:
-            reading = u.readings.latest(sensor.id)
-            if reading is not None:
-                return reading.value
-    return None

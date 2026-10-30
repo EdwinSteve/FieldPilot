@@ -1882,3 +1882,27 @@ days by itself. Scheduled tasks would never run.
 
 **Consequences.** The demo controls time explicitly, and tests stay
 deterministic. Nothing runs behind the farmer's back.
+
+---
+
+## D066 — The voice endpoint takes the WAV as the raw request body
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30). Amends the body format of
+  `POST /agent/chat/voice` in D064.
+
+**Context.** D064 planned `multipart/form-data` for the voice endpoint.
+FastAPI needs the `python-multipart` package to read form data, and it is
+not a dependency. Adding one needs Edwin's approval (brief rule 9).
+
+**Decision.**
+- `POST /agent/chat/voice?plot_id=<id>` takes the WAV as the raw body,
+  with `Content-Type: audio/wav`.
+- No new dependency. A browser sends it with
+  `fetch(url, {method: "POST", body: wavBlob, headers: {"Content-Type": "audio/wav"}})`.
+- The 32 MB limit of the transcription service is checked before
+  transcribing (413), and the WAV format is checked by `check_wav` (422).
+
+**Consequences.** The endpoint stays one format, like the JSON chat
+endpoint. If a form upload is ever needed, `python-multipart` comes with
+its own decision.
