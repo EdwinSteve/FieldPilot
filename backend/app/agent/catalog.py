@@ -23,6 +23,10 @@ SUBAGENTS: tuple[SubagentSpec, ...] = (
     SubagentSpec("monitoring", READ_TOOLS | {"submit_assessment"}, "submit_assessment"),
     SubagentSpec("irrigation", READ_TOOLS | {"propose_action", "finish"}, "finish", may_write=True),
     SubagentSpec("reporting", READ_TOOLS | {"submit_report"}, "submit_report"),
+    # The chat is read-only for now (D057).
+    SubagentSpec(
+        "orchestrator", READ_TOOLS | {"consult_monitoring", "answer_farmer"}, "answer_farmer"
+    ),
 )
 
 

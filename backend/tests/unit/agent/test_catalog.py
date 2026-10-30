@@ -13,7 +13,7 @@ from app.agent.tools.field_tools import ReadContext
 from app.domain.errors import ConfigError
 from tests.conftest import CONFIG_DIR
 from tests.fakes import RecordingTrace
-from tests.unit.agent.field_fakes import NOW, FakeOutbox, FakeProposer, FakeReader
+from tests.unit.agent.field_fakes import NOW, FakeOutbox, FakeProposer, FakeReader, NoConsultant
 
 PROMPTS = CONFIG_DIR / "agents"
 
@@ -52,6 +52,7 @@ def test_the_real_catalogue_passes_loop_validation() -> None:
         BriefDraft(1, date(2026, 10, 28)),
         FakeProposer(),
         FakeOutbox(),
+        NoConsultant(),
     )
 
     loop = AgentLoop(MockLLMClient([]), registry, RecordingTrace(), load_agent_catalog(PROMPTS), 12)
@@ -78,3 +79,13 @@ def test_the_catalogue_includes_reporting() -> None:
     reporting = next(a for a in load_agent_catalog(PROMPTS) if a.name == "reporting")
 
     assert reporting.closing_tool == "submit_report" and not reporting.may_write
+
+
+def test_the_orchestrator_is_read_only() -> None:
+    """D057."""
+    orchestrator = next(a for a in load_agent_catalog(PROMPTS) if a.name == "orchestrator")
+
+    assert orchestrator.closing_tool == "answer_farmer"
+    assert not orchestrator.may_write
+    assert "consult_irrigation" not in orchestrator.tool_names
+    assert "propose_action" not in orchestrator.tool_names

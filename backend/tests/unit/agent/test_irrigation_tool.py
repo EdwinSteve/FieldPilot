@@ -8,7 +8,7 @@ from app.agent.field import ProposalView
 from app.agent.toolbox import cycle_registry
 from app.agent.tools.field_tools import ReadContext
 from app.agent.tools.registry import ToolOutcome, ToolRegistry
-from tests.unit.agent.field_fakes import NOW, FakeOutbox, FakeProposer, FakeReader
+from tests.unit.agent.field_fakes import NOW, FakeOutbox, FakeProposer, FakeReader, NoConsultant
 
 ASSESSMENT = Assessment((ZoneAssessment(2, "dry", 21.0, ("reading-412",)),), "Zona 2 seca.")
 
@@ -33,7 +33,11 @@ def draft() -> BriefDraft:
 @pytest.fixture
 def tools(draft: BriefDraft, proposer: FakeProposer, ledger: ObservationLedger) -> ToolRegistry:
     registry = cycle_registry(
-        ReadContext(1, FakeReader(), ledger, lambda: NOW), draft, proposer, FakeOutbox()
+        ReadContext(1, FakeReader(), ledger, lambda: NOW),
+        draft,
+        proposer,
+        FakeOutbox(),
+        NoConsultant(),
     )
     registry.call("read_zone", '{"zone_id": 2}')
     return registry
@@ -91,7 +95,11 @@ def test_a_held_proposal_returns_the_reason_in_spanish(
         22, "pending_approval", "await_approval", "approval", "Pendiente por lluvia", False
     )
     registry = cycle_registry(
-        ReadContext(1, FakeReader(), ledger, lambda: NOW), draft, FakeProposer(held), FakeOutbox()
+        ReadContext(1, FakeReader(), ledger, lambda: NOW),
+        draft,
+        FakeProposer(held),
+        FakeOutbox(),
+        NoConsultant(),
     )
     registry.call("read_zone", '{"zone_id": 2}')
 
@@ -107,7 +115,11 @@ def test_a_repeated_proposal_of_a_known_task_does_not_conflict(
     """read_zone already put task-7 (15 mm) in the ledger; the gate returns task 7 again."""
     seven = FakeProposer(ProposalView(7, "executed", "execute", "autonomous", None, True))
     registry = cycle_registry(
-        ReadContext(1, FakeReader(), ledger, lambda: NOW), draft, seven, FakeOutbox()
+        ReadContext(1, FakeReader(), ledger, lambda: NOW),
+        draft,
+        seven,
+        FakeOutbox(),
+        NoConsultant(),
     )
     registry.call("read_zone", '{"zone_id": 2}')
 
@@ -166,6 +178,7 @@ def test_no_proposal_without_an_assessment(
         BriefDraft(1, date(2026, 10, 28)),
         proposer,
         FakeOutbox(),
+        NoConsultant(),
     )
     registry.call("read_zone", '{"zone_id": 2}')
 

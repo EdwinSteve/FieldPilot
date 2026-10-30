@@ -60,3 +60,29 @@ def test_a_fixture_with_unknown_fields_is_rejected(tmp_path: Path) -> None:
 
     with pytest.raises(ValidationError):
         MockLLMClient.from_fixture(path)
+
+
+def test_raw_argument_text_replays_unchanged(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path, {"responses": [{"tool_call": {"name": "read_zone", "arguments_json": "{zone"}}]}
+    )
+
+    response = MockLLMClient.from_fixture(path).complete("s", [], [])
+
+    assert response.tool_call == ToolCall("call-1", "read_zone", "{zone")
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        {"name": "read_zone"},
+        {"name": "read_zone", "arguments": {}, "arguments_json": "{}"},
+    ],
+)
+def test_a_tool_call_needs_exactly_one_form_of_arguments(
+    tmp_path: Path, call: dict[str, object]
+) -> None:
+    path = _write(tmp_path, {"responses": [{"tool_call": call}]})
+
+    with pytest.raises(ValidationError, match="exactly one of arguments and arguments_json"):
+        MockLLMClient.from_fixture(path)

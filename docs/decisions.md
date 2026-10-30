@@ -1616,3 +1616,34 @@ refused although any person reads 20.5 as 21. The two examples in D050
 **Consequences.** The check accepts what a farmer would read as the same
 number, and nothing more. A mutation back to half-to-even rounding fails a
 test.
+
+---
+
+## D057 — The chat orchestrator is read-only for now
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30), pending Edwin's review before the step
+  7b pull request. Amends the §4.8 line that gave the orchestrator
+  `consult_irrigation`.
+
+**Context.** §4.8 gave the orchestrator `consult_monitoring` and
+`consult_irrigation`. `consult_irrigation` would run the Irrigation subagent,
+which proposes actions, so it changes stored state. Under D054 it is a
+writing tool, and holding it would need `may_write` on the orchestrator. That
+breaks the D054 rule, pinned by a test, that only `irrigation` may write. The
+two accepted texts contradict each other.
+
+**Decision.** The safer option: the chat cannot cause any action.
+- The orchestrator holds the read tools, `consult_monitoring` and
+  `answer_farmer`. There is no `consult_irrigation`.
+- Irrigation is proposed only by the daily cycle, through the gate.
+- The orchestrator's prompt tells the farmer that the daily cycle decides,
+  and that pending tasks are approved in the dashboard.
+
+**Consequences.**
+- The README demo step "Does the maize need water this week?" is answered
+  from Monitoring's verified assessment. The proposals come from the daily
+  cycle.
+- Allowing the chat to propose later needs its own decision: either
+  `consult_irrigation` marked `writes=True` with a stated exception to D054,
+  or a separate path. It is not done by flipping `may_write`.
