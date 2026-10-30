@@ -184,9 +184,10 @@ Each step follows the usual process:
 - **Views:** the agent timeline (plan → act → observe, from
   `agent_tool_call`), approvals, the revert card worded as D011 requires,
   the calendar, the zones with NDVI, and the D014 restart notice.
-- **Frontend tooling (D068):** ESLint with typescript-eslint and the
-  React hooks rules, and Vitest for pure logic (WAV encoding, the D011
-  card, the timeline). Both run in `make check` and CI.
+- **Frontend tooling (D068, D069):** Oxlint with the React hooks rules
+  (typescript-eslint does not support TypeScript 7), and Vitest for pure
+  logic (WAV encoding, the D011 card, the timeline). Both run in
+  `make check` and CI.
 - **Backend for the views (D067):** imagery per zone, simulation status
   and scenario injection, and the farmer's reason on held tasks.
 - **Done when:** the whole demo flow is visible in the browser.

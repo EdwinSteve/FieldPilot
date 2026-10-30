@@ -72,7 +72,7 @@ jobs:
           fi
 
   frontend:
-    name: Frontend (tsc, vite build)
+    name: Frontend (oxlint, vitest, tsc, vite build)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -86,5 +86,9 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install (exact package-lock.json)
         run: make install-frontend
+      - name: Lint (oxlint, React hooks rules; D068, D069)
+        run: make lint-frontend
+      - name: Unit tests (vitest)
+        run: make test-frontend
       - name: Type-check and build
-        run: make check-frontend
+        run: make build-frontend
