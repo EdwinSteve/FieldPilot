@@ -67,6 +67,8 @@ ignore-variadic-names = true  # *args/**kwargs of a signature that must refuse e
 # Test doubles must keep the exact signatures of the protocols they replace,
 # and test modules are named for what they test rather than documented.
 "tests/**" = ["ARG", "D100"]
+# CLI scripts talk to the terminal; the no-print rule is for application code.
+"scripts/**" = ["T20"]
 
 [tool.mypy]
 python_version = "3.12"

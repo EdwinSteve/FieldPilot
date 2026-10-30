@@ -253,7 +253,10 @@ make test                   # backend tests, mock mode, no network
 make check                  # what CI runs: hygiene, backend and frontend
 ```
 
-`make seed` (demo farm and maize cycle) arrives with build step 11.
+`make seed` rebuilds the demo farm (fresh database, maize cycle, clock paused
+at 28 Oct 06:00, one tick). Stop `make dev` first. In mock mode the recorded
+day replays only on that fresh farm: after running the cycle, reseed to run
+it again (D074).
 
 For a live demo, `APP_PROFILE=demo DEMO_REVERT_WINDOW_SECONDS=600` shortens
 the revert window. It can only shorten the window, every shortening is logged,

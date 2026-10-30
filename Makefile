@@ -5,7 +5,7 @@ UV       := uv --directory $(BACKEND)
 RUFF_ARGS ?=
 
 .PHONY: help install install-backend install-frontend dev dev-backend dev-frontend \
-	test lint lint-backend lint-rules-backend format-check-backend format \
+	seed test lint lint-backend lint-rules-backend format-check-backend format \
 	typecheck typecheck-backend typecheck-frontend build-frontend lint-frontend test-frontend \
 	check check-backend check-frontend check-repo preflight clean
 
@@ -28,6 +28,9 @@ dev-backend:
 
 dev-frontend:
 	npm --prefix $(FRONTEND) run dev
+
+seed: ## Rebuild the demo farm (fresh DB, maize cycle, one tick; stop `make dev` first)
+	$(UV) run python scripts/seed_demo.py --force
 
 test: ## Run the backend test suite (mock mode, no network)
 	MOCK_LLM=1 $(UV) run pytest
