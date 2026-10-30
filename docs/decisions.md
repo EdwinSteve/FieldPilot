@@ -1646,3 +1646,89 @@ two accepted texts contradict each other.
 - Allowing the chat to propose later needs its own decision: either
   `consult_irrigation` marked `writes=True` with a stated exception to D054,
   or a separate path. It is not done by flipping `may_write`.
+
+---
+
+## D058 — NDVI in plain Python; no numpy
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30). Amends the §4.9 signatures that used
+  numpy arrays.
+
+**Context.** §4.9 typed the NDVI and segmentation contracts with numpy
+arrays, but numpy is not a dependency. The step 8 rasters are small
+synthetic fixtures, and NDVI is one formula per pixel.
+
+**Decision.**
+- Rasters are `tuple[tuple[float, ...], ...]`. `compute_ndvi(red, nir)`
+  returns `(nir - red) / (nir + red)`, and `None` where `nir + red == 0`.
+  A pixel without a value is left out, never filled.
+- No new dependency is added. Segmentation takes the PNG bytes and returns
+  boxes, so it needs no image library either.
+- Only the Muse adapters import `openai`: `app/agent/llm/muse.py`,
+  `app/satellite/sam31.py`, and `app/voice/muse.py` if voice lands. This
+  widens the §4.8 rule that `muse.py` was the only one.
+
+**Consequences.** Real Sentinel-2 scenes, which are far larger, would need
+numpy and a new decision. Nothing in the contracts depends on the raster
+type beyond these functions.
+
+---
+
+## D059 — SAM measures brown patches, from boxes, with a configured prompt
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30)
+
+**Context.** SAM 3.1 returns boxes and masks for a text prompt (the Meta
+workshop parses the boxes). Before choosing a prompt, it was tried on the
+synthetic demo image (a 512×256 maize plot with three brown circles in
+zone 2) on 2026-10-30:
+
+| Prompt | Boxes found |
+|---|---|
+| `bare soil`, `dry patch`, `soil`, `dirt`, `brown soil` | 0 |
+| `brown circle` | 3, the three circles |
+| `brown patch`, `brown area` | 3, the three circles |
+
+As in the workshop, where "signature" failed and "ink scribble" worked, SAM
+answers to what the image looks like, not to what it means.
+
+**Decision.**
+- The prompt is configuration: `segmentation_prompt: brown patch` in
+  `config/imaging.yaml`.
+- SAM's answer is reduced to `bare_soil_pct` per zone: the share of the
+  zone's area covered by the **union of the boxes**. The masks are not
+  decoded. A box overstates a round patch by up to about 27 %, which the
+  tool description and the report wording must not hide.
+- `low_ndvi_threshold: 0.4` in the same file is a **demo assumption**, not
+  a cited agronomic value. A zone whose mean NDVI is below it is
+  `low_vigor`.
+
+**Consequences.** Changing the prompt or the threshold is a reviewed config
+change. On real imagery the prompt must be tried again.
+
+---
+
+## D060 — Imaging joins the daily cycle after Monitoring
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30). Corrects the step 8 done criterion in
+  the roadmap.
+
+**Context.** The roadmap said Monitoring and Irrigation use Imaging's
+result. D044 runs Monitoring first, so Monitoring cannot see it.
+
+**Decision.**
+- The cycle is Monitoring → Imaging → Irrigation → Reporting (D044).
+  Irrigation and Reporting receive Imaging's result in the brief.
+- Imaging closes with `submit_imaging`. It is refused when a zone is
+  missing or repeated, a cited id is not in the ledger or belongs to
+  another zone, a reported value differs from the computed one (D050), or
+  `low_vigor` disagrees with the threshold.
+- With no scene for the plot, the read tool says so, and Imaging submits
+  an empty result. The cycle does not stop for lack of imagery.
+
+**Consequences.** Low vigour informs the irrigation decision and the
+report, while the gate still decides every action. A missing scene is
+visible in the brief, not silently ignored.
