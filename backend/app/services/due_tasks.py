@@ -8,11 +8,12 @@ from collections.abc import Callable, Sequence
 from datetime import datetime
 
 from app.actuation.simulated import SUPPORTED_ACTIONS
-from app.autonomy.gate import AutonomyGate
+from app.autonomy.gate import AutonomyGate, FarmerApproval, unapproved
 from app.autonomy.messages import MessageCatalog
 from app.domain.enums import EventKind, TaskStatus
 from app.domain.models import Event, Notification, Task
 from app.domain.verdicts import GateVerdict
+from app.domain.violations import RuleCode, RuleViolation
 from app.persistence.ports import UnitOfWork
 from app.services.execution import ExecutionService, task_id
 from app.services.gate_context import GateContextProvider, action_for_task
@@ -41,26 +42,39 @@ class DueTaskRunner:
         """Execute or fail every due task the actuator supports; return them updated."""
         with self._uow() as u:
             due = [
-                (task, action_for_task(u, task, proposed_by=ACTOR))
+                task
                 for task in u.tasks.list(status=TaskStatus.SCHEDULED)
                 if task.scheduled_for <= now and task.action_type in SUPPORTED_ACTIONS
             ]
-        results: list[Task] = []
-        for task, action in due:
-            context = self._context.context_for(action, exclude_task_id=task.id)
-            authorization = self._gate.authorize(action, context)
-            if authorization.permit is not None:
-                results.append(
-                    self._executor.execute(task, authorization.permit, authorization.verdict)
-                )
-            else:
-                results.append(self._fail(task, authorization.verdict, now))
-        return results
+        return [self.run_task(task, now) for task in due]
 
-    def _fail(self, task: Task, verdict: GateVerdict, now: datetime) -> Task:
-        """The fresh verdict no longer allows it: fail it and name the rule (D033)."""
-        codes = ", ".join(v.code for v in verdict.violations)
-        rule = "; ".join(_lower_first(self._messages.render(v)) for v in verdict.violations)
+    def run_task(self, task: Task, now: datetime) -> Task:
+        """Re-evaluate one due task and execute or fail it. An approved task carries its
+        approval, which covers only the rules the farmer saw (D062)."""
+        with self._uow() as u:
+            action = action_for_task(u, task, proposed_by=ACTOR)
+            approval = farmer_approval(u, task_id(task))
+        context = self._context.context_for(action, exclude_task_id=task.id)
+        if approval is None:
+            authorization = self._gate.authorize(action, context)
+            blocking = authorization.verdict.violations
+        else:
+            authorization = self._gate.authorize_approved(action, context, approval)
+            blocking = unapproved(authorization.verdict, approval)
+        if authorization.permit is not None:
+            return self._executor.execute(task, authorization.permit, authorization.verdict)
+        return self._fail(task, authorization.verdict, blocking, now)
+
+    def _fail(
+        self,
+        task: Task,
+        verdict: GateVerdict,
+        blocking: Sequence[RuleViolation],
+        now: datetime,
+    ) -> Task:
+        """The fresh verdict no longer allows it: fail it and name the rule (D033, D062)."""
+        codes = ", ".join(v.code for v in blocking)
+        rule = "; ".join(_lower_first(self._messages.render(v)) for v in blocking)
         with self._uow() as u:
             failed = u.tasks.transition(
                 task_id(task),
@@ -80,6 +94,17 @@ class DueTaskRunner:
             u.notifications.add(Notification(message, now, task_id=task.id))
             u.commit()
         return failed
+
+
+def farmer_approval(u: UnitOfWork, stored_id: int) -> FarmerApproval | None:
+    """The approval recorded for a task, with the rule codes it covers (D062)."""
+    events = u.events.list(task_id=stored_id, kind=EventKind.APPROVAL)
+    if not events:
+        return None
+    codes = events[-1].inputs.get("approved_codes")
+    if not isinstance(codes, list):
+        raise ValueError(f"approval of task {stored_id} has no approved_codes")
+    return FarmerApproval(events[-1].actor, frozenset(RuleCode(str(code)) for code in codes))
 
 
 def _lower_first(text: str) -> str:
