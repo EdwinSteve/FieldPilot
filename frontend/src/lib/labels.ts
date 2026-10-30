@@ -43,3 +43,14 @@ export const OUTCOME_LABELS: Record<string, string> = {
   execute_notify: "Programada con aviso",
   await_approval: "Pendiente de aprobación",
 };
+
+export const RULE_LABELS: Record<string, string> = {
+  emergency_stop_active: "Parada de emergencia",
+  always_approval_type: "Siempre requiere aprobación",
+  daily_irrigation_cap_exceeded: "Tope diario de riego",
+  rain_forecast_above_limit: "Lluvia prevista",
+  irrigation_interval_too_short: "Intervalo entre riegos",
+  moisture_above_limit: "Humedad sobre el límite",
+  calendar_shift_too_large: "Cambio de calendario mayor",
+  missing_input: "Falta un dato",
+};
