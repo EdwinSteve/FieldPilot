@@ -162,7 +162,9 @@ Each step follows the usual process:
   (`compute_ndvi`, pure), plus `ImageryLoader`.
 - **Segmentation:** `Sam31Segmentation` (prompt, `input_image`, box
   parsing) and `MockSegmentation`; then the Imaging subagent.
-- **Voice (stretch):** `MuseVoiceTranscribe` and `MockSpeechToText`.
+- **Voice (stretch, done):** `MuseVoiceTranscribe` over Meta's file
+  endpoint `POST /v1/asr/transcribe`, `MockSpeechToText` and
+  `VoiceChatService` (D061).
 - **Done when:** Imaging adds a low-NDVI zone to the `FieldBrief`, and
   Irrigation and Reporting use it. Monitoring runs before Imaging (D044),
   so it cannot (D060).

@@ -940,7 +940,8 @@ class ForecastProvider(Protocol):
 
 class SpeechToText(Protocol):
     def transcribe(self, audio: bytes, language: str) -> str: ...
-# MuseVoiceTranscribe · MockSpeechToText
+# MuseVoiceTranscribe (POST /v1/asr/transcribe, standard library) · MockSpeechToText (D061)
+def check_wav(audio: bytes) -> AudioInfo: ...   # mono 16-bit PCM, 16 or 24 kHz, <= 10 min, <= 32 MB
 ```
 
 `PlotRainForecast(uow, provider)` in `app/services` implements the
@@ -957,8 +958,12 @@ an RGB PNG, and each zone's area as a box in normalized coordinates, keyed
 by zone name. The Imaging subagent reads NDVI and the SAM segmentation per
 zone, and closes with `submit_imaging`. Its result joins the `FieldBrief`,
 which Irrigation and Reporting receive. Only the Muse adapters import
-`openai`: `app/agent/llm/muse.py`, `app/satellite/sam31.py` and, if voice
-lands, `app/voice/muse.py`.
+`openai`: `app/agent/llm/muse.py` and `app/satellite/sam31.py`.
+
+**Voice** (D061). `VoiceChatService.ask(plot_id, audio)` transcribes the
+WAV in Spanish and asks the text chat. It returns the transcript with the
+answer, and raises `NothingHeardError` on an empty transcript.
+`app/voice/muse.py` uses no `openai` code: the endpoint is Meta's own.
 
 ### 4.10 Persistence (`app/persistence`)
 
