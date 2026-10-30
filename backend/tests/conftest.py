@@ -93,6 +93,7 @@ CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
 CROPS_DIR = CONFIG_DIR / "crops"
 OPEN_METEO_DIR = Path(__file__).resolve().parents[2] / "data" / "fixtures" / "open_meteo"
 LLM_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "llm"
+SATELLITE_DIR = Path(__file__).resolve().parents[2] / "data" / "satellite"
 SAFETY_MAX_MOISTURE_PCT_FC = 85.0
 
 
