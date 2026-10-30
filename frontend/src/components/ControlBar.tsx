@@ -1,7 +1,5 @@
-import { useCallback } from "react";
 import { api } from "../api/endpoints";
 import { useAction } from "../hooks/useAction";
-import { useResource } from "../hooks/useResource";
 import { formatPlotTime } from "../lib/format";
 import type { Clock, Plot } from "../types/api";
 import { Icon } from "./icons";
@@ -10,11 +8,11 @@ const SPEEDS = [1, 60, 360];
 
 interface ControlBarProps {
   plot: Plot;
-  version: number;
   /** The shared clock read; the App owns the only interval (D071). */
   clock: Clock | null;
   autoTickOn: boolean;
   tickError: string | null;
+  stopActive: boolean;
   /** Runs the cycle and remembers its result for the hero and the stepper. */
   runCycle: () => Promise<void>;
   refresh: () => void;
@@ -23,17 +21,15 @@ interface ControlBarProps {
 /** The simulated clock, the simulation tick, the daily cycle and the emergency stop. */
 export function ControlBar({
   plot,
-  version,
   clock,
   autoTickOn,
   tickError,
+  stopActive,
   runCycle,
   refresh,
 }: ControlBarProps) {
-  const stop = useResource(useCallback(() => api.emergencyStop(), []), version);
   const action = useAction(refresh);
   const now = clock;
-  const stopActive = stop.data?.active ?? false;
 
   return (
     <header className="control-bar">
