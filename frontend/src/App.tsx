@@ -5,6 +5,7 @@ import { BackendStatus } from "./components/BackendStatus";
 import { CalendarPanel } from "./components/CalendarPanel";
 import { ChatPanel } from "./components/ChatPanel";
 import { ControlBar } from "./components/ControlBar";
+import { AutonomyLegend } from "./components/AutonomyLegend";
 import { CycleStepper } from "./components/CycleStepper";
 import { HeroDiagram } from "./components/HeroDiagram";
 import { Icon } from "./components/icons";
@@ -29,6 +30,8 @@ export function App() {
   const plot = plots.data?.[0];
   // The one clock read of the app; every panel that needs it gets this (D071).
   const clock = useResource(useCallback(() => api.clock(), []), version);
+  const stop = useResource(useCallback(() => api.emergencyStop(), []), version);
+  const stopActive = stop.data?.active ?? false;
   // The gate's paper trail, read once and joined onto tasks by the panels.
   const verdictEvents = useResource(
     useCallback(() => api.events({ kind: "gate_verdict", limit: 500 }), []),
@@ -92,10 +95,10 @@ export function App() {
         <>
           <ControlBar
             plot={plot}
-            version={version}
             clock={clock.data}
             autoTickOn={autoTickOn}
             tickError={tickError}
+            stopActive={stopActive}
             runCycle={runCycle}
             refresh={refresh}
           />
@@ -136,6 +139,7 @@ export function App() {
                 refresh={refresh}
               />
               <InboxPanel plot={plot} version={version} refresh={refresh} />
+              <AutonomyLegend version={version} stopActive={stopActive} />
             </aside>
           </div>
         </>

@@ -10,6 +10,7 @@ import type {
   LogEvent,
   Notification,
   Plot,
+  Policy,
   Report,
   RevertResult,
   ScenarioRequest,
@@ -65,4 +66,5 @@ export const api = {
     postJson<Record<string, unknown>>("/simulation/scenarios", scenario),
   emergencyStop: () => getJson<EmergencyStop>("/emergency-stop"),
   setEmergencyStop: (active: boolean) => postJson<EmergencyStop>("/emergency-stop", { active }),
+  policy: () => getJson<Policy>("/autonomy/policy"),
 };

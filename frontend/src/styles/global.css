@@ -909,6 +909,33 @@ code {
   color: var(--color-sun);
 }
 
+/* Autonomy legend */
+
+.legend-block {
+  margin-bottom: 12px;
+}
+
+.legend-block p {
+  margin: 4px 0 6px;
+}
+
+.chip-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  border-radius: 999px;
+  padding: 1px 10px;
+  font-size: 0.82em;
+}
+
 /* Inbox and chat */
 
 .inbox {

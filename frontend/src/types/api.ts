@@ -168,6 +168,11 @@ export interface EmergencyStop {
   changed_by: string | null;
 }
 
+export interface Policy {
+  defaults: Record<string, string>;
+  always_approval: string[];
+}
+
 /** A rectangle in normalized [0, 1] image coordinates (D073). */
 export interface NormBox {
   x1: number;
