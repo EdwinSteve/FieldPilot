@@ -1,6 +1,8 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { api } from "../api/endpoints";
-import { describeError } from "../hooks/useResource";
+import { fetchHealth } from "../api/health";
+import { describeError, useResource } from "../hooks/useResource";
+import { isMockModeChatError } from "../lib/chatMode";
 import { type Recording, startRecording } from "../lib/recorder";
 import type { ChatAnswer, Plot, VoiceAnswer } from "../types/api";
 import { Panel } from "./Panel";
@@ -15,11 +17,12 @@ interface Exchange {
 
 interface ChatPanelProps {
   plot: Plot;
+  version: number;
   refresh: () => void;
 }
 
 /** Ask by text or voice. Every answer passed the answer_farmer check (D053). */
-export function ChatPanel({ plot, refresh }: ChatPanelProps) {
+export function ChatPanel({ plot, version, refresh }: ChatPanelProps) {
   const [question, setQuestion] = useState("");
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [busy, setBusy] = useState(false);
@@ -27,6 +30,10 @@ export function ChatPanel({ plot, refresh }: ChatPanelProps) {
   const [recording, setRecording] = useState(false);
   const recorder = useRef<Recording | null>(null);
   const nextId = useRef(1);
+  // Up front when the backend says so (D072); latched on the first 503 until then.
+  const health = useResource(useCallback(() => fetchHealth(), []), version);
+  const [mockMode, setMockMode] = useState(false);
+  const unavailable = health.data?.mock_llm === true || mockMode;
 
   async function ask(send: () => Promise<{ question: string; heard: boolean; reply: ChatAnswer }>) {
     setBusy(true);
@@ -36,7 +43,11 @@ export function ChatPanel({ plot, refresh }: ChatPanelProps) {
       const exchange = { id: nextId.current++, question: asked, heard, answer: describeReply(reply) };
       setExchanges((previous) => [...previous, exchange]);
     } catch (caught) {
-      setError(describeError(caught));
+      if (isMockModeChatError(caught)) {
+        setMockMode(true);
+      } else {
+        setError(describeError(caught));
+      }
     } finally {
       setBusy(false);
       refresh();
@@ -83,6 +94,13 @@ export function ChatPanel({ plot, refresh }: ChatPanelProps) {
           </li>
         ))}
       </ul>
+      {unavailable ? (
+        <p className="notice">
+          El chat está desactivado en el modo de demostración (MOCK_LLM=1). El ciclo diario, las
+          aprobaciones y el calendario siguen funcionando. Para preguntar al agente, reinicia con
+          MOCK_LLM=0 y una clave de API.
+        </p>
+      ) : null}
       <form
         className="chat__form"
         onSubmit={(event) => {
@@ -94,13 +112,17 @@ export function ChatPanel({ plot, refresh }: ChatPanelProps) {
           aria-label="Tu pregunta"
           placeholder="¿Necesita agua el maíz de la zona 2?"
           value={question}
-          disabled={busy || recording}
+          disabled={busy || recording || unavailable}
           onChange={(event) => setQuestion(event.target.value)}
         />
-        <button type="submit" className="button--primary" disabled={busy || recording || !question.trim()}>
+        <button
+          type="submit"
+          className="button--primary"
+          disabled={busy || recording || unavailable || !question.trim()}
+        >
           Preguntar
         </button>
-        <button type="button" disabled={busy} onClick={() => void toggleRecording()}>
+        <button type="button" disabled={busy || unavailable} onClick={() => void toggleRecording()}>
           {recording ? "Detener y enviar" : "Hablar"}
         </button>
       </form>

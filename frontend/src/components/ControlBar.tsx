@@ -3,22 +3,25 @@ import { api } from "../api/endpoints";
 import { useAction } from "../hooks/useAction";
 import { useResource } from "../hooks/useResource";
 import { formatPlotTime } from "../lib/format";
-import type { Plot } from "../types/api";
+import type { Clock, Plot } from "../types/api";
 
 const SPEEDS = [1, 60, 360];
 
 interface ControlBarProps {
   plot: Plot;
   version: number;
+  /** The shared clock read; the App owns the only interval (D071). */
+  clock: Clock | null;
+  autoTickOn: boolean;
+  tickError: string | null;
   refresh: () => void;
 }
 
 /** The simulated clock, the simulation tick, the daily cycle and the emergency stop. */
-export function ControlBar({ plot, version, refresh }: ControlBarProps) {
-  const clock = useResource(useCallback(() => api.clock(), []), version, 2_000);
+export function ControlBar({ plot, version, clock, autoTickOn, tickError, refresh }: ControlBarProps) {
   const stop = useResource(useCallback(() => api.emergencyStop(), []), version);
   const action = useAction(refresh);
-  const now = clock.data;
+  const now = clock;
   const stopActive = stop.data?.active ?? false;
 
   return (
@@ -29,6 +32,9 @@ export function ControlBar({ plot, version, refresh }: ControlBarProps) {
         <span className="control-bar__speed">
           {now ? (now.paused ? "en pausa" : `×${now.speed_factor}`) : ""}
         </span>
+        {autoTickOn ? (
+          <output className="control-bar__autotick">Actualización automática cada 5 s</output>
+        ) : null}
       </div>
       <div className="control-bar__buttons">
         {now?.paused ? (
@@ -74,9 +80,9 @@ export function ControlBar({ plot, version, refresh }: ControlBarProps) {
         </button>
       </div>
       {action.busy ? <p className="control-bar__status">Procesando…</p> : null}
-      {action.error ? (
+      {action.error ?? tickError ? (
         <p className="panel__error" role="alert">
-          {action.error}
+          {action.error ?? tickError}
         </p>
       ) : null}
       {stopActive ? (

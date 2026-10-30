@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api/endpoints";
 import { ApprovalsPanel } from "./components/ApprovalsPanel";
 import { BackendStatus } from "./components/BackendStatus";
@@ -9,13 +9,34 @@ import { InboxPanel } from "./components/InboxPanel";
 import { SimulationPanel } from "./components/SimulationPanel";
 import { TimelinePanel } from "./components/TimelinePanel";
 import { ZonesPanel } from "./components/ZonesPanel";
-import { useResource } from "./hooks/useResource";
+import { describeError, useResource } from "./hooks/useResource";
+import { isTickDue, shouldAutoTick } from "./lib/autoTick";
+
+/** The single refresh cadence of the app: one interval bumps `version` (D071). */
+const REFRESH_MS = 3_000;
 
 export function App() {
   const [version, setVersion] = useState(0);
   const refresh = useCallback(() => setVersion((v) => v + 1), []);
   const plots = useResource(useCallback(() => api.plots(), []), version);
   const plot = plots.data?.[0];
+  // The one clock read of the app; every panel that needs it gets this (D071).
+  const clock = useResource(useCallback(() => api.clock(), []), version);
+  const [tickError, setTickError] = useState<string | null>(null);
+
+  const tick = useCallback(() => {
+    api
+      .tick()
+      .then(() => {
+        setTickError(null);
+        refresh();
+      })
+      .catch((error: unknown) => setTickError(describeError(error)));
+  }, [refresh]);
+
+  const paused = clock.data?.paused ?? true;
+  useDashboardLoop(paused, refresh, tick);
+  const autoTickOn = clock.data !== null && !paused;
 
   return (
     <main className="app">
@@ -34,17 +55,29 @@ export function App() {
       ) : null}
       {plot ? (
         <>
-          <ControlBar plot={plot} version={version} refresh={refresh} />
+          <ControlBar
+            plot={plot}
+            version={version}
+            clock={clock.data}
+            autoTickOn={autoTickOn}
+            tickError={tickError}
+            refresh={refresh}
+          />
           <div className="layout">
             <div className="layout__main">
               <ApprovalsPanel plot={plot} version={version} refresh={refresh} />
               <ZonesPanel plot={plot} version={version} />
-              <CalendarPanel plot={plot} version={version} refresh={refresh} />
+              <CalendarPanel plot={plot} version={version} clock={clock.data} refresh={refresh} />
               <TimelinePanel plot={plot} version={version} />
             </div>
             <aside className="layout__side">
-              <ChatPanel plot={plot} refresh={refresh} />
-              <SimulationPanel plot={plot} version={version} refresh={refresh} />
+              <ChatPanel plot={plot} version={version} refresh={refresh} />
+              <SimulationPanel
+                plot={plot}
+                version={version}
+                clock={clock.data}
+                refresh={refresh}
+              />
               <InboxPanel plot={plot} version={version} refresh={refresh} />
             </aside>
           </div>
@@ -52,4 +85,30 @@ export function App() {
       ) : null}
     </main>
   );
+}
+
+/**
+ * The only interval in the app (D071). Every REFRESH_MS it refreshes every
+ * panel through `version`, and ticks the simulation when one is due. Nothing
+ * happens while the tab is hidden; a tick also needs the clock running (D070).
+ */
+function useDashboardLoop(clockPaused: boolean, refresh: () => void, tick: () => void): void {
+  const latest = useRef({ clockPaused, refresh, tick });
+  useEffect(() => {
+    latest.current = { clockPaused, refresh, tick };
+  }, [clockPaused, refresh, tick]);
+
+  const lastTick = useRef(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const hidden = document.visibilityState === "hidden";
+      const { clockPaused: paused, refresh: reload, tick: run } = latest.current;
+      if (!hidden) reload();
+      if (shouldAutoTick(paused, hidden) && isTickDue(lastTick.current, Date.now())) {
+        lastTick.current = Date.now();
+        run();
+      }
+    }, REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, []);
 }

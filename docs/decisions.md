@@ -2005,3 +2005,90 @@ be broken.
 **Consequences.** One fast linter that works with the TypeScript version
 in use. If typescript-eslint adds TypeScript 7 support, a switch back
 would come with its own decision.
+
+---
+
+## D070 — The dashboard ticks while the clock runs; the backend stays passive
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30). Decides the open step-11 option of D065.
+
+**Context.** The simulated clock advances on its own when resumed, but
+readings, due tasks and degree-days only advance on
+`POST /simulation/tick` (D065). D065 left a backend background timer as an
+option for step 11.
+
+**Decision.**
+- There is no backend timer. The dashboard calls `POST /simulation/tick`
+  about every 5 s of real time while the simulated clock runs.
+- One interval in one place (`useAutoTick`, next to the clock display),
+  never one per panel. Each tick refreshes every panel through the shared
+  `version` counter.
+- Never while the clock is paused: a paused clock means paused data (D011).
+  Never while the browser tab is hidden.
+- A small indicator next to the clock says "Actualización automática cada
+  5 s" while auto-tick is on, and nothing while paused.
+- A failed tick shows the backend's message next to the clock until one
+  succeeds. The manual "Actualizar simulación" button stays for paused
+  clocks and for advancing after `+1 h` / `+1 día`.
+
+**Consequences.**
+- At ×360, one tick covers about 30 simulated minutes; the tick is
+  idempotent for the same simulated time (D065), so a slow answer that
+  overlaps the next tick is safe.
+- Tests stay deterministic: the backend still advances only when asked,
+  and the interval lives in the dashboard.
+
+---
+
+## D071 — One refresh loop in the App: shared clock, no per-panel polling
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30). Implements the D070 interval in the App.
+
+**Context.** Every panel polled on its own: the clock was read by three
+panels, and Commit A added an auto-tick that refreshed every panel on top
+of those intervals. Requests went up instead of down.
+
+**Decision.**
+- The App holds the only `setInterval` in the dashboard (3 s). Each fire
+  bumps the shared `version` counter, which reloads every panel, and ticks
+  the simulation when one is due (5 s, D070). Nothing fires while the
+  browser tab is hidden.
+- The clock is read once, in the App, and passed to the panels that need
+  it (control bar, calendar revert card, scenario injection).
+- `useResource` keeps no interval parameter, so a per-panel interval
+  cannot come back by accident. User actions still refresh at once through
+  `useAction`.
+- D070's policy is unchanged: never tick while paused, indicator while
+  on, failure shown until one succeeds. Only the loop's place moved, from
+  the control bar to the App.
+
+**Consequences.**
+- One predictable request wave every 3 s while visible, plus a tick every
+  5 s while the clock runs. Hidden tabs cost nothing.
+- Panels stay simple: they declare what they read, never when.
+
+---
+
+## D072 — The chat shows its mock-mode state instead of failing per question
+
+- **Date:** 2026-10-30
+- **Status:** Accepted (2026-10-30).
+
+**Context.** Under MOCK_LLM=1 the chat answers 503 (D063), but the farmer
+only learned that after asking. The dashboard should say so up front.
+
+**Decision.**
+- The chat panel reads the backend mode and, when mock mode is on, shows
+  a calm explanation with the input and microphone disabled, instead of
+  failing per question. The daily cycle, approvals and calendar keep
+  working and say so in the note.
+- Until the backend exposes the mode (for example in `GET /health`), the
+  panel latches the first 503 with the `ChatUnavailableError` code into
+  the same disabled state for the rest of the session. Any other failure
+  still shows its own error.
+- The chat stays read-only (D057): the note adds no action.
+
+**Consequences.** Mock mode never looks broken, and a real outage never
+looks like mock mode.

@@ -126,6 +126,11 @@ code {
   color: var(--color-muted);
 }
 
+.control-bar__autotick {
+  font-size: 0.8em;
+  color: var(--color-online);
+}
+
 .control-bar__buttons {
   display: flex;
   flex-wrap: wrap;

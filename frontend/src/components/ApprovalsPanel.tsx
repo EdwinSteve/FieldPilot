@@ -15,7 +15,7 @@ interface ApprovalsPanelProps {
 
 /** Tasks the gate held for the farmer, with the reason in their words (D062, D067). */
 export function ApprovalsPanel({ plot, version, refresh }: ApprovalsPanelProps) {
-  const pending = useResource(useCallback(() => api.tasks("pending_approval"), []), version, 5_000);
+  const pending = useResource(useCallback(() => api.tasks("pending_approval"), []), version);
 
   return (
     <Panel title="Pendientes de aprobación" error={pending.error}>

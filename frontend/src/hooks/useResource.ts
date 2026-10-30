@@ -8,11 +8,12 @@ export interface Resource<T> {
 }
 
 /**
- * Loads `load()` now, again whenever `version` changes (after an action), and
- * every `intervalMs` if given. The last good data stays visible while a reload
- * fails, and the error is shown next to it.
+ * Loads `load()` now and again whenever `version` changes (after an action or
+ * on the App's refresh loop). Panels never poll on their own (D071): there is
+ * a single interval in the app. The last good data stays visible while a
+ * reload fails, and the error is shown next to it.
  */
-export function useResource<T>(load: () => Promise<T>, version: number, intervalMs?: number): Resource<T> {
+export function useResource<T>(load: () => Promise<T>, version: number): Resource<T> {
   const [state, setState] = useState<Resource<T>>({ data: null, error: null, loading: true });
 
   const run = useCallback(() => {
@@ -25,13 +26,10 @@ export function useResource<T>(load: () => Promise<T>, version: number, interval
 
   useEffect(() => {
     run();
-    if (intervalMs === undefined) return undefined;
-    const timer = window.setInterval(run, intervalMs);
-    return () => window.clearInterval(timer);
-    // `version` is a deliberate trigger: it changes after every user action, so
-    // each panel shows the new state at once instead of at its next poll.
+    // `version` is a deliberate trigger: it changes after every user action
+    // and on every loop refresh, so each panel shows the new state at once.
     // oxlint-disable-next-line react/exhaustive-effect-dependencies
-  }, [run, version, intervalMs]);
+  }, [run, version]);
 
   return state;
 }

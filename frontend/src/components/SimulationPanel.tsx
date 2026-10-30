@@ -3,7 +3,7 @@ import { api } from "../api/endpoints";
 import { useAction } from "../hooks/useAction";
 import { useResource } from "../hooks/useResource";
 import { formatPlotTime } from "../lib/format";
-import type { Json, Plot, ScenarioRequest } from "../types/api";
+import type { Clock, Json, Plot, ScenarioRequest } from "../types/api";
 import { Panel } from "./Panel";
 
 const NAMES: Record<string, string> = { drought: "sequía", heavy_rain: "lluvia fuerte" };
@@ -11,15 +11,16 @@ const NAMES: Record<string, string> = { drought: "sequía", heavy_rain: "lluvia 
 interface SimulationPanelProps {
   plot: Plot;
   version: number;
+  /** The shared clock read; the App owns the only interval (D071). */
+  clock: Clock | null;
   refresh: () => void;
 }
 
 /** Scenarios come from the simulator only; a restart that dropped one is said plainly (D014). */
-export function SimulationPanel({ plot, version, refresh }: SimulationPanelProps) {
-  const status = useResource(useCallback(() => api.simulationStatus(), []), version, 5_000);
-  const clock = useResource(useCallback(() => api.clock(), []), version);
+export function SimulationPanel({ plot, version, clock, refresh }: SimulationPanelProps) {
+  const status = useResource(useCallback(() => api.simulationStatus(), []), version);
   const action = useAction(refresh);
-  const now = clock.data?.now;
+  const now = clock?.now;
 
   function inject(name: ScenarioRequest["name"], hours: number) {
     if (!now) return;
