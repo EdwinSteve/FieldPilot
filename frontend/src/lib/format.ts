@@ -17,6 +17,14 @@ export function formatNumber(value: number, decimals = 1): string {
   return new Intl.NumberFormat("es-CO", { maximumFractionDigits: decimals }).format(value);
 }
 
+/** A calendar date as day and month: "2026-10-20" -> "20 oct". */
+export function formatDayMonth(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  if (year === undefined || month === undefined || day === undefined) return isoDate;
+  if (!Number.isInteger(year) || month < 1 || month > 12 || day < 1 || day > 31) return isoDate;
+  return `${day} ${MONTHS[month - 1]}`;
+}
+
 /** A UTC instant as local date and time in the plot's offset: "28 oct, 06:00". */
 export function formatPlotTime(iso: string, utcOffsetHours: number): string {
   const shifted = new Date(Date.parse(iso) + utcOffsetHours * 3_600_000);

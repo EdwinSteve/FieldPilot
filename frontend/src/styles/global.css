@@ -585,6 +585,15 @@ code {
   color: #fff;
 }
 
+.stepper-node--current {
+  border-color: var(--color-leaf);
+  background: var(--color-leaf);
+}
+
+.stepper-node--current .stepper-node__label {
+  color: #fff;
+}
+
 .stepper-node--stopped {
   border-color: var(--color-sun);
   background: var(--color-sun-bg);
