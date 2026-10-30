@@ -1,8 +1,10 @@
 import { useCallback } from "react";
 import { api } from "../api/endpoints";
 import { useResource } from "../hooks/useResource";
+import { seriesRange, toPoints } from "../lib/chart";
 import { formatNumber } from "../lib/format";
-import type { Plot, SensorReadings, Zone, ZoneImagery } from "../types/api";
+import { arcPath, gaugeFraction, polar } from "../lib/gauge";
+import type { Plot, Reading, SensorReadings, Zone, ZoneImagery } from "../types/api";
 import { Panel } from "./Panel";
 
 interface ZonesPanelProps {
@@ -10,31 +12,21 @@ interface ZonesPanelProps {
   version: number;
 }
 
-/** Each zone: soil moisture against field capacity, and what the satellite shows. */
+/** Each zone: how full the soil is, and how it got there. */
 export function ZonesPanel({ plot, version }: ZonesPanelProps) {
   const zones = useResource(useCallback(() => api.zones(plot.id), [plot.id]), version);
   const imagery = useResource(useCallback(() => api.imagery(plot.id), [plot.id]), version);
-  const scene = imagery.data?.scene;
 
   return (
     <Panel title="Zonas" error={zones.error ?? imagery.error} icon="drop">
-      {scene ? (
-        <p className="muted">
-          Imagen satelital del {scene.acquired_on}
-          {scene.synthetic ? " (sintética)" : ""}. Vigor bajo: NDVI medio menor que{" "}
-          {formatNumber(scene.low_ndvi_threshold, 2)}.
-          {scene.segmentation_note ? ` ${scene.segmentation_note}` : ""}
-        </p>
-      ) : (
-        <p className="muted">No hay imagen satelital para esta parcela.</p>
-      )}
+      {zones.data?.length === 0 ? <p className="muted">Todavía no hay zonas.</p> : null}
       <div className="zone-grid">
         {zones.data?.map((zone) => (
           <ZoneCard
             key={zone.id}
             zone={zone}
             version={version}
-            imagery={imagery.data?.zones.find((z) => z.zone_id === zone.id) ?? null}
+            lowVigor={imagery.data?.zones.find((z) => z.zone_id === zone.id)?.low_vigor ?? false}
           />
         ))}
       </div>
@@ -45,59 +37,121 @@ export function ZonesPanel({ plot, version }: ZonesPanelProps) {
 interface ZoneCardProps {
   zone: Zone;
   version: number;
-  imagery: ZoneImagery | null;
+  lowVigor: boolean;
 }
 
-function ZoneCard({ zone, version, imagery }: ZoneCardProps) {
+function ZoneCard({ zone, version, lowVigor }: ZoneCardProps) {
   const readings = useResource(useCallback(() => api.readings(zone.id, 48), [zone.id]), version);
   const moisture = readings.data?.find((s) => s.kind === "soil_moisture") ?? null;
+  const temperature = readings.data?.find((s) => s.kind === "temperature") ?? null;
   const latest = moisture?.readings.at(-1)?.value;
 
   return (
-    <article className={`zone-card ${imagery?.low_vigor ? "zone-card--low" : ""}`}>
-      <h3>{zone.name}</h3>
-      <p>
-        Humedad del suelo:{" "}
-        <strong>{latest === undefined ? "sin lectura" : `${formatNumber(latest)} %`}</strong> de{" "}
-        {formatNumber(zone.field_capacity_pct)} % de capacidad de campo
-      </p>
-      {moisture ? <MoistureSparkline readings={moisture} fieldCapacity={zone.field_capacity_pct} /> : null}
-      {imagery ? (
-        <ul className="zone-card__imagery">
-          <li>NDVI medio: {imagery.ndvi_mean === null ? "desconocido" : formatNumber(imagery.ndvi_mean, 3)}</li>
-          <li>
-            Píxeles con NDVI bajo:{" "}
-            {imagery.low_ndvi_pct === null ? "desconocido" : `${formatNumber(imagery.low_ndvi_pct)} %`}
-          </li>
-          <li>
-            Suelo desnudo:{" "}
-            {imagery.bare_soil_pct === null
-              ? "desconocido"
-              : `aproximadamente ${formatNumber(imagery.bare_soil_pct, 0)} %`}
-          </li>
-          {imagery.low_vigor ? <li className="badge badge--warn">Vigor bajo</li> : null}
-        </ul>
+    <article className={`zone-card ${lowVigor ? "zone-card--low" : ""}`}>
+      <div className="zone-card__head">
+        <h3>{zone.name}</h3>
+        {lowVigor ? <span className="badge badge--warn">Vigor bajo</span> : null}
+      </div>
+      <div className="zone-card__gauge-row">
+        <MoistureGauge latest={latest} fieldCapacity={zone.field_capacity_pct} />
+        <p>
+          Humedad del suelo:{" "}
+          <strong>{latest === undefined ? "sin lectura" : `${formatNumber(latest)} %`}</strong> de{" "}
+          {formatNumber(zone.field_capacity_pct)} % de capacidad de campo
+        </p>
+      </div>
+      {moisture ? (
+        <LineChart
+          readings={moisture.readings}
+          lineClass="chart__line"
+          title={`Humedad del suelo en ${zone.name}, con la capacidad de campo`}
+          reference={{ value: zone.field_capacity_pct, label: "capacidad de campo" }}
+        />
+      ) : null}
+      {temperature && temperature.readings.length > 0 ? (
+        <LineChart
+          readings={temperature.readings}
+          lineClass="chart__line--sky"
+          title={`Temperatura en ${zone.name}`}
+        />
       ) : null}
     </article>
   );
 }
 
-const WIDTH = 220;
-const HEIGHT = 48;
+const GAUGE_START = -120;
+const GAUGE_SWEEP = 240;
+const GAUGE_MAX = 1.2; // the dial reads up to 120 % of field capacity
+const SAFETY_LIMIT = 0.85; // do not irrigate above 85 % of field capacity
 
-/** Soil moisture over time against field capacity: hand-written SVG (D068). */
-function MoistureSparkline({ readings, fieldCapacity }: { readings: SensorReadings; fieldCapacity: number }) {
-  const values = readings.readings.map((r) => r.value);
-  if (values.length < 2) return null;
-  const top = Math.max(fieldCapacity, ...values) * 1.1;
-  const x = (i: number) => (i / (values.length - 1)) * WIDTH;
-  const y = (v: number) => HEIGHT - (v / top) * HEIGHT;
-  const points = values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+/** How full the soil is, with the 85 % safety limit marked on the dial. */
+function MoistureGauge({
+  latest,
+  fieldCapacity,
+}: {
+  latest: number | undefined;
+  fieldCapacity: number;
+}) {
+  const fraction = gaugeFraction(latest, fieldCapacity);
+  const shown = Math.min(fraction, GAUGE_MAX);
+  const end = GAUGE_START + (shown / GAUGE_MAX) * GAUGE_SWEEP;
+  const limitAngle = GAUGE_START + (SAFETY_LIMIT / GAUGE_MAX) * GAUGE_SWEEP;
+  const tickFrom = polar(60, 60, 40, limitAngle);
+  const tickTo = polar(60, 60, 50, limitAngle);
   return (
-    <svg className="sparkline" viewBox={`0 0 ${WIDTH} ${HEIGHT}`}>
-      <title>Humedad del suelo en el tiempo, con la capacidad de campo</title>
-      <line x1={0} x2={WIDTH} y1={y(fieldCapacity)} y2={y(fieldCapacity)} className="sparkline__capacity" />
-      <polyline points={points} className="sparkline__line" />
+    <svg className="gauge" viewBox="0 0 120 120">
+      <title>
+        {latest === undefined
+          ? "Sin lectura de humedad"
+          : `${formatNumber(latest)} % de ${formatNumber(fieldCapacity)} % de capacidad de campo`}
+      </title>
+      <path
+        d={arcPath(60, 60, 45, GAUGE_START, GAUGE_START + GAUGE_SWEEP)}
+        className="gauge__track"
+      />
+      {fraction > 0 ? (
+        <path d={arcPath(60, 60, 45, GAUGE_START, end)} className="gauge__fill" />
+      ) : null}
+      <line x1={tickFrom.x} y1={tickFrom.y} x2={tickTo.x} y2={tickTo.y} className="gauge__limit">
+        <title>Límite de seguridad: 85 % de la capacidad de campo</title>
+      </line>
+      <text x="60" y="62" textAnchor="middle" className="gauge__value">
+        {latest === undefined ? "—" : `${formatNumber(latest)} %`}
+      </text>
+      <text x="60" y="78" textAnchor="middle" className="gauge__caption">
+        de {formatNumber(fieldCapacity)} %
+      </text>
+    </svg>
+  );
+}
+
+const CHART_WIDTH = 220;
+const CHART_HEIGHT = 64;
+
+interface LineChartProps {
+  readings: Reading[];
+  lineClass: string;
+  title: string;
+  reference?: { value: number; label: string };
+}
+
+/** Sensor readings over time, oldest first, with an optional reference line. */
+function LineChart({ readings, lineClass, title, reference }: LineChartProps) {
+  const values = readings.map((r) => r.value);
+  const range = seriesRange(reference ? [...values, reference.value] : values);
+  if (values.length < 2 || range === null) return null;
+  const span = range.max - range.min || 1;
+  const referenceY =
+    reference === undefined ? null : CHART_HEIGHT - ((reference.value - range.min) / span) * CHART_HEIGHT;
+  return (
+    <svg className="chart" viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}>
+      <title>{title}</title>
+      {referenceY === null ? null : (
+        <line x1={0} x2={CHART_WIDTH} y1={referenceY} y2={referenceY} className="chart__reference">
+          <title>{reference?.label}</title>
+        </line>
+      )}
+      <polyline points={toPoints(values, CHART_WIDTH, CHART_HEIGHT, range)} className={lineClass} />
     </svg>
   );
 }
