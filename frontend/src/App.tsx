@@ -5,6 +5,7 @@ import { BackendStatus } from "./components/BackendStatus";
 import { CalendarPanel } from "./components/CalendarPanel";
 import { ChatPanel } from "./components/ChatPanel";
 import { ControlBar } from "./components/ControlBar";
+import { HeroDiagram } from "./components/HeroDiagram";
 import { Icon } from "./components/icons";
 import { InboxPanel } from "./components/InboxPanel";
 import { SimulationPanel } from "./components/SimulationPanel";
@@ -12,6 +13,7 @@ import { TimelinePanel } from "./components/TimelinePanel";
 import { ZonesPanel } from "./components/ZonesPanel";
 import { describeError, useResource } from "./hooks/useResource";
 import { isTickDue, shouldAutoTick } from "./lib/autoTick";
+import type { DailyCycleResult } from "./types/api";
 
 /** The single refresh cadence of the app: one interval bumps `version` (D071). */
 const REFRESH_MS = 3_000;
@@ -24,6 +26,7 @@ export function App() {
   // The one clock read of the app; every panel that needs it gets this (D071).
   const clock = useResource(useCallback(() => api.clock(), []), version);
   const [tickError, setTickError] = useState<string | null>(null);
+  const [lastCycle, setLastCycle] = useState<DailyCycleResult | null>(null);
 
   const tick = useCallback(() => {
     api
@@ -38,6 +41,12 @@ export function App() {
   const paused = clock.data?.paused ?? true;
   useDashboardLoop(paused, refresh, tick);
   const autoTickOn = clock.data !== null && !paused;
+
+  const plotId = plot?.id;
+  const runCycle = useCallback(async () => {
+    if (plotId === undefined) return;
+    setLastCycle(await api.dailyCycle(plotId));
+  }, [plotId]);
 
   return (
     <main className="app">
@@ -57,6 +66,7 @@ export function App() {
       {plots.data && !plot ? (
         <p className="notice">No hay ninguna parcela todavía. Carga la granja de demostración con `make seed`.</p>
       ) : null}
+      <HeroDiagram lastCycle={lastCycle} />
       {plot ? (
         <>
           <ControlBar
@@ -65,6 +75,7 @@ export function App() {
             clock={clock.data}
             autoTickOn={autoTickOn}
             tickError={tickError}
+            runCycle={runCycle}
             refresh={refresh}
           />
           <div className="layout">

@@ -150,6 +150,109 @@ code {
   margin: 8px 0;
 }
 
+/* Hero: how FieldPilot works */
+
+.hero {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 12px 20px 16px;
+  margin: 12px 0 4px;
+}
+
+.hero summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1.12rem;
+  padding: 4px 0;
+}
+
+.hero-diagram {
+  display: block;
+  width: 100%;
+  max-width: 600px;
+  height: auto;
+  margin: 8px auto 0;
+}
+
+.hero-node {
+  fill: var(--color-surface);
+  stroke: var(--color-border);
+  stroke-width: 1.5;
+}
+
+.hero-node--agent {
+  fill: var(--color-leaf-bg);
+  stroke: var(--color-leaf);
+}
+
+.hero-node--gate {
+  fill: var(--color-sky-bg);
+  stroke: var(--color-sky);
+}
+
+.hero-title {
+  font-size: 15px;
+  font-weight: 600;
+  fill: var(--color-text);
+}
+
+.hero-sub {
+  font-size: 12.5px;
+  fill: var(--color-muted);
+}
+
+.hero-foot {
+  font-size: 13px;
+  font-style: italic;
+  fill: var(--color-muted);
+}
+
+.hero-wire {
+  stroke: var(--color-muted);
+  stroke-width: 2;
+}
+
+.hero-arrowhead {
+  fill: var(--color-muted);
+}
+
+.hero-step {
+  fill: var(--color-surface);
+  stroke: var(--color-border);
+  stroke-width: 1.5;
+}
+
+.hero-step--done {
+  stroke: var(--color-leaf);
+  stroke-width: 2.5;
+}
+
+.hero-step--stopped {
+  stroke: var(--color-sun);
+  stroke-width: 2.5;
+}
+
+.hero-step-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  fill: var(--color-text);
+}
+
+.hero-dot--done {
+  fill: var(--color-leaf);
+}
+
+.hero-dot--stopped {
+  fill: var(--color-sun);
+}
+
+.hero-dot--todo,
+.hero-dot--idle {
+  fill: var(--color-border);
+}
+
 .backend-status--checking {
   color: var(--color-muted);
 }
