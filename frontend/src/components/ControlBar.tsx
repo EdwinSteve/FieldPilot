@@ -15,11 +15,21 @@ interface ControlBarProps {
   clock: Clock | null;
   autoTickOn: boolean;
   tickError: string | null;
+  /** Runs the cycle and remembers its result for the hero and the stepper. */
+  runCycle: () => Promise<void>;
   refresh: () => void;
 }
 
 /** The simulated clock, the simulation tick, the daily cycle and the emergency stop. */
-export function ControlBar({ plot, version, clock, autoTickOn, tickError, refresh }: ControlBarProps) {
+export function ControlBar({
+  plot,
+  version,
+  clock,
+  autoTickOn,
+  tickError,
+  runCycle,
+  refresh,
+}: ControlBarProps) {
   const stop = useResource(useCallback(() => api.emergencyStop(), []), version);
   const action = useAction(refresh);
   const now = clock;
@@ -68,11 +78,7 @@ export function ControlBar({ plot, version, clock, autoTickOn, tickError, refres
         <button disabled={action.busy} onClick={() => action.run(() => api.tick())}>
           Actualizar simulación
         </button>
-        <button
-          className="button--primary"
-          disabled={action.busy}
-          onClick={() => action.run(() => api.dailyCycle(plot.id))}
-        >
+        <button className="button--primary" disabled={action.busy} onClick={() => action.run(runCycle)}>
           Ejecutar ciclo diario
         </button>
         <button
