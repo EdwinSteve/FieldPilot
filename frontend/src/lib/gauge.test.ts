@@ -3,10 +3,14 @@ import { arcPath, gaugeFraction, polar } from "./gauge";
 
 describe("polar", () => {
   it("points up at 0° and goes clockwise", () => {
-    expect(polar(60, 60, 50, 0)).toEqual({ x: 60, y: 10 });
-    expect(polar(60, 60, 50, 90)).toEqual({ x: 110, y: 60 });
-    expect(polar(60, 60, 50, 180)).toEqual({ x: 60, y: 110 });
-    expect(polar(60, 60, 50, 270)).toEqual({ x: 10, y: 60 });
+    expect(polar(60, 60, 50, 0).x).toBeCloseTo(60, 8);
+    expect(polar(60, 60, 50, 0).y).toBeCloseTo(10, 8);
+    expect(polar(60, 60, 50, 90).x).toBeCloseTo(110, 8);
+    expect(polar(60, 60, 50, 90).y).toBeCloseTo(60, 8);
+    expect(polar(60, 60, 50, 180).x).toBeCloseTo(60, 8);
+    expect(polar(60, 60, 50, 180).y).toBeCloseTo(110, 8);
+    expect(polar(60, 60, 50, 270).x).toBeCloseTo(10, 8);
+    expect(polar(60, 60, 50, 270).y).toBeCloseTo(60, 8);
   });
 
   it("wraps angles past a full turn", () => {
