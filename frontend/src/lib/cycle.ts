@@ -36,3 +36,23 @@ export function stepTurns(result: DailyCycleResult | null): Record<CycleStep, nu
   }
   return turns;
 }
+
+export type ContextState = "done" | "todo" | "idle";
+
+/**
+ * The two context nodes of the stepper. Sources are done once Monitoring read
+ * them; the gate is done once Irrigation's proposals passed through it.
+ */
+export function contextStates(result: DailyCycleResult | null): {
+  sources: ContextState;
+  gate: ContextState;
+} {
+  if (result === null) return { sources: "idle", gate: "idle" };
+  const completed = new Set(
+    result.runs.filter((r) => r.status === "completed").map((r) => r.subagent),
+  );
+  return {
+    sources: completed.has("monitoring") ? "done" : "todo",
+    gate: completed.has("irrigation") ? "done" : "todo",
+  };
+}
