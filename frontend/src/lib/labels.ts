@@ -54,3 +54,16 @@ export const RULE_LABELS: Record<string, string> = {
   calendar_shift_too_large: "Cambio de calendario mayor",
   missing_input: "Falta un dato",
 };
+
+export const CROP_LABELS: Record<string, string> = {
+  maize: "Maíz",
+};
+
+export const STAGE_LABELS: Record<string, string> = {
+  sowing: "Siembra",
+  germination_emergence: "Germinación",
+  vegetative: "Crecimiento",
+  flowering: "Floración",
+  grain_fill: "Llenado de grano",
+  maturity_harvest: "Madurez y cosecha",
+};

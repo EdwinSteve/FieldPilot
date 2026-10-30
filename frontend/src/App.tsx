@@ -11,6 +11,7 @@ import { Icon } from "./components/icons";
 import { InboxPanel } from "./components/InboxPanel";
 import { SatellitePanel } from "./components/SatellitePanel";
 import { SimulationPanel } from "./components/SimulationPanel";
+import { StageBar } from "./components/StageBar";
 import { TimelinePanel } from "./components/TimelinePanel";
 import { ZonesPanel } from "./components/ZonesPanel";
 import { describeError, useResource } from "./hooks/useResource";
@@ -115,6 +116,7 @@ export function App() {
               />
               <ZonesPanel plot={plot} version={version} />
               <SatellitePanel plot={plot} version={version} />
+              <StageBar plot={plot} version={version} clock={clock.data} />
               <CalendarPanel
                 plot={plot}
                 version={version}

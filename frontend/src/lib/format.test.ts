@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, formatNumber, formatPlotTime } from "./format";
+import { formatDayMonth, formatDuration, formatNumber, formatPlotTime } from "./format";
 
 describe("formatDuration", () => {
   it.each([
@@ -32,5 +32,16 @@ describe("formatPlotTime", () => {
   it("shows the plot's local time, not the browser's", () => {
     expect(formatPlotTime("2026-10-28T11:00:00Z", -5)).toBe("28 oct, 06:00");
     expect(formatPlotTime("2026-10-28T03:30:00Z", -5)).toBe("27 oct, 22:30");
+  });
+});
+
+describe("formatDayMonth", () => {
+  it("reads the day and short month", () => {
+    expect(formatDayMonth("2026-10-20")).toBe("20 oct");
+    expect(formatDayMonth("2026-01-05")).toBe("5 ene");
+  });
+
+  it("leaves bad input alone", () => {
+    expect(formatDayMonth("no-date")).toBe("no-date");
   });
 });
