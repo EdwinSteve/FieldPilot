@@ -248,13 +248,13 @@ sequenceDiagram
 ```bash
 cp .env.example .env        # add your Meta Model API key, or keep MOCK_LLM=1
 make install
-make dev                    # backend :8000 · frontend :5173
+make dev                    # backend :8000 · frontend :5173 (make dev BACKEND_PORT=8001 if 8000 is taken)
 make test                   # backend tests, mock mode, no network
 make check                  # what CI runs: hygiene, backend and frontend
 ```
 
 `make seed` rebuilds the demo farm (fresh database, maize cycle, clock paused
-at 28 Oct 06:00, one tick). Stop `make dev` first. In mock mode the recorded
+at 28 Oct 06:00). Stop `make dev` first. In mock mode the recorded
 day replays only on that fresh farm: after running the cycle, reseed to run
 it again (D074).
 

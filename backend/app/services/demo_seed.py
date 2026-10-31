@@ -3,7 +3,8 @@
 The recorded answers cite day-one observation ids (`reading-1`, the 28 Oct
 forecast), so the seeded rows must stay exactly these: clock paused at
 28 Oct 06:00 local, plot 1, zone 1, one soil-moisture sensor, reading 1 at
-20.0, maize sown 1 Oct, then one tick so the simulator learns the zone.
+20.0, maize sown 1 Oct. The simulator learns the zone when the app starts,
+from that reading (§4.10), so no tick is needed here.
 """
 
 from dataclasses import dataclass
@@ -11,10 +12,8 @@ from datetime import UTC, date, datetime
 
 from app.domain.enums import SensorKind
 from app.domain.models import CropCycle, Plot, Reading, Sensor, SimClockState, Zone
-from app.main import create_app
 from app.persistence.db import create_db_engine, init_schema
 from app.persistence.unit_of_work import SqlUnitOfWork
-from app.settings import Settings
 
 START = datetime(2026, 10, 28, 11, 0, tzinfo=UTC)  # 06:00 in Neiva
 
@@ -27,7 +26,7 @@ class SeedSummary:
 
 
 def seed_demo_farm(database_url: str) -> SeedSummary:
-    """Write the demo farm into a fresh database file and tick once."""
+    """Write the demo farm into a fresh database."""
     engine = create_db_engine(database_url)
     init_schema(engine)
     with SqlUnitOfWork(engine) as u:
@@ -35,16 +34,17 @@ def seed_demo_farm(database_url: str) -> SeedSummary:
         plot = u.plots.add(
             Plot("Finca demo, Neiva", 2.93, -75.28, 2.0, START, utc_offset_hours=-5.0)
         )
-        assert plot.id is not None
-        zone = u.zones.add(Zone(plot.id, "Zona 2", 0.5, 32.0, valve_id="v2"))
-        assert zone.id is not None
-        sensor = u.sensors.add(Sensor(zone.id, SensorKind.SOIL_MOISTURE, "%"))
-        assert sensor.id is not None
-        u.readings.add_many([Reading(sensor.id, 20.0, START)])
-        cycle = u.cycles.add(CropCycle(plot.id, "maize", date(2026, 10, 1)))
-        assert cycle.id is not None
+        plot_id = _stored(plot.id, "plot")
+        zone_id = _stored(u.zones.add(Zone(plot_id, "Zona 2", 0.5, 32.0, valve_id="v2")).id, "zone")
+        sensor = u.sensors.add(Sensor(zone_id, SensorKind.SOIL_MOISTURE, "%"))
+        u.readings.add_many([Reading(_stored(sensor.id, "sensor"), 20.0, START)])
+        cycle_id = _stored(u.cycles.add(CropCycle(plot_id, "maize", date(2026, 10, 1))).id, "cycle")
         u.commit()
     engine.dispose()
-    create_app(Settings(database_url=database_url)).state.container.ticker.tick()
-    assert plot.id is not None and zone.id is not None and cycle.id is not None
-    return SeedSummary(plot.id, zone.id, cycle.id)
+    return SeedSummary(plot_id, zone_id, cycle_id)
+
+
+def _stored(entity_id: int | None, entity: str) -> int:
+    if entity_id is None:
+        raise RuntimeError(f"the database did not assign an id to the {entity}")
+    return entity_id

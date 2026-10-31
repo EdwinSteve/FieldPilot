@@ -2152,3 +2152,27 @@ was no way back: `make seed` did not exist yet.
 meets the dead end: repeats are refused up front with instructions. Step
 11's real recording replaces the fixture, but the seed and the guard stay:
 any recording is single-shot the same way.
+
+---
+
+## D075 — The seed writes data only; the startup rebuild replaces its tick
+
+- **Date:** 2026-10-31
+- **Status:** Accepted (2026-10-31). Amends the seeding step of D074.
+
+**Context.** D074's seed built the whole app (`create_app`) to run one tick,
+so the simulator would learn the demo zone. That made a service
+(`app/services/demo_seed.py`) depend on the web layer, against principle 4.
+Since step 9, `create_app` already rebuilds the simulator from the latest
+reading of each zone (§4.10, `ensure_simulated`), so the tick did nothing
+the next start does not do.
+
+**Decision.**
+- `seed_demo_farm` only writes the rows D074 lists. It imports no web code
+  and runs no tick.
+- The simulator learns the zone when `make dev` starts. The seed test still
+  replays the mock day on a fresh app and fails if that rebuild is removed.
+
+**Consequences.** The services layer depends on nothing above it again, and
+there is one place where the simulator is rebuilt.
+

@@ -13,9 +13,13 @@ __pycache__/
 *.egg-info/
 build/
 
-# Local databases
+# Local databases, their backups and journals
 *.db
+*.db.*
+*.db-*
 *.sqlite3
+*.sqlite3.*
+*.sqlite3-*
 
 # Frontend
 node_modules/
