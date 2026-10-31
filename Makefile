@@ -3,6 +3,8 @@ FRONTEND := frontend
 UV       := uv --directory $(BACKEND)
 # Extra ruff options; CI passes --output-format=github for inline PR annotations.
 RUFF_ARGS ?=
+# Backend port for `make dev`; the frontend proxy follows it (make dev BACKEND_PORT=8001).
+BACKEND_PORT ?= 8000
 
 .PHONY: help install install-backend install-frontend dev dev-backend dev-frontend \
 	seed test lint lint-backend lint-rules-backend format-check-backend format \
@@ -20,16 +22,16 @@ install-backend: ## Install backend dependencies from uv.lock, failing if it is 
 install-frontend: ## Install frontend dependencies from package-lock.json
 	npm --prefix $(FRONTEND) ci
 
-dev: ## Run backend (:8000) and frontend (:5173) together
+dev: ## Run backend (BACKEND_PORT, default 8000) and frontend (:5173) together
 	$(MAKE) -j2 dev-backend dev-frontend
 
 dev-backend:
-	$(UV) run uvicorn app.main:create_app --factory --reload --port 8000
+	$(UV) run uvicorn app.main:create_app --factory --reload --port $(BACKEND_PORT)
 
 dev-frontend:
-	npm --prefix $(FRONTEND) run dev
+	FIELDPILOT_API_TARGET=http://localhost:$(BACKEND_PORT) npm --prefix $(FRONTEND) run dev
 
-seed: ## Rebuild the demo farm (fresh DB, maize cycle, one tick; stop `make dev` first)
+seed: ## Rebuild the demo farm (fresh DB, maize cycle; stop `make dev` first)
 	$(UV) run python scripts/seed_demo.py --force
 
 test: ## Run the backend test suite (mock mode, no network)
@@ -70,8 +72,8 @@ test-frontend: ## Vitest unit tests of the frontend's pure logic (D068)
 
 check-frontend: lint-frontend test-frontend build-frontend ## Frontend checks, as run by CI (build includes tsc)
 
-check-repo: ## Fail if a secret or database file is tracked by git (rule 7)
-	@tracked="$$(git ls-files | grep -E '(^|/)\.env(\..+)?$$|\.(db|sqlite3?)$$' | grep -v '\.env\.example$$' || true)"; \
+check-repo: ## Fail if a secret, database file or database backup is tracked by git (rule 7)
+	@tracked="$$(git ls-files | grep -E '(^|/)\.env(\..+)?$$|\.(db|sqlite3?)([.-].+)?$$' | grep -v '\.env\.example$$' || true)"; \
 	if [ -n "$$tracked" ]; then echo "Tracked files that must never be committed:"; echo "$$tracked"; exit 1; fi; \
 	echo "No .env or database files are tracked."
 
