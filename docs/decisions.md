@@ -2176,3 +2176,46 @@ the next start does not do.
 **Consequences.** The services layer depends on nothing above it again, and
 there is one place where the simulator is rebuilt.
 
+---
+
+## D076 — A two-day demo, replayed per local day
+
+- **Date:** 2026-10-31
+- **Status:** Accepted (2026-10-31), confirmed by Edwin. Amends the
+  single-file replay of D063 and the single-shot guard of D074.
+
+**Context.** The README story needs an approval, but the mock demo of D074
+replays one dry day (D009), where nothing is held. No subagent can propose
+fertilizer (D044, D054), and adding one four days before the deadline would
+widen the agent's permissions. The Open-Meteo fixture has rain on 2 Nov
+only (12 mm), and the satellite scene (28 Oct) is valid for any later day.
+
+**Decision.**
+- **The demo is two simulated days.** `make seed` starts the clock paused
+  on 2 Nov 06:00 local, with the same farm as D074.
+  - **Day 1:** the daily cycle proposes the irrigation; the gate holds it
+    for the 12 mm of rain; the farmer **rejects** it ("Esperaré la lluvia").
+  - **Between days:** a 48 h drought is injected, then "+1 día".
+  - **Day 2 (3 Nov, dry):** D009, with the irrigation executed, the extra
+    irrigation with notice, and the revert.
+- **One recorded fixture per local day of the plot:**
+  `data/fixtures/llm/demo/<YYYY-MM-DD>.json`. Under `MOCK_LLM=1` the daily
+  cycle replays the file for the plot's current local day; a day without a
+  file answers 503 as before (D063).
+- `make record-demo` runs this script against the real model with
+  `RecordingLLMClient` and writes those files.
+- **A replay reproduces the recorded clicks only.** The model's answers are
+  fixed, but the tools read the database. `docs/demo.md` lists the exact
+  actions, and the mock demo must follow them. With `MOCK_LLM=0`, anything
+  goes.
+- **The single-shot guard (D074) becomes per day.** The dashboard disables
+  "Ejecutar ciclo diario" once a report exists for the plot's current local
+  day.
+- **Fertilizer proposals are future work.** They need their own subagent
+  permission and a decision. The README no longer shows them in the demo.
+
+**Consequences.** The demo shows all three autonomy levels at work: held
+for approval and rejected, autonomous and executed, and notified and
+reverted. It replays offline, and it can be re-recorded with one command
+when a prompt changes.
+

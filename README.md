@@ -200,43 +200,43 @@ calendar that move a task more than 2 days are downgraded to approval.
 
 ---
 
-## A day in the life of the agent
+## Two days in the life of the agent
 
-The scenario below shows the three autonomy levels in one day. It is the
-flow the three-minute demo follows.
+The demo follows two simulated days on the demo farm in Neiva (D076). The agent
+decides; the autonomy gate checks every proposal; the farmer has the last word.
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant F as Farmer
-    participant A as Agent
+    participant A as Agent (daily cycle)
     participant S as Sensors & Satellite
     participant G as Autonomy Gate
     participant V as Valve
 
-    F->>A: "Does the maize need water this week?"
-    A->>S: Read moisture, forecast, NDVI
-    S-->>A: Moisture 38 % · rain 8 mm expected tomorrow
-    A->>G: Propose irrigation 15 mm today (autonomous)
-    G-->>A: Pending approval: forecast rain 8 mm > 5 mm limit
-    A->>F: Not irrigating on its own today: rain expected. Awaiting your approval.
+    Note over A,S: Day 1 — 2 Nov, 06:00. Rain forecast: 12 mm
+    A->>S: Read moisture, forecast, crop stage, NDVI
+    S-->>A: Zona 2 dry · 12 mm of rain coming · low vigour on the image
+    A->>G: Propose irrigation today (autonomous)
+    G-->>F: Held for approval: forecast rain 12 mm > 5 mm limit
+    F->>G: Reject: "Esperaré la lluvia"
 
-    Note over S,A: Drought scenario injected overnight
-    S-->>A: Moisture 21 % · no rain forecast
-    A->>G: Propose irrigation 15 mm today (autonomous)
-    G-->>V: Approved, within daily cap · valve zone 2 opens
-    A->>F: Irrigating zone 2 now. 15 mm applied.
-
-    A->>G: Propose extra irrigation 10 mm for tomorrow (notify)
-    G-->>F: Notice: extra irrigation scheduled, revert within 6 h
+    Note over S,A: Drought scenario injected; the clock moves to day 2
+    Note over A,S: Day 2 — 3 Nov, 06:00. No rain forecast
+    A->>S: Read again
+    S-->>A: Zona 2 drier · no rain
+    A->>G: Propose irrigation today (autonomous)
+    G-->>V: Within every limit · the valve opens
+    A->>G: Propose extra irrigation for tomorrow (notify)
+    G-->>F: Notice: scheduled, revertible for 6 h of simulated time
     F->>G: Revert
-    G-->>A: Reverted, task removed from calendar
-
-    A->>G: Propose fertilizer, nitrogen 60 kg/ha (approval)
-    G-->>F: Approval request with reason and cost
-    F->>G: Approve
-    G-->>A: Approved, task scheduled for day 12
+    G-->>A: Reverted before it ran · nothing applied
+    A->>F: Daily report, every number checked against the readings
 ```
+
+The farmer can also ask by text or voice at any moment; the chat answers from
+verified readings and never acts (D057). Fertilizer proposals, with their
+mandatory approval, are planned after the hackathon.
 
 ---
 
