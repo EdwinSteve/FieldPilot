@@ -16,7 +16,7 @@ MAX_AUDIO_BYTES = 32 * 1024 * 1024  # the transcription service's own limit
 
 @router.post("/daily-cycle")
 def daily_cycle(body: DailyCycleIn, container: ContainerDep) -> DailyCycleOut:
-    return DailyCycleOut.of(container.daily_cycle().run(body.plot_id))
+    return DailyCycleOut.of(container.daily_cycle(body.plot_id).run(body.plot_id))
 
 
 @router.post("/chat", response_model=ChatOut)

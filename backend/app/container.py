@@ -8,6 +8,7 @@ decides here, and only here, which model clients are real (D063).
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date
 
 from app.agent.llm.mock import MockLLMClient
 from app.agent.llm.muse import MuseClient
@@ -43,7 +44,8 @@ from app.settings import Settings
 from app.voice.muse import MuseVoiceTranscribe
 from app.weather.fixture import FixtureForecast
 
-MOCK_CYCLE_FIXTURE = "demo_day1.json"
+# One recorded daily cycle per local day of the plot (D076).
+MOCK_CYCLE_DIR = ("fixtures", "llm", "demo")
 
 
 @dataclass(frozen=True)
@@ -60,8 +62,8 @@ class Container:
     scenarios: ScenarioService
     ticker: SimulationTicker
     agent_deps: Callable[[LLMClient], AgentDeps]  # every agent service, around a given model
-    cycle_llm: Callable[[], LLMClient]  # the live client, or a fresh replay per run (D063)
-    daily_cycle: Callable[[], DailyCycle]
+    cycle_llm: Callable[[date], LLMClient]  # the live client, or that day's replay (D063, D076)
+    daily_cycle: Callable[[int], DailyCycle]  # for a plot, on its current local day
     chat: ChatService | None  # None under MOCK_LLM=1 (D063)
     voice: VoiceChatService | None
 
@@ -102,13 +104,20 @@ def build_container(settings: Settings, config: RuntimeConfig, runtime: Runtime)
         )
 
     live = None if settings.mock_llm else agent_deps(MuseClient.from_settings(settings))
-    fixture = settings.data_dir / "fixtures" / "llm" / MOCK_CYCLE_FIXTURE
+    recordings = settings.data_dir.joinpath(*MOCK_CYCLE_DIR)
+    queries = FarmQueries(uow, clock, revert, config.messages, imagery)
 
-    def cycle_llm() -> LLMClient:
-        return live.llm if live is not None else MockLLMClient.from_fixture(fixture)
+    def cycle_llm(day: date) -> LLMClient:
+        """A fresh replay of that day's recording; a day never recorded replays nothing,
+        so the cycle stops with FixtureExhaustedError (503), never with made-up answers."""
+        if live is not None:
+            return live.llm
+        recording = recordings / f"{day.isoformat()}.json"
+        return MockLLMClient.from_fixture(recording) if recording.is_file() else MockLLMClient([])
 
-    def daily_cycle() -> DailyCycle:
-        return DailyCycle(uow, agent_deps(cycle_llm()), config.messages)
+    def daily_cycle(plot_id: int) -> DailyCycle:
+        llm = cycle_llm(queries.local_day(plot_id))
+        return DailyCycle(uow, agent_deps(llm), config.messages)
 
     chat = None if live is None else ChatService(uow, live)
     voice = (
@@ -125,7 +134,7 @@ def build_container(settings: Settings, config: RuntimeConfig, runtime: Runtime)
         proposals=proposals,
         approvals=ApprovalService(uow, clock, due),
         revert=revert,
-        queries=FarmQueries(uow, clock, revert, config.messages, imagery),
+        queries=queries,
         scenarios=ScenarioService(uow, clock, runtime.simulator),
         ticker=SimulationTicker(uow, clock, runtime.simulator, due, phenology),
         agent_deps=agent_deps,

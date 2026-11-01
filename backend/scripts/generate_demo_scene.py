@@ -11,7 +11,6 @@ pixel). Only the standard library is used: zlib and struct write the PNG.
 import json
 import random
 import struct
-import sys
 import zlib
 from pathlib import Path
 
@@ -89,4 +88,4 @@ def write_scene(directory: Path) -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(write_scene(SCENE_DIR))
+    write_scene(SCENE_DIR)

@@ -1,20 +1,25 @@
 """The container wires every service once; mock mode decides which clients are real."""
 
-from datetime import UTC, datetime
+import shutil
+from datetime import UTC, date, datetime
 from pathlib import Path
 
+import pytest
 from pydantic import SecretStr
 
 from app.agent.llm.mock import MockLLMClient
+from app.agent.llm.ports import FixtureExhaustedError
 from app.domain.enums import SensorKind
 from app.domain.models import Plot, Reading, Sensor, Zone
 from app.main import create_app
 from app.persistence.db import create_db_engine, init_schema
 from app.persistence.unit_of_work import SqlUnitOfWork
 from app.services.daily_cycle import DailyCycle
+from app.services.demo_seed import seed_demo_farm
 from app.settings import Settings
 
 START = datetime(2026, 10, 28, 11, 0, tzinfo=UTC)
+DEMO_DAY_1, DEMO_DAY_2 = date(2026, 11, 2), date(2026, 11, 3)
 
 
 def _settings(**overrides: object) -> Settings:
@@ -27,8 +32,7 @@ def test_mock_mode_has_no_chat_and_replays_the_cycle() -> None:
     container = create_app(_settings(mock_llm=True)).state.container
 
     assert container.chat is None and container.voice is None
-    assert isinstance(container.daily_cycle(), DailyCycle)
-    first, second = container.cycle_llm(), container.cycle_llm()
+    first, second = container.cycle_llm(DEMO_DAY_1), container.cycle_llm(DEMO_DAY_1)
     assert isinstance(first, MockLLMClient) and first is not second  # a fresh replay per run
 
 
@@ -45,7 +49,7 @@ def test_live_mode_wires_the_chat_and_voice_without_calling_the_network() -> Non
     container = create_app(settings).state.container
 
     assert container.chat is not None and container.voice is not None
-    assert container.cycle_llm() is container.cycle_llm()  # one live client
+    assert container.cycle_llm(DEMO_DAY_1) is container.cycle_llm(DEMO_DAY_2)  # one live client
 
 
 def test_startup_loads_imaging_and_the_agent_catalogue() -> None:
@@ -88,3 +92,32 @@ def test_startup_rebuilds_the_simulator_from_stored_readings(tmp_path: Path) -> 
 
     assert simulator.simulates(measured.id)
     assert not simulator.simulates(unmeasured.id)  # no reading: never a guessed start (D019)
+
+
+def test_mock_mode_replays_the_recording_of_the_plots_local_day(tmp_path: Path) -> None:
+    """D076: one recording per local day; a day never recorded replays nothing."""
+    data = tmp_path / "data"
+    shutil.copytree(Settings(_env_file=None).data_dir, data)
+    recordings = data / "fixtures" / "llm" / "demo"
+    shutil.rmtree(recordings, ignore_errors=True)
+    recordings.mkdir(parents=True)
+    (recordings / "2026-11-02.json").write_text(
+        '{"responses": [{"text": "día uno"}]}', encoding="utf-8"
+    )
+    container = create_app(_settings(data_dir=data)).state.container
+
+    recorded = container.cycle_llm(DEMO_DAY_1)
+    missing = container.cycle_llm(DEMO_DAY_2)
+
+    assert recorded.complete("s", [], []).text == "día uno"
+    with pytest.raises(FixtureExhaustedError):
+        missing.complete("s", [], [])
+
+
+def test_the_daily_cycle_uses_the_plots_current_local_day(tmp_path: Path) -> None:
+    url = f"sqlite:///{tmp_path / 'demo.db'}"
+    plot_id = seed_demo_farm(url).plot_id
+    container = create_app(_settings(database_url=url)).state.container
+
+    assert container.queries.local_day(plot_id) == DEMO_DAY_1
+    assert isinstance(container.daily_cycle(plot_id), DailyCycle)

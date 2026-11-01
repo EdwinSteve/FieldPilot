@@ -4,7 +4,7 @@ import { fetchHealth } from "../api/health";
 import { useAction } from "../hooks/useAction";
 import { useResource } from "../hooks/useResource";
 import { formatPlotTime } from "../lib/format";
-import { isFixtureExhausted } from "../lib/mockMode";
+import { dayAlreadyReplayed, isFixtureExhausted } from "../lib/mockMode";
 import type { Clock, Plot } from "../types/api";
 import { Icon } from "./icons";
 
@@ -39,8 +39,11 @@ export function ControlBar({
   const reports = useResource(useCallback(() => api.reports(), []), version);
   const [exhausted, setExhausted] = useState(false);
   const now = clock;
-  // The recorded day replays once per fresh farm; a used farm is refused up front (D074).
-  const demoUsed = health.data?.mock_llm === true && (reports.data?.length ?? 0) > 0;
+  // Each recorded day replays once; a day that already ran is refused up front (D074, D076).
+  const demoUsed =
+    health.data?.mock_llm === true &&
+    now !== null &&
+    dayAlreadyReplayed(reports.data ?? [], now.now, plot.utc_offset_hours);
 
   // A mismatched farm still fails through useAction; the flag adds the way back.
   function runCycleOnce(): Promise<void> {
@@ -119,8 +122,8 @@ export function ControlBar({
       ) : null}
       {demoUsed ? (
         <p className="notice">
-          La demo grabada ya se usó en esta granja. Recarga con <code>make seed</code> para
-          repetirla.
+          El ciclo grabado de hoy ya se ejecutó. Avanza al día siguiente con «+1 día», o
+          recarga la demo con <code>make seed</code> para repetirla.
         </p>
       ) : null}
       {exhausted && !demoUsed ? (

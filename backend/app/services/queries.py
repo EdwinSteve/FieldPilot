@@ -2,7 +2,7 @@
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import date, timedelta
 
 from app.agent.field import ImageryReader, ImageryView
 from app.autonomy.messages import MessageCatalog
@@ -112,17 +112,19 @@ class FarmQueries:
         open_now = window.open and task.status in _REVERTIBLE
         return TaskView(task, open_now, window.remaining, reason)
 
-    def imagery(self, plot_id: int) -> ImageryView | None:
-        """The plot's latest scene, on its current local day (D067)."""
+    def local_day(self, plot_id: int) -> date:
+        """The plot's current calendar day, on the simulated clock (D018)."""
         with self._uow() as u:
             plot = u.plots.get(plot_id)
-        return self._imagery.imagery(plot_id, local_day(self._clock.now(), plot))
+        return local_day(self._clock.now(), plot)
+
+    def imagery(self, plot_id: int) -> ImageryView | None:
+        """The plot's latest scene, on its current local day (D067)."""
+        return self._imagery.imagery(plot_id, self.local_day(plot_id))
 
     def imagery_image(self, plot_id: int) -> bytes:
         """The plot's latest scene as PNG bytes, for the dashboard overlay (D073)."""
-        with self._uow() as u:
-            plot = u.plots.get(plot_id)
-        png = self._imagery.scene_png(plot_id, local_day(self._clock.now(), plot))
+        png = self._imagery.scene_png(plot_id, self.local_day(plot_id))
         if png is None:
             raise NotFoundError("scene", plot_id)
         return png
