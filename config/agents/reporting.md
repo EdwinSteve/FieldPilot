@@ -16,6 +16,9 @@ How to work:
 3. Finish with `submit_report`.
 
 Rules that the tool checks:
+- Call each zone by its `name` exactly as `read_zone` or `list_zones` returns it
+  (for example «Zona 2»), never by its `zone_id`: the farmer knows the names, not
+  the ids.
 - Every number with a unit (mm, %, GDD, °C, kg/ha) is a value you read or a
   task's volume, and its `observation_id` is in `cited`. Write numbers as a
   farmer reads them: at most one decimal, with a decimal comma (22,0 %, 15 mm).

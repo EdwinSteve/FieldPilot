@@ -1,0 +1,240 @@
+{
+  "responses": [
+    {
+      "text": "Monitoring plot 1 — reading every zone's water status.",
+      "usage": {
+        "input_tokens": 1369,
+        "output_tokens": 227
+      },
+      "tool_call": {
+        "name": "list_zones",
+        "arguments": {}
+      }
+    },
+    {
+      "text": "Found 1 zone — now checking its moisture and water status.",
+      "usage": {
+        "input_tokens": 1463,
+        "output_tokens": 136
+      },
+      "tool_call": {
+        "name": "read_zone",
+        "arguments": {
+          "zone_id": 1
+        }
+      }
+    },
+    {
+      "text": "Moisture is low — now checking rain and crop stage.",
+      "usage": {
+        "input_tokens": 1666,
+        "output_tokens": 84
+      },
+      "tool_call": {
+        "name": "read_forecast",
+        "arguments": {}
+      }
+    },
+    {
+      "text": "Rain check done — now checking crop stage.",
+      "usage": {
+        "input_tokens": 1811,
+        "output_tokens": 61
+      },
+      "tool_call": {
+        "name": "read_crop_stage",
+        "arguments": {}
+      }
+    },
+    {
+      "text": "Dry soil with no rain expected — submitting the zone assessment.",
+      "usage": {
+        "input_tokens": 1987,
+        "output_tokens": 1130
+      },
+      "tool_call": {
+        "name": "submit_assessment",
+        "arguments": {
+          "summary": "Zone 1 soil moisture 16.737354753268832% well below field capacity 32.0% at stage sowing with rain 0.0 mm and 0.0 GDD, classified dry.",
+          "zones": [
+            {
+              "cited": [
+                "reading-2",
+                "zone-1-field-capacity",
+                "forecast-plot-1-2026-11-03T11:00Z",
+                "stage-cycle-1",
+                "gdd-cycle-1",
+                "kc-cycle-1"
+              ],
+              "moisture_pct": 16.737354753268832,
+              "status": "dry",
+              "zone_id": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "text": "Satellite check queued — pulling the latest scene for your zones.",
+      "usage": {
+        "input_tokens": 1374,
+        "output_tokens": 86
+      },
+      "tool_call": {
+        "name": "read_imagery",
+        "arguments": {}
+      }
+    },
+    {
+      "text": "Latest scene shows low vigor — submitting the zone report.",
+      "usage": {
+        "input_tokens": 1648,
+        "output_tokens": 349
+      },
+      "tool_call": {
+        "name": "submit_imaging",
+        "arguments": {
+          "zones": [
+            {
+              "bare_soil_pct": 25.3,
+              "cited": [
+                "ndvi-neiva-2026-10-28-zone-1",
+                "low-ndvi-neiva-2026-10-28-zone-1",
+                "bare-soil-neiva-2026-10-28-zone-1"
+              ],
+              "low_ndvi_pct": 21.2,
+              "low_vigor": true,
+              "ndvi_mean": 0.378,
+              "zone_id": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "text": "Leo la zona seca y calculo la dosis para acercarla a capacidad de campo.",
+      "usage": {
+        "input_tokens": 2151,
+        "output_tokens": 1029
+      },
+      "tool_call": {
+        "name": "read_zone",
+        "arguments": {
+          "zone_id": 1
+        }
+      }
+    },
+    {
+      "text": "La Zona 2 necesita unos 46 mm; preparo el riego de hoy con el tope de 20 mm.",
+      "usage": {
+        "input_tokens": 2358,
+        "output_tokens": 970
+      },
+      "tool_call": {
+        "name": "read_forecast",
+        "arguments": {}
+      }
+    },
+    {
+      "text": "La Zona 2 necesita unos 46 mm; preparo el riego de hoy con el tope de 20 mm.",
+      "usage": {
+        "input_tokens": 2516,
+        "output_tokens": 1300
+      },
+      "tool_call": {
+        "name": "propose_action",
+        "arguments": {
+          "action_type": "irrigation",
+          "cited": [
+            "reading-2",
+            "zone-1-field-capacity",
+            "forecast-plot-1-2026-11-03T11:00Z",
+            "low-ndvi-neiva-2026-10-28-zone-1"
+          ],
+          "rationale": "Zona 2 está seca con humedad de 16,7 % muy por debajo de la capacidad de campo de 32,0 % y sin lluvia prevista (0,0 mm). Se proponen 20 mm hoy para acercarla hacia capacidad de campo sin superarla. También muestra vigor bajo en la imagen, que refuerza la necesidad de agua.",
+          "scheduled_for": "now",
+          "volume_mm": 20.0,
+          "zone_id": 1
+        }
+      }
+    },
+    {
+      "text": "La primera dosis quedó aplicada y preparo la que completa el déficit para mañana.",
+      "usage": {
+        "input_tokens": 2865,
+        "output_tokens": 1566
+      },
+      "tool_call": {
+        "name": "propose_action",
+        "arguments": {
+          "action_type": "extra_irrigation",
+          "cited": [
+            "reading-2",
+            "zone-1-field-capacity",
+            "task-2"
+          ],
+          "rationale": "Zona 2 completa el déficit que quedó después del riego de hoy con 20 mm mañana, para seguir acercando la humedad hacia la capacidad de campo sin superarla. El agricultor puede revertir esta propuesta si lo desea.",
+          "scheduled_for": "2026-11-04T11:00:00+00:00",
+          "volume_mm": 20.0,
+          "zone_id": 1
+        }
+      }
+    },
+    {
+      "text": "Riegos programados; cierro el parte del día.",
+      "usage": {
+        "input_tokens": 3165,
+        "output_tokens": 513
+      },
+      "tool_call": {
+        "name": "finish",
+        "arguments": {
+          "summary": "Zona 2 seca (16,7 % frente a 32,0 %): propuestos 20 mm hoy (executed) y 20 mm extra mañana (scheduled) para completar el déficit sin superar capacidad de campo."
+        }
+      }
+    },
+    {
+      "text": "Preparo su informe diario: consulto el nombre de la zona para redactarlo.",
+      "usage": {
+        "input_tokens": 1859,
+        "output_tokens": 1041
+      },
+      "tool_call": {
+        "name": "list_zones",
+        "arguments": {}
+      }
+    },
+    {
+      "text": "Ya tengo el nombre de la zona. Redacto el informe con humedad, imagen y riegos.",
+      "usage": {
+        "input_tokens": 1958,
+        "output_tokens": 2247
+      },
+      "tool_call": {
+        "name": "submit_report",
+        "arguments": {
+          "actions": [
+            {
+              "status": "executed",
+              "task_id": 2
+            },
+            {
+              "status": "scheduled",
+              "task_id": 3
+            }
+          ],
+          "cited": [
+            "reading-2",
+            "zone-1-field-capacity",
+            "forecast-plot-1-2026-11-03T11:00Z",
+            "gdd-cycle-1",
+            "ndvi-neiva-2026-10-28-zone-1",
+            "low-ndvi-neiva-2026-10-28-zone-1",
+            "bare-soil-neiva-2026-10-28-zone-1"
+          ],
+          "text_es": "La Zona 2 está seca con una humedad del 16,7 % frente a una capacidad de campo del 32,0 %, en siembra con 0 mm de lluvia prevista y 0 GDD acumulados. La imagen muestra vigor bajo en la Zona 2 con un 21,2 % de NDVI bajo y aproximadamente un 25,3 % de suelo desnudo. Se ejecutó el riego programado y queda programado un riego extra."
+        }
+      }
+    }
+  ]
+}

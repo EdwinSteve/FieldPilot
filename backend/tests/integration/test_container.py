@@ -67,7 +67,11 @@ def test_startup_loads_imaging_and_the_agent_catalogue() -> None:
 def test_the_mock_fixtures_exist_in_data() -> None:
     settings = _settings()
 
-    assert (settings.data_dir / "fixtures" / "llm" / "demo_day1.json").is_file()
+    recordings = settings.data_dir / "fixtures" / "llm" / "demo"
+    assert sorted(p.name for p in recordings.glob("*.json")) == [
+        "2026-11-02.json",
+        "2026-11-03.json",
+    ]
     assert any((settings.data_dir / "fixtures" / "sam").glob("*.txt"))
 
 
