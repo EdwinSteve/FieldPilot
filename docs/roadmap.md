@@ -192,20 +192,21 @@ Each step follows the usual process:
   and scenario injection, and the farmer's reason on held tasks.
 - **Done when:** the whole demo flow is visible in the browser.
 
-### Step 11: seed, end to end and demo (2026-11-03 → 11-04)
+### Step 11: seed, end to end and demo (2026-10-31 → 11-04)
 
-- **Seed:** `make seed` builds the demo farm and the maize cycle.
-- **End-to-end tests:** the ones required by D009 and D016.
-- **Recorded Muse run:** record the D009 demo once against the real model,
-  now that `make seed` exists.
-
-The hand-written fixture of step 7b verifies the business logic of D009. A
-recording from the real Muse model verifies that the model's output format
-stays compatible with the tools. They are different tests, and neither
-replaces the other.
-- **Delivery:** the demo script, the video, and a final README pass.
-- **Done when:** every box in the README Status list is ticked, and the
-  demo runs with `MOCK_LLM=1` and with the real key.
+- **End-to-end tests (D016):** with `ClockService.advance()`, a revert inside
+  the window succeeds and one past it is 409; a scheduled task has no
+  `execution` event until an advance crosses `scheduled_for`.
+- **Two-day demo (D076):** `make seed` starts on 2 Nov 06:00 local (12 mm of
+  rain forecast). Day 1: the gate holds the irrigation and the farmer rejects
+  it. Drought, then day 2 (3 Nov, dry): D009 (irrigation, extra irrigation
+  with notice, revert).
+- **Recorded Muse run:** `make record-demo` runs the two days against the real
+  model and writes one fixture per local day, which `MOCK_LLM=1` replays.
+- **Delivery:** `docs/demo.md` (the click path and what to say), the video, and
+  a final README pass.
+- **Done when:** every box in the README Status list is ticked, and the demo
+  runs with `MOCK_LLM=1` and with the real key.
 
 ## 6. Risks and what we cut first
 
