@@ -253,18 +253,21 @@ make test                   # backend tests, mock mode, no network
 make check                  # what CI runs: hygiene, backend and frontend
 ```
 
-`make seed` rebuilds the demo farm (fresh database, maize cycle, clock paused
-at 28 Oct 06:00). Stop `make dev` first. In mock mode the recorded
-day replays only on that fresh farm: after running the cycle, reseed to run
-it again (D074).
+**The demo:** `make seed`, then `make dev`, then follow
+[`docs/demo.md`](docs/demo.md). `make seed` rebuilds the demo farm (fresh
+database, maize cycle, clock paused on 2 Nov, 06:00 in Neiva); stop
+`make dev` first. In mock mode the two recorded days replay offline, one per
+simulated day, on the same clicks the script lists (D076).
+`make record-demo` records them again against the real model.
 
 For a live demo, `APP_PROFILE=demo DEMO_REVERT_WINDOW_SECONDS=600` shortens
 the revert window. It can only shorten the window, every shortening is logged,
 and any other profile refuses to start with the variable set
 ([D010](docs/decisions.md), [D036](docs/decisions.md)).
 
-Without an API key, the agent runs in **mock mode** with recorded responses,
-so the simulator, calendar and autonomy gate can still be exercised.
+Without an API key, the agent runs in **mock mode**: the daily cycle replays
+the recorded demo, and the simulator, calendar and autonomy gate work as
+usual. The chat and voice need the key (`MOCK_LLM=0`).
 
 ---
 
@@ -272,14 +275,18 @@ so the simulator, calendar and autonomy gate can still be exercised.
 
 [![CI](https://github.com/EdwinSteve/FieldPilot/actions/workflows/ci.yml/badge.svg)](https://github.com/EdwinSteve/FieldPilot/actions/workflows/ci.yml)
 
-Work in progress during the hackathon. The plan for steps 7–11 is in
+All eleven build steps are complete; the two-day demo is in
+[`docs/demo.md`](docs/demo.md) and the plan that got here in
 [`docs/roadmap.md`](docs/roadmap.md). Every pull request runs the same
-Makefile targets as `make check`, in three jobs: repository hygiene, backend
-and frontend ([D041](docs/decisions.md)). The backend job enforces readability
-rules: complexity, unused code, no `print` and no naive datetimes. Findings
-appear inline on the pull request ([D042](docs/decisions.md)). A box is ticked only when the feature
-passes its tests. Design decisions are logged in
-[`docs/decisions.md`](docs/decisions.md).
+Makefile targets as `make check`, in three jobs ([D041](docs/decisions.md)):
+- **repository hygiene:** no secret, database or database backup tracked;
+- **backend:** ruff with readability rules (complexity, unused code, no
+  `print`, no naive datetimes; [D042](docs/decisions.md)), mypy and pytest;
+- **frontend:** Oxlint with the React hooks rules, Vitest, and the type-checked
+  build ([D068](docs/decisions.md), [D069](docs/decisions.md)).
+
+A box is ticked only when the feature passes its tests. Design decisions are
+logged in [`docs/decisions.md`](docs/decisions.md).
 
 - [x] 1. Scaffold: backend, frontend, Makefile, architecture and decision docs
 - [x] 2. Domain models and SQLite persistence
@@ -291,7 +298,7 @@ passes its tests. Design decisions are logged in
 - [x] 8. Satellite NDVI and segmentation
 - [x] 9. REST API
 - [x] 10. Frontend dashboard
-- [ ] 11. Demo seed and end-to-end test
+- [x] 11. Demo seed and end-to-end test
 
 ---
 
