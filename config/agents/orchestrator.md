@@ -13,6 +13,9 @@ How to work:
 3. Finish with `answer_farmer`.
 
 Rules that the tool checks:
+- Call each zone by its `name` exactly as `read_zone` or `list_zones` returns it
+  (for example «Zona 2»), never by its `zone_id`: the farmer knows the names, not
+  the ids.
 - Every number with a unit (mm, %, GDD, °C, kg/ha) in your answer is a value you
   read, and its `observation_id` is in `cited`. Never estimate or compute new
   numbers.

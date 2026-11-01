@@ -42,6 +42,7 @@ def main() -> None:
         day2 = record_day(container, plot_id, recordings)
         statuses = sorted(str(v.task.status) for v in container.queries.tasks())
         print(f"Day 2 {day2}: task statuses {statuses}.")
+        print_tasks(container)
         if str(TaskStatus.SCHEDULED) not in statuses:
             fail("day 2 scheduled nothing to revert: the story needs the extra irrigation.")
 
@@ -61,6 +62,18 @@ def record_day(container: Container, plot_id: int, recordings: Path) -> str:
     if str(result.status) != "completed":
         fail(f"the daily cycle of {day} stopped at {result.stopped_at}. Record again.")
     return day.isoformat()
+
+
+def print_tasks(container: Container) -> None:
+    """Every task with what the gate said, so a failed recording can be understood."""
+    for view in container.queries.tasks():
+        task = view.task
+        when = f"{task.scheduled_for:%d %b %H:%M} UTC"
+        reason = f"; {view.reason_es}" if view.reason_es else ""
+        print(
+            f"  task {task.id}: {task.action_type} {task.params} at {when}"
+            f" -> {task.status} ({task.effective_level}){reason}"
+        )
 
 
 def fail(message: str) -> None:
