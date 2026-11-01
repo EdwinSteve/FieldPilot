@@ -221,7 +221,7 @@ sequenceDiagram
     G-->>F: Held for approval: forecast rain 12 mm > 5 mm limit
     F->>G: Reject: "Esperaré la lluvia"
 
-    Note over S,A: Drought scenario injected; the clock moves to day 2
+    Note over S,A: Drought scenario injected, then the clock moves to day 2
     Note over A,S: Day 2 — 3 Nov, 06:00. No rain forecast
     A->>S: Read again
     S-->>A: Zona 2 drier · no rain
