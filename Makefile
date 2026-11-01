@@ -7,7 +7,7 @@ RUFF_ARGS ?=
 BACKEND_PORT ?= 8000
 
 .PHONY: help install install-backend install-frontend dev dev-backend dev-frontend \
-	seed test lint lint-backend lint-rules-backend format-check-backend format \
+	seed record-demo test lint lint-backend lint-rules-backend format-check-backend format \
 	typecheck typecheck-backend typecheck-frontend build-frontend lint-frontend test-frontend \
 	check check-backend check-frontend check-repo preflight clean
 
@@ -34,6 +34,9 @@ dev-frontend:
 seed: ## Rebuild the demo farm (fresh DB, maize cycle; stop `make dev` first)
 	$(UV) run python scripts/seed_demo.py --force
 
+record-demo: ## Record the two-day demo against the real model (network, key quota; not in CI, D076)
+	MOCK_LLM=0 $(UV) run python scripts/record_demo.py
+
 test: ## Run the backend test suite (mock mode, no network)
 	MOCK_LLM=1 $(UV) run pytest
 
@@ -54,7 +57,7 @@ format: ## Auto-format backend code
 typecheck: typecheck-backend typecheck-frontend ## Type-check backend (mypy) and frontend (tsc)
 
 typecheck-backend:
-	$(UV) run mypy app tests
+	$(UV) run mypy app tests scripts
 
 typecheck-frontend:
 	npm --prefix $(FRONTEND) run typecheck

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDayMonth, formatDuration, formatNumber, formatPlotTime } from "./format";
+import { formatDayMonth, formatDuration, formatNumber, formatPlotTime, plotDay } from "./format";
 
 describe("formatDuration", () => {
   it.each([
@@ -43,5 +43,12 @@ describe("formatDayMonth", () => {
 
   it("leaves bad input alone", () => {
     expect(formatDayMonth("no-date")).toBe("no-date");
+  });
+});
+
+describe("plotDay", () => {
+  it("is the plot's local calendar day", () => {
+    expect(plotDay("2026-11-02T11:00:00Z", -5)).toBe("2026-11-02");
+    expect(plotDay("2026-11-03T03:00:00Z", -5)).toBe("2026-11-02");
   });
 });

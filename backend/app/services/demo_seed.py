@@ -1,10 +1,11 @@
-"""Build the demo farm the mock demo day replays on (D074).
+"""Build the demo farm the recorded two-day demo replays on (D074, D076).
 
-The recorded answers cite day-one observation ids (`reading-1`, the 28 Oct
-forecast), so the seeded rows must stay exactly these: clock paused at
-28 Oct 06:00 local, plot 1, zone 1, one soil-moisture sensor, reading 1 at
-20.0, maize sown 1 Oct. The simulator learns the zone when the app starts,
-from that reading (§4.10), so no tick is needed here.
+The recorded answers (D076) cite observation ids such as `reading-1` and
+the day's forecast, so the seeded rows must stay exactly these: clock paused
+at 2 Nov 06:00 local (12 mm of rain forecast), plot 1, zone 1, one
+soil-moisture sensor, reading 1 at 20.0, maize sown 1 Oct. The simulator
+learns the zone when the app starts, from that reading (§4.10), so no tick
+is needed here.
 """
 
 from dataclasses import dataclass
@@ -15,7 +16,7 @@ from app.domain.models import CropCycle, Plot, Reading, Sensor, SimClockState, Z
 from app.persistence.db import create_db_engine, init_schema
 from app.persistence.unit_of_work import SqlUnitOfWork
 
-START = datetime(2026, 10, 28, 11, 0, tzinfo=UTC)  # 06:00 in Neiva
+START = datetime(2026, 11, 2, 11, 0, tzinfo=UTC)  # 2 Nov, 06:00 in Neiva (D076)
 
 
 @dataclass(frozen=True)

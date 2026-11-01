@@ -36,3 +36,8 @@ export function formatPlotTime(iso: string, utcOffsetHours: number): string {
 }
 
 const MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+/** The plot's local calendar day of a UTC instant, as "YYYY-MM-DD" (D018). */
+export function plotDay(iso: string, utcOffsetHours: number): string {
+  return new Date(Date.parse(iso) + utcOffsetHours * 3_600_000).toISOString().slice(0, 10);
+}

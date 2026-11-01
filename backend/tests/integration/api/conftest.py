@@ -100,7 +100,7 @@ def with_cycle(app: FastAPI, llm: LLMClient) -> Container:
     """Swap in a daily cycle around a scripted model."""
     container: Container = app.state.container
 
-    def daily_cycle() -> DailyCycle:
+    def daily_cycle(plot_id: int) -> DailyCycle:
         deps = container.agent_deps(llm)
         return DailyCycle(container.runtime.uow, deps, container.config.messages)
 
