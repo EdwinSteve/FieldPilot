@@ -98,7 +98,7 @@ function Ask({
 }
 
 const REASON_BUTTON =
-  "flex min-h-17 items-center gap-3.5 rounded-control border-2 border-border bg-surface px-4.5 text-left text-row font-bold text-ink";
+  "press flex min-h-17 items-center gap-3.5 rounded-control border-2 border-border bg-surface px-4.5 text-left text-row font-bold text-ink";
 const REASON_NUMBER =
   "flex size-10 shrink-0 items-center justify-center rounded-full bg-ground text-lead font-extrabold text-primary";
 const MAX_REASON_CHARS = 500;
@@ -202,9 +202,11 @@ function Done({ step, view }: { step: Extract<Step, { name: "done" }>; view: Dec
   const noDetail = step.withReason ? en.decide.noWaterSaved : en.decide.noWaterSkipped;
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-4.5 px-4.5 pt-3 pb-5 text-center">
-      <IconCircle tone={yes ? "good" : "neutral"} size="hero">
-        <Icon name="check" size={66} strokeWidth={2.4} />
-      </IconCircle>
+      <span className="animate-pop-in">
+        <IconCircle tone={yes ? "good" : "neutral"} size="hero">
+          <Icon name="check" size={66} strokeWidth={2.4} />
+        </IconCircle>
+      </span>
       <h1 className="text-title font-extrabold">
         {yes ? en.decide.wateringNow : en.decide.noWater}
       </h1>

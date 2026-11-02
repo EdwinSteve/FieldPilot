@@ -4,7 +4,7 @@ import { TabBar } from "./components/TabBar";
 import { useFarm } from "./hooks/useFarm";
 import { useFarmRoute } from "./hooks/useFarmRoute";
 import { en } from "./i18n/en";
-import { tabOf, type Route } from "./lib/route";
+import { hrefOf, tabOf, type Route } from "./lib/route";
 import { DecideScreen } from "./screens/DecideScreen";
 import { FieldScreen } from "./screens/FieldScreen";
 import { PlanScreen } from "./screens/PlanScreen";
@@ -89,10 +89,13 @@ function contentFor(route: Route, state: FarmState): ReactNode {
         <>
           {state.stale ? <Notice text={en.state.staleData} /> : null}
           {state.farm.actionFailed ? <Notice text={en.state.actionFailed} /> : null}
-          {/* A disabled fieldset turns off every button at once while an action runs. */}
-          <fieldset disabled={state.farm.busy} className="contents">
-            {screenFor(route, state.farm)}
-          </fieldset>
+          {/* `inert` stops every tap while an action runs, without greying the buttons. */}
+          <div inert={state.farm.busy} className="contents">
+            {/* The key plays the entrance on a change of screen, never on a data refresh. */}
+            <div key={hrefOf(route)} className="flex min-h-0 flex-1 animate-screen-in flex-col">
+              {screenFor(route, state.farm)}
+            </div>
+          </div>
         </>
       );
   }
@@ -100,7 +103,10 @@ function contentFor(route: Route, state: FarmState): ReactNode {
 
 function Notice({ text }: { text: string }) {
   return (
-    <p role="alert" className="shrink-0 bg-needs-tint px-4.5 py-2.5 text-small font-bold text-needs-text">
+    <p
+      role="alert"
+      className="shrink-0 animate-notice-in bg-needs-tint px-4.5 py-2.5 text-small font-bold text-needs-text"
+    >
       {text}
     </p>
   );

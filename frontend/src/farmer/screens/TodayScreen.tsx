@@ -18,7 +18,7 @@ function Header({ view }: { view: TodayView }) {
       </div>
       <a
         href={hrefOf({ screen: "stop" })}
-        className="flex min-h-16 min-w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-control border-2 border-stop bg-surface text-caption font-extrabold text-stop no-underline"
+        className="press flex min-h-16 min-w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-control border-2 border-stop bg-surface text-caption font-extrabold text-stop no-underline"
       >
         <StopSign size={24} />
         {en.today.stop}
@@ -31,7 +31,7 @@ function StoppedBanner({ text }: { text: string }) {
   return (
     <a
       href={hrefOf({ screen: "stop" })}
-      className="flex items-center gap-3.5 rounded-card bg-stop p-4.5 text-surface no-underline"
+      className="press flex animate-card-in items-center gap-3.5 rounded-card bg-stop p-4.5 text-surface no-underline"
     >
       <StopSign size={36} inverted />
       <span className="flex flex-col gap-0.5">

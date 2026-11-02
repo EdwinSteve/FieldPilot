@@ -34,9 +34,11 @@ export function UpdatesScreen({ view, onUndo, onMarkAllRead }: UpdatesScreenProp
       {view.undo && !view.undone ? <UndoCard item={view.undo} onUndo={onUndo} /> : null}
       {view.undone ? (
         <section className="flex items-center gap-3.5 rounded-card bg-surface px-4.5 py-4">
-          <IconCircle tone="good" size="large">
-            <Icon name="check" size={28} strokeWidth={2.6} />
-          </IconCircle>
+          <span className="animate-pop-in">
+            <IconCircle tone="good" size="large">
+              <Icon name="check" size={28} strokeWidth={2.6} />
+            </IconCircle>
+          </span>
           <span className="flex-1 text-row font-extrabold">{en.updates.cancelled}</span>
         </section>
       ) : null}

@@ -5,7 +5,7 @@ import type { TalkControl } from "../view-models/types";
 import { Icon } from "./Icon";
 
 const MAX_QUESTION_CHARS = 2000;
-const ROUND_BUTTON = "flex size-16 shrink-0 items-center justify-center rounded-full border-0";
+const ROUND_BUTTON = "press flex size-16 shrink-0 items-center justify-center rounded-full border-0";
 const FIELD =
   "min-h-16 min-w-0 flex-1 rounded-pill border-2 border-border bg-surface px-5 text-body text-ink placeholder:text-ink-3 disabled:bg-divider disabled:text-ink-3";
 
@@ -57,7 +57,7 @@ export function ChatBar({ control, unavailable, showHint }: ChatBarProps) {
       {failure === null ? null : (
         <p
           role="alert"
-          className="rounded-control bg-needs-tint px-4 py-3 text-small font-bold text-needs-text"
+          className="animate-notice-in rounded-control bg-needs-tint px-4 py-3 text-small font-bold text-needs-text"
         >
           {failure}
         </p>

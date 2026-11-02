@@ -13,7 +13,7 @@ interface TaskSheetProps {
 export function TaskSheet({ task, onClose, onUndo }: TaskSheetProps) {
   const undoTaskId = task.undoTaskId;
   return (
-    <div className="absolute inset-0 z-10 flex flex-col justify-end bg-overlay">
+    <div className="absolute inset-0 z-10 flex animate-fade-in flex-col justify-end bg-overlay">
       <button
         type="button"
         aria-label={en.plan.closeDetails}
@@ -23,7 +23,7 @@ export function TaskSheet({ task, onClose, onUndo }: TaskSheetProps) {
       <dialog
         open
         aria-label={en.plan.taskDetails}
-        className="relative m-0 flex w-full max-w-full flex-col gap-3.5 rounded-t-sheet border-0 bg-surface px-5 pt-3.5 pb-7 text-ink"
+        className="relative m-0 flex w-full max-w-full animate-sheet-up flex-col gap-3.5 rounded-t-sheet border-0 bg-surface px-5 pt-3.5 pb-7 text-ink"
       >
         <span className="h-1.25 w-12 self-center rounded-full bg-border" />
         <div className="flex flex-col gap-1">

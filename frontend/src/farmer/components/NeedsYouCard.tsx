@@ -9,7 +9,7 @@ export function NeedsYouCard({ decision }: { decision: DecisionLink }) {
   return (
     <a
       href={hrefOf({ screen: "decide", taskId: decision.taskId })}
-      className="flex flex-col gap-3 rounded-card-lg border-3 border-needs bg-surface p-4.5 text-ink no-underline shadow-needs"
+      className="press flex animate-card-in flex-col gap-3 rounded-card-lg border-3 border-needs bg-surface p-4.5 text-ink no-underline shadow-needs"
     >
       <span className="self-start">
         <Chip tone="needs">{en.autonomy.needsYou}</Chip>
