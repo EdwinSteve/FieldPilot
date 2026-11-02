@@ -113,7 +113,7 @@ export function ChatPanel({ plot, version, refresh }: ChatPanelProps) {
       >
         <input
           aria-label="Tu pregunta"
-          placeholder="¿Necesita agua el maíz de la zona 2?"
+          placeholder="¿Necesita agua la zona 2?"
           value={question}
           disabled={busy || recording || unavailable}
           onChange={(event) => setQuestion(event.target.value)}

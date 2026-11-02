@@ -1,9 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { daysSinceSowing, stageProgress } from "./stages";
 
+const MAIZE = [
+  "sowing",
+  "germination_emergence",
+  "vegetative",
+  "flowering",
+  "grain_fill",
+  "maturity_harvest",
+];
+
 describe("stageProgress", () => {
   it("marks the open stage current, past ones done, the rest todo", () => {
-    const steps = stageProgress([
+    const steps = stageProgress(MAIZE, [
       { name: "sowing", ended_at: "2026-10-21T11:00:00Z" },
       { name: "germination_emergence", ended_at: null },
     ]);
@@ -12,8 +21,8 @@ describe("stageProgress", () => {
   });
 
   it("reads an unsown crop as all todo and a finished one as all done", () => {
-    expect(stageProgress([]).every((s) => s.state === "todo")).toBe(true);
-    const done = stageProgress([
+    expect(stageProgress(MAIZE, []).every((s) => s.state === "todo")).toBe(true);
+    const done = stageProgress(MAIZE, [
       { name: "sowing", ended_at: "2026-10-21T11:00:00Z" },
       { name: "germination_emergence", ended_at: "2026-10-25T11:00:00Z" },
       { name: "vegetative", ended_at: "2026-11-20T11:00:00Z" },
@@ -22,6 +31,20 @@ describe("stageProgress", () => {
       { name: "maturity_harvest", ended_at: "2027-01-20T11:00:00Z" },
     ]);
     expect(done.every((s) => s.state === "done")).toBe(true);
+  });
+});
+
+describe("stageProgress for any crop (D077)", () => {
+  it("follows the order the crop's catalogue gives", () => {
+    const beans = ["siembra", "floracion", "llenado", "cosecha"];
+    const steps = stageProgress(beans, [{ name: "siembra", ended_at: "2026-10-21T11:00:00Z" }, { name: "floracion", ended_at: null }]);
+
+    expect(steps.map((s) => [s.name, s.state])).toEqual([
+      ["siembra", "done"],
+      ["floracion", "current"],
+      ["llenado", "todo"],
+      ["cosecha", "todo"],
+    ]);
   });
 });
 

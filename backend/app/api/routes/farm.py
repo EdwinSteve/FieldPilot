@@ -6,7 +6,7 @@ from fastapi import APIRouter, Query
 from fastapi.responses import Response
 
 from app.api.deps import ContainerDep
-from app.api.schemas import CycleOut, ImageryOut, PlotOut, SensorReadingsOut, ZoneOut
+from app.api.schemas import CropOut, CycleOut, ImageryOut, PlotOut, SensorReadingsOut, ZoneOut
 
 router = APIRouter(tags=["farm"])
 
@@ -39,6 +39,11 @@ def list_readings(
     limit: Annotated[int, Query(ge=1, le=5000)] = 500,
 ) -> list[SensorReadingsOut]:
     return [SensorReadingsOut.of(s) for s in container.queries.readings(zone_id, limit)]
+
+
+@router.get("/crops/{crop}")
+def get_crop(crop: str, container: ContainerDep) -> CropOut:
+    return CropOut.of(container.queries.crop(crop))
 
 
 @router.get("/cycles")
