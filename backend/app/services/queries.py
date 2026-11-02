@@ -21,6 +21,7 @@ from app.domain.models import (
     Zone,
 )
 from app.persistence.ports import UnitOfWork
+from app.phenology.catalog import CropCatalog, CropSpec
 from app.services.gate_context import local_day
 from app.services.gate_decisions import verdict_from_event
 from app.services.revert import RevertService
@@ -60,12 +61,14 @@ class FarmQueries:
         revert: RevertService,
         messages: MessageCatalog,
         imagery: ImageryReader,
+        crops: CropCatalog,
     ) -> None:
         self._uow = uow
         self._clock = clock
         self._revert = revert
         self._messages = messages
         self._imagery = imagery
+        self._crops = crops
 
     def plots(self) -> Sequence[Plot]:
         with self._uow() as u:
@@ -111,6 +114,12 @@ class FarmQueries:
             return TaskView(task, None, None, reason)
         open_now = window.open and task.status in _REVERTIBLE
         return TaskView(task, open_now, window.remaining, reason)
+
+    def crop(self, name: str) -> CropSpec:
+        """A crop of the catalogue, for the dashboard's stage bar (D077)."""
+        if name not in self._crops:
+            raise NotFoundError("Crop", name)
+        return self._crops[name]
 
     def local_day(self, plot_id: int) -> date:
         """The plot's current calendar day, on the simulated clock (D018)."""

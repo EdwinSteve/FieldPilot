@@ -106,7 +106,7 @@ def build_container(settings: Settings, config: RuntimeConfig, runtime: Runtime)
 
     live = None if settings.mock_llm else agent_deps(MuseClient.from_settings(settings))
     recordings = settings.data_dir.joinpath(*MOCK_CYCLE_DIR)
-    queries = FarmQueries(uow, clock, revert, config.messages, imagery)
+    queries = FarmQueries(uow, clock, revert, config.messages, imagery, config.crops)
 
     def cycle_llm(day: date) -> LLMClient:
         """A fresh replay of that day's recording; a day never recorded replays nothing,

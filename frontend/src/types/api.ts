@@ -213,3 +213,11 @@ export interface ScenarioStatus {
 export type ScenarioRequest =
   | { name: "drought"; start: string; end: string; et0_multiplier?: number }
   | { name: "heavy_rain"; start: string; end: string; total_mm?: number };
+
+/** A crop of the catalogue, its stages in order (D077). */
+export interface Crop {
+  name: string;
+  display_es: string;
+  maturity_gdd: number;
+  stages: { name: string; display_es: string; gdd_start: number }[];
+}

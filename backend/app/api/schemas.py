@@ -20,6 +20,7 @@ from app.domain.models import (
     Stage,
     Zone,
 )
+from app.phenology.catalog import CropSpec
 from app.services.daily_cycle import DailyCycleResult
 from app.services.queries import CycleView, SensorReadings, TaskView
 from app.services.scenarios import ScenarioStatus
@@ -481,3 +482,34 @@ class HeavyRainIn(_ScenarioWindow):
 
 
 ScenarioIn = Annotated[DroughtIn | HeavyRainIn, Field(discriminator="name")]
+
+
+class CropStageOut(BaseModel):
+    name: str
+    display_es: str
+    gdd_start: float
+
+
+class CropOut(BaseModel):
+    """A crop of the catalogue, its stages in order (D077)."""
+
+    name: str
+    display_es: str
+    maturity_gdd: float
+    stages: list[CropStageOut]
+
+    @classmethod
+    def of(cls, crop: CropSpec) -> "CropOut":
+        return cls(
+            name=crop.name,
+            display_es=crop.display_name.get("es", crop.name),
+            maturity_gdd=crop.maturity_gdd,
+            stages=[
+                CropStageOut(
+                    name=stage.name,
+                    display_es=stage.display_name.get("es", stage.name),
+                    gdd_start=stage.gdd_start,
+                )
+                for stage in crop.stages
+            ],
+        )
