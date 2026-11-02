@@ -19,7 +19,7 @@ const SIZES: Record<Size, string> = {
 };
 
 function actionClass(variant: Variant, size: Size): string {
-  return `flex items-center justify-center gap-2.5 font-extrabold no-underline disabled:cursor-not-allowed disabled:border-0 disabled:bg-divider disabled:text-ink-3 ${VARIANTS[variant]} ${SIZES[size]}`;
+  return `press flex items-center justify-center gap-2.5 font-extrabold no-underline disabled:cursor-not-allowed disabled:border-0 disabled:bg-divider disabled:text-ink-3 ${VARIANTS[variant]} ${SIZES[size]}`;
 }
 
 interface StyleProps {

@@ -21,7 +21,7 @@ export function StatusTile({ href, tone, visual, value, label }: StatusTileProps
   return (
     <a
       href={href}
-      className={`flex flex-col items-center gap-1 rounded-tile px-1 py-3 no-underline ${TONES[tone]}`}
+      className={`press flex flex-col items-center gap-1 rounded-tile px-1 py-3 no-underline ${TONES[tone]}`}
     >
       {visual}
       <span className="text-key-lg font-extrabold">{value}</span>

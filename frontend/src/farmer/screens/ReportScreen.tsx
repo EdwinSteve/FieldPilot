@@ -99,7 +99,7 @@ export function ReportScreen({ view }: { view: ReportView }) {
         {view.other ? (
           <a
             href={view.other.href}
-            className="flex min-h-15 items-center justify-between rounded-control border-2 border-border bg-surface px-4.5 text-body font-bold text-ink no-underline"
+            className="press flex min-h-15 items-center justify-between rounded-control border-2 border-border bg-surface px-4.5 text-body font-bold text-ink no-underline"
           >
             {view.other.label}
             <Icon name="forward" size={22} strokeWidth={2.5} className="text-ink-3" />

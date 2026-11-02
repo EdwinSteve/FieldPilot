@@ -66,6 +66,65 @@
   --tracking-key: -0.01em;
 
   --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+
+  /* Motion answers "did my tap work?", "where did this come from?" or "what changed?".
+     `backwards` leaves no transform behind, so nothing stays a containing block. */
+  --ease-calm: cubic-bezier(0.2, 0, 0, 1);
+  --animate-screen-in: screen-in 180ms var(--ease-calm) backwards;
+  --animate-card-in: card-in 220ms var(--ease-calm) backwards;
+  --animate-notice-in: notice-in 180ms var(--ease-calm) backwards;
+  --animate-sheet-up: sheet-up 220ms var(--ease-calm) backwards;
+  --animate-fade-in: fade-in 180ms var(--ease-calm) backwards;
+  --animate-pop-in: pop-in 240ms var(--ease-calm) backwards;
+
+  @keyframes screen-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  @keyframes card-in {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+  }
+
+  @keyframes notice-in {
+    from {
+      opacity: 0;
+      transform: translateY(-100%);
+    }
+  }
+
+  @keyframes sheet-up {
+    from {
+      transform: translateY(100%);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+  }
+}
+
+/* Anything tappable dips under the finger, so the farmer sees the tap land. */
+@utility press {
+  transition: transform 100ms ease-out;
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
 }
 
 @layer base {
@@ -89,5 +148,14 @@
   :focus-visible {
     outline: 3px solid var(--color-undo);
     outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation: none !important;
+      transition: none !important;
+    }
   }
 }

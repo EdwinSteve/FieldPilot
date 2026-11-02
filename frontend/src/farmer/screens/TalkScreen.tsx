@@ -93,7 +93,7 @@ function DecisionsLink({ view }: { view: TalkView }) {
   return (
     <a
       href={hrefOf({ screen: "decide", taskId: view.decision.taskId })}
-      className="flex min-h-16 items-center justify-between gap-2.5 rounded-control border-[2.5px] border-needs bg-surface px-4 text-ink no-underline"
+      className="press flex min-h-16 items-center justify-between gap-2.5 rounded-control border-[2.5px] border-needs bg-surface px-4 text-ink no-underline"
     >
       <span className="flex flex-col">
         <span className="text-body font-extrabold">{en.talk.decisionsWaiting(view.waitingCount)}</span>

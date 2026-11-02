@@ -11,7 +11,7 @@ export function BackLink({ href, label }: BackLinkProps) {
     <a
       href={href}
       aria-label={label}
-      className="flex size-13 shrink-0 items-center justify-center rounded-full bg-surface text-ink"
+      className="press flex size-13 shrink-0 items-center justify-center rounded-full bg-surface text-ink"
     >
       <Icon name="back" size={26} strokeWidth={2.5} />
     </a>

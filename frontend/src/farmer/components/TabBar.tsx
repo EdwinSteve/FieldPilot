@@ -21,7 +21,7 @@ export function TabBar({ active }: { active: Tab }) {
             key={tab}
             href={hrefOf({ screen: tab })}
             aria-current={current ? "page" : undefined}
-            className={`flex flex-col items-center gap-1 py-2 text-caption no-underline ${
+            className={`press flex flex-col items-center gap-1 py-2 text-caption no-underline ${
               current ? "font-extrabold text-primary" : "font-semibold text-ink-3"
             }`}
           >

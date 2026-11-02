@@ -30,7 +30,7 @@ function DayCell({ day }: { day: WeekDay }) {
 
 export function WeekStrip({ week }: { week: WeekDay[] }) {
   return (
-    <a href={hrefOf({ screen: "plan" })} className="flex flex-col gap-2.5 text-ink no-underline">
+    <a href={hrefOf({ screen: "plan" })} className="press flex flex-col gap-2.5 text-ink no-underline">
       <div className="flex min-h-8 items-center justify-between px-0.5">
         <h2 className="text-lead font-bold">{en.today.thisWeek}</h2>
         <span className="inline-flex items-center gap-1 text-small font-bold text-primary">

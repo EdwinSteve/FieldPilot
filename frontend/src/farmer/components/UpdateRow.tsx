@@ -36,7 +36,7 @@ export function UpdateRow({ item }: { item: UpdateItem }) {
   );
   if (item.href === null) return <div className={ROW}>{content}</div>;
   return (
-    <a href={item.href} className={ROW}>
+    <a href={item.href} className={`press ${ROW}`}>
       {content}
     </a>
   );

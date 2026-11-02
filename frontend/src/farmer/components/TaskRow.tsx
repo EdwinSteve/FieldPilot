@@ -30,7 +30,7 @@ export function TaskRow({ task, onOpen }: TaskRowProps) {
     <button
       type="button"
       onClick={() => onOpen(task)}
-      className="flex min-h-18 items-center gap-3.5 rounded-button bg-surface px-3.5 py-3 text-ink"
+      className="press flex min-h-18 items-center gap-3.5 rounded-button bg-surface px-3.5 py-3 text-ink"
     >
       <IconCircle tone={circleTone(task)} size="medium">
         <Icon name={task.kind === "water" ? "drop" : "document"} strokeWidth={2} />
