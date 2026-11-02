@@ -4,7 +4,7 @@ import type { Level } from "../lib/statusLevel";
 import { LEVEL_COLOUR } from "./levelStyle";
 
 const WIDTH = 320;
-const HEIGHT = 130;
+const HEIGHT = 112;
 const MARGIN_X = 10;
 const TOP = 21;
 const PLOT_HEIGHT = 84;
@@ -17,7 +17,10 @@ interface MoistureChartProps {
   level: Level;
 }
 
-/** Soil water over the last days, under a dashed "Full" line. Needs two readings to draw. */
+/**
+ * Soil water over the last days, under a dashed "Full" line. Needs two readings to draw.
+ * The labels sit outside the SVG: inside it they would shrink below 15 px on a small phone.
+ */
 export function MoistureChart({ values, fieldCapacity, startLabel, alt, level }: MoistureChartProps) {
   if (values.length < 2) {
     return <p className="text-small text-ink-3">{en.zone.fewReadings}</p>;
@@ -27,8 +30,11 @@ export function MoistureChart({ values, fieldCapacity, startLabel, alt, level }:
   const points = toPoints(values, WIDTH - 2 * MARGIN_X, PLOT_HEIGHT, range);
   const last = points.split(" ").at(-1)?.split(",").map(Number) ?? [0, 0];
   return (
-    <>
+    <div className="relative">
       <p className="sr-only">{alt}</p>
+      <span className="absolute top-0 right-1 text-caption font-bold text-primary">
+        {en.soil.fullAt(fieldCapacity)}
+      </span>
       <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} aria-hidden="true" className="h-auto w-full">
         <line
           x1="0"
@@ -39,16 +45,6 @@ export function MoistureChart({ values, fieldCapacity, startLabel, alt, level }:
           strokeWidth="2"
           strokeDasharray="6 5"
         />
-        <text
-          x={WIDTH - 4}
-          y="14"
-          textAnchor="end"
-          fontSize="15"
-          fontWeight="700"
-          fill="var(--color-primary)"
-        >
-          {en.soil.fullAt(fieldCapacity)}
-        </text>
         <g transform={`translate(${MARGIN_X} ${TOP})`}>
           <polyline
             points={points}
@@ -60,20 +56,11 @@ export function MoistureChart({ values, fieldCapacity, startLabel, alt, level }:
           />
           <circle cx={last[0]} cy={last[1]} r="6" fill={LEVEL_COLOUR[level]} />
         </g>
-        <text x={MARGIN_X} y="126" fontSize="15" fill="var(--color-ink-3)">
-          {startLabel}
-        </text>
-        <text
-          x={WIDTH - MARGIN_X}
-          y="126"
-          textAnchor="end"
-          fontSize="15"
-          fontWeight="700"
-          fill="var(--color-ink)"
-        >
-          {en.zone.today}
-        </text>
       </svg>
-    </>
+      <div className="flex justify-between px-2.5 text-caption">
+        <span className="text-ink-3">{startLabel}</span>
+        <span className="font-bold text-ink">{en.zone.today}</span>
+      </div>
+    </div>
   );
 }
