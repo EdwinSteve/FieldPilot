@@ -11,7 +11,7 @@
   --color-divider: #e6ebe4;
   --color-ink: #152728;
   --color-ink-2: #33403a;
-  --color-ink-3: #55625a;
+  --color-ink-3: #47534c;
   --color-primary: #3c5c29;
   --color-primary-hover: #2c4520;
   --color-field: #5e8530;
@@ -31,10 +31,15 @@
   --color-undo-tint: #e1eef7;
   --color-stop: #b42318;
   --color-stop-tint: #fde7e4;
+  /* The bad level shares Stop's hue, but solid red stays Stop's alone. */
+  --color-bad: #b42318;
+  --color-bad-text: #8f1c13;
+  --color-bad-tint: #fde7e4;
   --color-overlay: rgb(21 39 40 / 0.45);
   --color-photo-label: rgb(21 39 40 / 0.72);
 
   --text-caption: 15px;
+  --text-caption--font-weight: 500;
   --text-small: 16px;
   --text-body: 17px;
   --text-lead: 18px;

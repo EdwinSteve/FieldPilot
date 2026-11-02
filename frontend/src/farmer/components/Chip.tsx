@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
 
-export type ChipTone = "needs" | "undo" | "good" | "neutral";
+export type ChipTone = "needs" | "undo" | "good" | "neutral" | "bad";
 
 const TONES: Record<ChipTone, string> = {
   needs: "bg-needs-tint text-needs-text",
   undo: "bg-undo-tint text-undo-text",
   good: "bg-tint text-primary-hover",
   neutral: "bg-divider text-ink-2",
+  bad: "bg-bad-tint text-bad-text",
 };
 
 interface ChipProps {
