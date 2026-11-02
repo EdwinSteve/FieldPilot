@@ -1,6 +1,7 @@
 // What each screen renders. Screens depend on these types and never on the API.
 import type { NormBox } from "../../types/api";
 import type { StageState } from "../../lib/stages";
+import type { LookedAt } from "../lib/lookedAt";
 
 export interface SoilReading {
   value: number;
@@ -52,11 +53,45 @@ export interface DecisionView {
   stopped: boolean;
 }
 
+export type VoiceStatus = "idle" | "starting" | "listening" | "thinking";
+
+/** One question and its answer, as the backend gave them. */
+export interface VoiceExchange {
+  id: number;
+  durationMs: number;
+  question: string;
+  answer: string | null;
+  lookedAt: LookedAt[];
+}
+
+export interface TalkChip {
+  kind: LookedAt;
+  text: string;
+}
+
+export interface TalkExchange {
+  id: number;
+  duration: string;
+  /** Spanish, as spoken and answered. */
+  question: string;
+  answer: string | null;
+  chips: TalkChip[];
+}
+
 export interface TalkView {
-  /** Why the mic is off, until voice questions are wired. */
-  micNote: string;
+  /** Why asking is off; null when the live model can answer. */
+  unavailable: string | null;
+  exchanges: TalkExchange[];
   decision: DecisionLink | null;
   waitingCount: number;
+}
+
+export interface VoiceControl {
+  status: VoiceStatus;
+  /** What went wrong with the last question, in the farmer's words. */
+  failure: string | null;
+  toggle: () => void;
+  cancel: () => void;
 }
 
 export type UpdateKind = "water" | "satellite" | "report" | "said_no";
@@ -209,6 +244,7 @@ export interface Farm {
   setStopped: (stopped: boolean) => Promise<boolean>;
   busy: boolean;
   actionFailed: boolean;
+  voice: VoiceControl;
 }
 
 export type FarmState =

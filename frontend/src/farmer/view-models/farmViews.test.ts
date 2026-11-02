@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { LogEvent } from "../../types/api";
 import { demo } from "../fixtures/snapshots";
+import type { LookedAt } from "../lib/lookedAt";
 import { stopView, talkView } from "./control";
 import { decisionView } from "./decide";
 import { fieldView } from "./field";
@@ -320,10 +321,41 @@ describe("stopView", () => {
 });
 
 describe("talkView", () => {
+  const exchange = {
+    id: 1,
+    durationMs: 4_000,
+    question: "¿Necesita agua el maíz de la zona dos?",
+    answer: "Sí, la Zona 2 está seca.",
+    lookedAt: ["soil", "rain"] as LookedAt[],
+  };
+
   it("explains the mock-mode mic and links the waiting decision", () => {
-    const view = talkView(demo.day1Held);
-    expect(view.micNote).toContain("live model");
+    const view = talkView(demo.day1Held, []);
+    expect(view.unavailable).toContain("live model");
     expect(view.decision?.taskId).toBe(HELD_TASK);
     expect(view.waitingCount).toBe(1);
+  });
+
+  it("lets the farmer ask on the live model", () => {
+    expect(talkView({ ...demo.day1Held, chatLive: true }, []).unavailable).toBeNull();
+  });
+
+  it("keeps the agent's words and names what it read", () => {
+    const [view] = talkView(demo.day1Held, [exchange]).exchanges;
+    expect(view).toEqual({
+      id: 1,
+      duration: "0:04",
+      question: exchange.question,
+      answer: exchange.answer,
+      chips: [
+        { kind: "soil", text: "Soil 20% · full at 32%" },
+        { kind: "rain", text: "Rain 12 mm · 24 h" },
+      ],
+    });
+  });
+
+  it("drops a source with no figure today", () => {
+    const [view] = talkView(demo.day2Morning, [exchange]).exchanges;
+    expect(view?.chips.map((chip) => chip.kind)).toEqual(["soil"]);
   });
 });

@@ -25,7 +25,7 @@ function screenFor(route: Route, farm: Farm): ReactNode {
     case "today":
       return today;
     case "talk":
-      return <TalkScreen view={farm.talk} />;
+      return <TalkScreen view={farm.talk} voice={farm.voice} />;
     case "updates":
       return (
         <UpdatesScreen

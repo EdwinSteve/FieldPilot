@@ -1,10 +1,12 @@
 // The Stop and Talk screens: small enough to share a file.
 import { en } from "../i18n/en";
 import { formatClock } from "../lib/farmTime";
+import { forecastOfDay } from "../lib/forecast";
 import { activeRun } from "../lib/irrigationRun";
-import { pendingTasks, plotOffset, type FarmSnapshot } from "./snapshot";
+import { clipLength, type LookedAt } from "../lib/lookedAt";
+import { pendingTasks, plotOffset, soilAt, type FarmSnapshot } from "./snapshot";
 import { firstDecision } from "./today";
-import type { StopView, TalkView } from "./types";
+import type { StopView, TalkChip, TalkExchange, TalkView, VoiceExchange } from "./types";
 
 const FARMER_PREFIX = "farmer:";
 
@@ -25,9 +27,31 @@ export function stopView(snapshot: FarmSnapshot): StopView {
   };
 }
 
-export function talkView(snapshot: FarmSnapshot): TalkView {
+/** A source named with the figure the farm shows now; none when there is no figure. */
+function chipOf(snapshot: FarmSnapshot, source: LookedAt): TalkChip | null {
+  if (source === "soil") {
+    const soil = soilAt(snapshot);
+    if (soil === null) return null;
+    return { kind: source, text: en.talk.chipSoil(soil.value, soil.fieldCapacity) };
+  }
+  const rainMm = forecastOfDay(snapshot.verdicts, snapshot.clock.now, plotOffset(snapshot));
+  return rainMm === null ? null : { kind: source, text: en.talk.chipRain(rainMm) };
+}
+
+function exchangeView(snapshot: FarmSnapshot, exchange: VoiceExchange): TalkExchange {
   return {
-    micNote: snapshot.chatLive ? en.talk.comingSoon : en.talk.needsLiveModel,
+    id: exchange.id,
+    duration: clipLength(exchange.durationMs),
+    question: exchange.question,
+    answer: exchange.answer,
+    chips: exchange.lookedAt.flatMap((source) => chipOf(snapshot, source) ?? []),
+  };
+}
+
+export function talkView(snapshot: FarmSnapshot, exchanges: readonly VoiceExchange[]): TalkView {
+  return {
+    unavailable: snapshot.chatLive ? null : en.talk.needsLiveModel,
+    exchanges: exchanges.map((exchange) => exchangeView(snapshot, exchange)),
     decision: firstDecision(snapshot),
     waitingCount: pendingTasks(snapshot).length,
   };

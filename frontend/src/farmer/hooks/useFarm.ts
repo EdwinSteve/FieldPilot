@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { api } from "../../api/endpoints";
 import { useAction } from "../../hooks/useAction";
+import { en } from "../i18n/en";
 import { stopView, talkView } from "../view-models/control";
 import { decisionView } from "../view-models/decide";
 import { fieldView } from "../view-models/field";
@@ -8,21 +9,22 @@ import { planView } from "../view-models/plan";
 import { reportView } from "../view-models/report";
 import type { FarmSnapshot } from "../view-models/snapshot";
 import { todayView } from "../view-models/today";
-import type { Farm, FarmState } from "../view-models/types";
+import type { Farm, FarmState, VoiceExchange } from "../view-models/types";
 import { updatesView } from "../view-models/updates";
 import { zoneView } from "../view-models/zone";
 import { useFarmRefresh } from "./useFarmRefresh";
 import { useFarmSnapshot } from "./useFarmSnapshot";
+import { useVoiceQuestion } from "./useVoiceQuestion";
 
 type FarmViews = Pick<
   Farm,
   "today" | "talk" | "updates" | "field" | "plan" | "stop" | "decision" | "zone" | "report"
 >;
 
-function viewsOf(snapshot: FarmSnapshot): FarmViews {
+function viewsOf(snapshot: FarmSnapshot, exchanges: VoiceExchange[]): FarmViews {
   return {
     today: todayView(snapshot),
-    talk: talkView(snapshot),
+    talk: talkView(snapshot, exchanges),
     updates: updatesView(snapshot),
     field: fieldView(snapshot),
     plan: planView(snapshot),
@@ -38,7 +40,9 @@ export function useFarm(): FarmState {
   const { version, refresh } = useFarmRefresh();
   const { data, error, loading } = useFarmSnapshot(version);
   const action = useAction(refresh);
-  const views = useMemo(() => (data ? viewsOf(data) : null), [data]);
+  const voice = useVoiceQuestion(data?.plot.id);
+  const { exchanges } = voice;
+  const views = useMemo(() => (data ? viewsOf(data, exchanges) : null), [data, exchanges]);
 
   if (loading) return { status: "loading" };
   if (data === null && error !== null) return { status: "error" };
@@ -65,6 +69,12 @@ export function useFarm(): FarmState {
     setStopped: (stopped) => attempt(() => api.setEmergencyStop(stopped)),
     busy: action.busy,
     actionFailed: action.error !== null,
+    voice: {
+      status: voice.status,
+      failure: voice.failure === null ? null : en.talk.failures[voice.failure],
+      toggle: voice.toggle,
+      cancel: voice.cancel,
+    },
   };
   return { status: "ready", farm, stale: error !== null };
 }

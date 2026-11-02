@@ -1,6 +1,7 @@
 // Every farmer-facing string. Spanish comes later: keep this file the only source.
 import type { RainLevel } from "../lib/rainLevel";
 import type { SoilStatus } from "../lib/soilStatus";
+import type { VoiceFailure } from "../lib/voiceFailure";
 
 function zoneIs(zone: string, status: string): string {
   return `${zone} is ${status === "OK" ? status : status.toLowerCase()}`;
@@ -152,7 +153,19 @@ export const en = {
     listening: "Listening… tap to send",
     stopAndSend: "Stop and send",
     needsLiveModel: "Talking needs the live model. This demo is running on recorded days.",
-    comingSoon: "Talking is not ready yet.",
+    gettingMic: "Getting the mic ready…",
+    thinking: "Thinking…",
+    noAnswer: "I could not finish that answer. Please ask again.",
+    chipSoil: (value: number, fieldCapacity: number) => `Soil ${value}% · full at ${fieldCapacity}%`,
+    chipRain: (mm: number) => `Rain ${mm} mm · 24 h`,
+    failures: {
+      mic_blocked: "The mic is blocked. Allow it in your browser, then try again.",
+      mic_missing: "I can’t use a mic on this page.",
+      not_heard: "I didn’t hear a question. Please try again.",
+      needs_live_model: "Talking needs the live model. This demo is running on recorded days.",
+      service_busy: "I can’t answer right now. Please try again in a moment.",
+      unknown: "That didn’t work. Please try again.",
+    } satisfies Record<VoiceFailure, string>,
     decisionsWaiting: (count: number) =>
       count === 1 ? "1 decision waiting" : `${count} decisions waiting`,
   },
