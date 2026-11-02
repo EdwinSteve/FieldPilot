@@ -1,0 +1,113 @@
+{
+ "health": {
+  "status": "ok",
+  "mock_llm": true
+ },
+ "plots": [
+  {
+   "id": 1,
+   "name": "Finca demo, Neiva",
+   "latitude": 2.93,
+   "longitude": -75.28,
+   "area_ha": 2.0,
+   "utc_offset_hours": -5.0
+  }
+ ],
+ "clock": {
+  "now": "2026-11-02T11:00:00Z",
+  "speed_factor": 1.0,
+  "paused": true
+ },
+ "zones": [
+  {
+   "id": 1,
+   "plot_id": 1,
+   "name": "Zona 2",
+   "area_ha": 0.5,
+   "field_capacity_pct": 32.0
+  }
+ ],
+ "readings": [
+  {
+   "sensor_id": 1,
+   "kind": "soil_moisture",
+   "unit": "%",
+   "readings": [
+    {
+     "value": 20.0,
+     "recorded_at": "2026-11-02T11:00:00Z"
+    }
+   ]
+  }
+ ],
+ "cycles": [
+  {
+   "id": 1,
+   "plot_id": 1,
+   "crop": "maize",
+   "sowing_date": "2026-10-01",
+   "status": "active",
+   "accumulated_gdd": 0.0,
+   "gdd_updated_through": null,
+   "stages": []
+  }
+ ],
+ "tasks": [],
+ "notifications": [],
+ "reports": [],
+ "stop": {
+  "active": false,
+  "changed_at": null,
+  "changed_by": null
+ },
+ "imagery": {
+  "scene": {
+   "scene_id": "neiva-2026-10-28",
+   "acquired_on": "2026-10-28",
+   "synthetic": true,
+   "low_ndvi_threshold": 0.4,
+   "segmentation_note": null
+  },
+  "zones": [
+   {
+    "zone_id": 1,
+    "ndvi_mean": 0.378,
+    "low_ndvi_pct": 21.2,
+    "bare_soil_pct": 25.3,
+    "low_vigor": true,
+    "area": {
+     "x1": 0.5,
+     "y1": 0.0,
+     "x2": 1.0,
+     "y2": 1.0
+    }
+   }
+  ],
+  "boxes": [
+   {
+    "x1": 0.734375,
+    "y1": 0.4921875,
+    "x2": 0.90625,
+    "y2": 0.8359375
+   },
+   {
+    "x1": 0.529296875,
+    "y1": 0.62890625,
+    "x2": 0.642578125,
+    "y2": 0.85546875
+   },
+   {
+    "x1": 0.572265625,
+    "y1": 0.12890625,
+    "x2": 0.716796875,
+    "y2": 0.41796875
+   }
+  ]
+ },
+ "events_gate_verdict": [],
+ "events_execution": [],
+ "events_execution_failed": [],
+ "events_rejection": [],
+ "events_revert": [],
+ "events_revert_refused": []
+}
