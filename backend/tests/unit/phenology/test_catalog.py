@@ -233,6 +233,19 @@ INVALID: dict[str, tuple[Mutation, str]] = {
         _set(["stages", 0, "crop_coefficient"], {"start": 0.3, "end": 0.3, "source": "fao56"}),
         "Extra inputs",
     ),
+    "missing root depth": (lambda raw: raw.pop("root_depth_mm"), "root_depth_mm"),
+    "zero root depth": (_set(["root_depth_mm", "value"], 0.0), "root_depth_mm"),
+    "root depth beyond 3 m": (_set(["root_depth_mm", "value"], 3500.0), "root_depth_mm"),
+    "unsourced root depth": (_set(["root_depth_mm", "source"], "guess"), "unknown source"),
+    "missing ndvi threshold": (lambda raw: raw.pop("imaging"), "imaging"),
+    "ndvi threshold out of range": (
+        _set(["imaging", "low_ndvi_threshold", "value"], 1.5),
+        "low_ndvi_threshold",
+    ),
+    "unsourced ndvi threshold": (
+        _set(["imaging", "low_ndvi_threshold", "source"], "guess"),
+        "unknown source",
+    ),
     "negative nutrient": (
         _set(["stages", 0, "nutrient_need_kg_ha", "values", "N"], -1.0),
         "negative",
@@ -260,3 +273,11 @@ def test_empty_catalog_directory_fails(tmp_path: Path) -> None:
 def test_stricter_safety_limit_rejects_the_shipped_catalog() -> None:
     with pytest.raises(CatalogError, match="safety limit"):
         load_crop_catalog(CROPS_DIR, max_moisture_pct_fc=75.0)
+
+
+def test_maize_keeps_its_demo_root_depth_and_ndvi_threshold(maize: CropSpec) -> None:
+    """D077: moved into the crop, with the values the demo was recorded with."""
+    assert maize.root_depth_mm == 300.0
+    assert maize.low_ndvi_threshold == 0.4
+    assert maize.field_sources["root_depth_mm"] == "demo_value"
+    assert maize.field_sources["low_ndvi_threshold"] == "demo_value"

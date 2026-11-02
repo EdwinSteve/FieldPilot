@@ -20,6 +20,8 @@ from app.domain.enums import ActionType, AutonomyLevel
 Verification = Literal["verified", "partially_verified", "project_convention", "demo_value"]
 
 MAX_CROP_COEFFICIENT = 2.0
+# Sanity bound only: the deepest effective root zones in FAO-56 Table 22 are about 2-3 m.
+MAX_ROOT_DEPTH_MM = 3000.0
 
 
 class CatalogError(ValueError):
@@ -82,6 +84,8 @@ class CropSpec:
     maturity_gdd: float
     stages: tuple[StageSpec, ...]  # ordered by gdd_start; the first starts at 0
     kc_curve: tuple[KcPoint, ...]  # from 0 to maturity_gdd, independent of the stages
+    root_depth_mm: float  # effective root zone, to size irrigation (D077)
+    low_ndvi_threshold: float  # mean NDVI below it is low vigour for this crop (D077)
     sources: Mapping[str, Source]
     field_sources: Mapping[str, str]  # crop-level field -> source key
     reviewed_by_agronomist: bool
@@ -156,6 +160,10 @@ class _Gdd(_Strict):
     maturity_gdd: _Value
 
 
+class _Imaging(_Strict):
+    low_ndvi_threshold: _Value
+
+
 class _Crop(_Strict):
     crop: str
     display_name: dict[str, str]
@@ -163,6 +171,8 @@ class _Crop(_Strict):
     calibration_note: str
     sources: dict[str, _SourceModel]
     gdd: _Gdd
+    root_depth_mm: _Value
+    imaging: _Imaging
     stages: list[_Stage]
     kc_curve: list[_KcPoint]
 
@@ -211,11 +221,15 @@ def _to_spec(model: _Crop) -> CropSpec:
         maturity_gdd=model.gdd.maturity_gdd.value,
         stages=stages,
         kc_curve=tuple(_kc_point(point) for point in model.kc_curve),
+        root_depth_mm=model.root_depth_mm.value,
+        low_ndvi_threshold=model.imaging.low_ndvi_threshold.value,
         sources=sources,
         field_sources={
             "base_temp_c": model.gdd.base_temp_c.source,
             "upper_temp_c": model.gdd.upper_temp_c.source,
             "maturity_gdd": model.gdd.maturity_gdd.source,
+            "root_depth_mm": model.root_depth_mm.source,
+            "low_ndvi_threshold": model.imaging.low_ndvi_threshold.source,
         },
         reviewed_by_agronomist=model.reviewed_by_agronomist,
         calibration_note=model.calibration_note,
@@ -256,6 +270,7 @@ def _validate(crop: CropSpec, max_moisture_pct_fc: float, where: str) -> None:
         *_temperature_problems(crop),
         *_stage_order_problems(crop),
         *_kc_curve_problems(crop),
+        *_irrigation_and_imaging_problems(crop),
         *(p for stage in crop.stages for p in _stage_problems(stage, max_moisture_pct_fc)),
     ]
     if problems:
@@ -311,6 +326,15 @@ def _kc_curve_problems(crop: CropSpec) -> list[str]:
         for point in curve
         if not 0 <= point.kc <= MAX_CROP_COEFFICIENT
     ]
+    return problems
+
+
+def _irrigation_and_imaging_problems(crop: CropSpec) -> list[str]:
+    problems: list[str] = []
+    if not 0 < crop.root_depth_mm <= MAX_ROOT_DEPTH_MM:
+        problems.append(f"root_depth_mm {crop.root_depth_mm} outside (0, {MAX_ROOT_DEPTH_MM}]")
+    if not -1 < crop.low_ndvi_threshold < 1:
+        problems.append(f"low_ndvi_threshold {crop.low_ndvi_threshold} outside (-1, 1)")
     return problems
 
 

@@ -97,6 +97,17 @@ gdd:
   upper_temp_c: {value: 30.0, source: gdd_method}
   maturity_gdd: {value: 1472.2, source: pmr1009}   # R6 black layer: 2650 °F·d ÷ 1.8 = 1472.2 °C·d
 
+# Effective root zone used to size irrigation (D077). The demo keeps the
+# simulator's 300 mm soil column; FAO-56 Table 22 gives 1.0-1.7 m for mature
+# maize, so this is a demo value, not an agronomic one.
+root_depth_mm: {value: 300.0, source: demo_value}
+
+# Mean NDVI below this is "low vigour" for this crop (D077; it was the single
+# value of config/imaging.yaml, D059). A demo assumption: healthy maize canopy
+# is usually well above it, bare soil well below.
+imaging:
+  low_ndvi_threshold: {value: 0.4, source: demo_value}
+
 # FAO-56 Kc curve (D030), linear between points; the last point is maturity_gdd.
 kc_curve:
   - name: sowing

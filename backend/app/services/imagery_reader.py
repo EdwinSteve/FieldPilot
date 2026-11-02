@@ -1,10 +1,11 @@
-"""Implements the agent's `ImageryReader`: NDVI and bare soil per zone (D058-D060)."""
+"""Implements the agent's `ImageryReader`: NDVI and bare soil per zone (D058-D060, D077)."""
 
 from collections.abc import Callable
 from datetime import date
 
 from app.agent.field import ImageryView, ZoneImagery
 from app.persistence.ports import UnitOfWork
+from app.phenology.catalog import CropCatalog
 from app.satellite.config import ImagingConfig
 from app.satellite.ndvi import compute_ndvi, zone_ndvi
 from app.satellite.scenes import ImageryLoader, Scene
@@ -14,12 +15,16 @@ from app.satellite.segmentation import (
     SegmentationUnavailableError,
     covered_pct,
 )
+from app.services.gate_context import active_cycle
 
 UowFactory = Callable[[], UnitOfWork]
 
 
 class StoredImageryReader:
-    """Matches scene zones to stored zones by name. Segments each scene once."""
+    """Matches scene zones to stored zones by name. Segments each scene once.
+
+    Low vigour is judged with the threshold of the plot's crop (D077).
+    """
 
     def __init__(
         self,
@@ -27,11 +32,13 @@ class StoredImageryReader:
         loader: ImageryLoader,
         segmentation: SegmentationProvider,
         config: ImagingConfig,
+        crops: CropCatalog,
     ) -> None:
         self._uow = uow
         self._loader = loader
         self._segmentation = segmentation
         self._config = config
+        self._crops = crops
         self._boxes: dict[str, tuple[Box, ...]] = {}
 
     def imagery(self, plot_id: int, day: date) -> ImageryView | None:
@@ -41,6 +48,7 @@ class StoredImageryReader:
         scene = self._loader.latest(plot.latitude, plot.longitude, day)
         if scene is None:
             return None
+        threshold = self._threshold(plot_id)
         boxes, note = self._segment(scene)
         ndvi = compute_ndvi(scene.red, scene.nir)
         views = []
@@ -48,7 +56,7 @@ class StoredImageryReader:
             area = scene.zones.get(zone.name)
             if area is None or zone.id is None:
                 continue
-            stats = zone_ndvi(ndvi, area, self._config.low_ndvi_threshold)
+            stats = zone_ndvi(ndvi, area, threshold)
             bare = None if boxes is None else covered_pct(boxes, area)
             views.append(
                 ZoneImagery(
@@ -59,11 +67,17 @@ class StoredImageryReader:
             scene.scene_id,
             scene.acquired_on,
             scene.synthetic,
-            self._config.low_ndvi_threshold,
+            threshold,
             tuple(views),
             note,
             () if boxes is None else tuple(box.normalized() for box in boxes),
         )
+
+    def _threshold(self, plot_id: int) -> float:
+        """The low-NDVI threshold of the plot's active crop; no cycle means no crop to judge."""
+        with self._uow() as u:
+            cycle = active_cycle(u, plot_id)
+        return self._crops[cycle.crop].low_ndvi_threshold
 
     def scene_png(self, plot_id: int, day: date) -> bytes | None:
         """The scene's RGB image for the dashboard overlay; None when there is no scene."""

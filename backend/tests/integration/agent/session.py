@@ -35,6 +35,7 @@ def agent_deps(world: World, llm: LLMClient, max_turns: int = 12) -> AgentDeps:
             ImageryLoader.from_directory(SATELLITE_DIR),
             MockSegmentation(SAM_BOXES),
             IMAGING,
+            CROPS,
         ),
         clock=world.clock,
         subagents=CATALOGUE,
