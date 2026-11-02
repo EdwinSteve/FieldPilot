@@ -2,7 +2,7 @@ import type { Level } from "../lib/statusLevel";
 import type { PlanTask, TaskState } from "../view-models/types";
 import { Icon } from "./Icon";
 import { CardIcon } from "./IconCircle";
-import { LEVEL_TEXT, LEVEL_TILE } from "./levelStyle";
+import { isTinted, levelFill } from "./levelStyle";
 
 const STATE_LEVELS: Record<TaskState, Level> = {
   done: "good",
@@ -27,9 +27,9 @@ export function TaskRow({ task, onOpen }: TaskRowProps) {
     <button
       type="button"
       onClick={() => onOpen(task)}
-      className={`press flex min-h-18 items-center gap-3.5 rounded-button px-3.5 py-3 ${LEVEL_TILE[level]}`}
+      className={`press flex min-h-18 items-center gap-3.5 rounded-button px-3.5 py-3 ${levelFill(level)}`}
     >
-      <CardIcon colour={LEVEL_TEXT[level]}>
+      <CardIcon level={level}>
         <Icon name={task.kind === "water" ? "drop" : "document"} strokeWidth={2} />
       </CardIcon>
       <span className="flex flex-1 flex-col gap-0.75 text-left">
@@ -38,7 +38,11 @@ export function TaskRow({ task, onOpen }: TaskRowProps) {
         </span>
         <span className="text-caption text-ink-2">{task.when}</span>
       </span>
-      <span className="rounded-pill bg-surface px-3 py-1.5 text-caption font-extrabold whitespace-nowrap">
+      <span
+        className={`rounded-pill px-3 py-1.5 text-caption font-extrabold whitespace-nowrap ${
+          isTinted(level) ? "bg-surface" : "bg-ground text-ink-2"
+        }`}
+      >
         {task.stateLabel}
       </span>
     </button>

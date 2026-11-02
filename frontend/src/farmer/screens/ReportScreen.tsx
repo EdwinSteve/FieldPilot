@@ -1,7 +1,7 @@
 import { BackHeader } from "../components/BackHeader";
 import { Icon, type IconName } from "../components/Icon";
 import { CardIcon, IconCircle } from "../components/IconCircle";
-import { LEVEL_TEXT, levelCard } from "../components/levelStyle";
+import { levelCard } from "../components/levelStyle";
 import { MoistureDrop } from "../components/MoistureDrop";
 import { ScreenBody } from "../components/ScreenBody";
 import { en } from "../i18n/en";
@@ -26,7 +26,7 @@ function Row({ row, soil }: { row: ReportRow; soil: SoilReading }) {
       : ROW_LOOK[row.kind].level;
   return (
     <div className={`flex items-center gap-3.5 ${levelCard(level)}`}>
-      <CardIcon colour={LEVEL_TEXT[level]} size="row">
+      <CardIcon level={level} size="row">
         {row.kind === "soil" ? (
           <MoistureDrop {...soil} size={30} />
         ) : (

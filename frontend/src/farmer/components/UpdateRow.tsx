@@ -3,13 +3,13 @@ import type { Level } from "../lib/statusLevel";
 import type { UpdateItem, UpdateKind } from "../view-models/types";
 import { Icon, type IconName } from "./Icon";
 import { CardIcon } from "./IconCircle";
-import { LEVEL_TEXT, levelCard } from "./levelStyle";
+import { levelCard } from "./levelStyle";
 
 const LOOK: Record<UpdateKind, { icon: IconName; level: Level }> = {
   water: { icon: "drop", level: "good" },
   undo: { icon: "drop", level: "info" },
   satellite: { icon: "satellite", level: "watch" },
-  report: { icon: "document", level: "info" },
+  report: { icon: "document", level: "neutral" },
   said_no: { icon: "close", level: "neutral" },
   problem: { icon: "warning", level: "bad" },
   alert: { icon: "warning", level: "bad" },
@@ -20,7 +20,7 @@ export function UpdateRow({ item }: { item: UpdateItem }) {
   const row = `flex min-h-14 items-center gap-3.5 no-underline ${levelCard(level)}`;
   const content = (
     <>
-      <CardIcon colour={LEVEL_TEXT[level]}>
+      <CardIcon level={level}>
         <Icon name={icon} strokeWidth={2} />
       </CardIcon>
       <span className="flex flex-1 flex-col gap-0.5">

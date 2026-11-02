@@ -53,9 +53,19 @@ export const LEVEL_CIRCLE: Record<Level, CircleTone> = {
   neutral: "neutral",
 };
 
+/** Routine rows stay white, so the ones that need a look stand out. */
+export function isTinted(level: Level): boolean {
+  return level === "watch" || level === "bad" || level === "info";
+}
+
+/** The fill of a row of this level. */
+export function levelFill(level: Level): string {
+  return isTinted(level) ? LEVEL_TILE[level] : "bg-surface text-ink";
+}
+
 /** A whole row as a card of its level. Titles keep ink, so they stay easy to read. */
 export function levelCard(level: Level): string {
-  return `rounded-tile px-3 py-3 ${LEVEL_TILE[level]}`;
+  return `rounded-tile px-3 py-3 ${levelFill(level)}`;
 }
 
 /** Null where the level judges nothing, so an icon would claim too much. */

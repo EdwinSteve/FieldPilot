@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import type { Level } from "../lib/statusLevel";
+import { LEVEL_CIRCLE, LEVEL_TEXT, isTinted } from "./levelStyle";
 
 export type CircleTone = "needs" | "needsSolid" | "undo" | "good" | "neutral" | "stop";
 type CircleSize =
@@ -34,8 +36,7 @@ const SIZES: Record<CircleSize, string> = {
 };
 
 interface CardIconProps {
-  /** A text colour class, from the level. */
-  colour: string;
+  level: Level;
   size?: CircleSize;
   children: ReactNode;
 }
@@ -46,11 +47,18 @@ interface IconCircleProps {
   children: ReactNode;
 }
 
-/** An icon on a tinted card: white, so it stands out from the tint. */
-export function CardIcon({ colour, size = "medium", children }: CardIconProps) {
+/** An icon on a row: white on a tinted card, tinted on a white one. */
+export function CardIcon({ level, size = "medium", children }: CardIconProps) {
+  if (!isTinted(level)) {
+    return (
+      <IconCircle tone={LEVEL_CIRCLE[level]} size={size}>
+        {children}
+      </IconCircle>
+    );
+  }
   return (
     <span
-      className={`flex shrink-0 items-center justify-center rounded-full bg-surface ${colour} ${SIZES[size]}`}
+      className={`flex shrink-0 items-center justify-center rounded-full bg-surface ${LEVEL_TEXT[level]} ${SIZES[size]}`}
     >
       {children}
     </span>
