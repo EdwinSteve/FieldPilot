@@ -1,10 +1,10 @@
 {
   "responses": [
     {
-      "text": "Starting your plot 1 assessment — listing every zone.",
+      "text": "I'll assess every zone, starting with the plot layout.",
       "usage": {
-        "input_tokens": 1369,
-        "output_tokens": 85
+        "input_tokens": 1400,
+        "output_tokens": 136
       },
       "tool_call": {
         "name": "list_zones",
@@ -12,10 +12,10 @@
       }
     },
     {
-      "text": "Found 1 zone; reading its soil water status.",
+      "text": "Found 1 zone; I'll read its current conditions.",
       "usage": {
-        "input_tokens": 1462,
-        "output_tokens": 135
+        "input_tokens": 1493,
+        "output_tokens": 139
       },
       "tool_call": {
         "name": "read_zone",
@@ -25,10 +25,10 @@
       }
     },
     {
-      "text": "Zone data captured — checking the forecast and crop stage.",
+      "text": "Zone reading complete; I'll check the forecast next.",
       "usage": {
-        "input_tokens": 1659,
-        "output_tokens": 113
+        "input_tokens": 1690,
+        "output_tokens": 81
       },
       "tool_call": {
         "name": "read_forecast",
@@ -36,10 +36,10 @@
       }
     },
     {
-      "text": "Moisture is well below field capacity — just pulling crop stage to finalize the assessment.",
+      "text": "Forecast shows 12 mm expected; I'll check the crop stage to complete the picture.",
       "usage": {
-        "input_tokens": 1803,
-        "output_tokens": 301
+        "input_tokens": 1833,
+        "output_tokens": 69
       },
       "tool_call": {
         "name": "read_crop_stage",
@@ -47,24 +47,26 @@
       }
     },
     {
-      "text": "Assessment is ready — submitting it now.",
+      "text": "I've gathered all readings — now I'll submit the water status assessment.",
       "usage": {
-        "input_tokens": 1987,
-        "output_tokens": 884
+        "input_tokens": 2090,
+        "output_tokens": 983
       },
       "tool_call": {
         "name": "submit_assessment",
         "arguments": {
-          "summary": "Zone 1 is dry with soil moisture 20.0% well below field capacity 32.0% at sowing stage; forecast rain 12.0 mm and accumulated 0.0 GDD.",
+          "summary": "Zone 1 maize at sowing stage is dry: soil moisture 20.0% well below field capacity 32.0%, with 12.0 mm rain expected in next 24 h, accumulated 0.0 GDD and root depth 300.0 mm.",
           "zones": [
             {
               "cited": [
-                "reading-1",
-                "zone-1-field-capacity",
+                "crop-cycle-1",
                 "forecast-plot-1-2026-11-02T11:00Z",
-                "stage-cycle-1",
                 "gdd-cycle-1",
-                "kc-cycle-1"
+                "kc-cycle-1",
+                "reading-1",
+                "root-depth-cycle-1",
+                "stage-cycle-1",
+                "zone-1-field-capacity"
               ],
               "moisture_pct": 20.0,
               "status": "dry",
@@ -75,10 +77,10 @@
       }
     },
     {
-      "text": "I’ll pull the satellite scene for your zones.",
+      "text": "Scene data incoming — pulling the latest satellite imagery.",
       "usage": {
-        "input_tokens": 1368,
-        "output_tokens": 83
+        "input_tokens": 1393,
+        "output_tokens": 86
       },
       "tool_call": {
         "name": "read_imagery",
@@ -86,10 +88,10 @@
       }
     },
     {
-      "text": "Scene shows low vigor — I’ll file the zone report.",
+      "text": "Latest scene covers Zone 1 — formatting the observed NDVI and cover values for submission.",
       "usage": {
-        "input_tokens": 1639,
-        "output_tokens": 695
+        "input_tokens": 1664,
+        "output_tokens": 325
       },
       "tool_call": {
         "name": "submit_imaging",
@@ -112,10 +114,21 @@
       }
     },
     {
-      "text": "Leo la parcela seca y preparo el riego de hoy.",
+      "text": "Leo la evaluación de sequía y preparo el riego de hoy.",
       "usage": {
-        "input_tokens": 2145,
-        "output_tokens": 1045
+        "input_tokens": 2230,
+        "output_tokens": 1632
+      },
+      "tool_call": {
+        "name": "read_crop_stage",
+        "arguments": {}
+      }
+    },
+    {
+      "text": "La zona seca necesita más de 20 mm; preparo el riego de hoy en dos partes.",
+      "usage": {
+        "input_tokens": 2484,
+        "output_tokens": 1948
       },
       "tool_call": {
         "name": "read_zone",
@@ -125,10 +138,10 @@
       }
     },
     {
-      "text": "Ya tengo la humedad de la zona seca y calculé la dosis de hoy.",
+      "text": "Ya tengo la humedad y la capacidad de campo; propongo el riego de hoy para la zona seca.",
       "usage": {
-        "input_tokens": 2343,
-        "output_tokens": 4533
+        "input_tokens": 2690,
+        "output_tokens": 4700
       },
       "tool_call": {
         "name": "propose_action",
@@ -137,9 +150,10 @@
           "cited": [
             "reading-1",
             "zone-1-field-capacity",
+            "root-depth-cycle-1",
             "low-ndvi-neiva-2026-10-28-zone-1"
           ],
-          "rationale": "La Zona 2 está seca con humedad de 20,0 % por debajo de la capacidad de campo de 32,0 %. Propongo aplicar 20 mm ahora para acercarla hacia capacidad sin superarla. La imagen muestra vigor bajo en la zona.",
+          "rationale": "La Zona 2 está seca con humedad de 20,0 % frente a capacidad de campo de 32,0 % y profundidad de raíz de 300,0 mm, por lo que se proponen 20 mm ahora para acercarla a capacidad sin superarla. Además presenta poco vigor en la imagen reciente, por lo que conviene recuperar humedad.",
           "scheduled_for": "now",
           "volume_mm": 20.0,
           "zone_id": 1
@@ -147,34 +161,36 @@
       }
     },
     {
-      "text": "La propuesta del día quedó en espera por lluvia prevista, así que no programo el resto y cierro el turno.",
+      "text": "El riego quedó pendiente de aprobación por lluvia, así que no programo el resto y cierro la propuesta.",
       "usage": {
-        "input_tokens": 2668,
-        "output_tokens": 896
+        "input_tokens": 3047,
+        "output_tokens": 697
       },
       "tool_call": {
         "name": "finish",
         "arguments": {
-          "summary": "Propuse 20 mm hoy para Zona 2 (seca 20,0 % vs 32,0 %, con vigor bajo). La puerta lo dejó pendiente de aprobación por lluvia prevista de 12 mm. Al quedar retenido, no programé el riego extra restante y no insisto con otros valores."
+          "summary": "Propuse 20 mm hoy para Zona 2 (seca, 20% vs 32%). La puerta lo dejó pendiente de aprobación del agricultor por lluvia prevista de 12 mm. No propongo el resto del déficit (16 mm) hasta que el agricultor decida."
         }
       }
     },
     {
-      "text": "Redacto su informe de la parcela — consulto los nombres de zona para citarlos bien.",
+      "text": "Preparo su informe diario: consulto el estado de la zona para dar nombres y cifras exactas.",
       "usage": {
-        "input_tokens": 1812,
-        "output_tokens": 1422
+        "input_tokens": 1867,
+        "output_tokens": 1125
       },
       "tool_call": {
-        "name": "list_zones",
-        "arguments": {}
+        "name": "read_zone",
+        "arguments": {
+          "zone_id": 1
+        }
       }
     },
     {
-      "text": "Ya tengo el nombre de la zona. Ahora preparo el informe de hoy.",
+      "text": "Ya tengo el nombre y los valores de la zona; redacto el informe para el agricultor.",
       "usage": {
-        "input_tokens": 1913,
-        "output_tokens": 2210
+        "input_tokens": 2141,
+        "output_tokens": 2352
       },
       "tool_call": {
         "name": "submit_report",
@@ -188,14 +204,12 @@
           "cited": [
             "reading-1",
             "zone-1-field-capacity",
-            "forecast-plot-1-2026-11-02T11:00Z",
-            "stage-cycle-1",
-            "gdd-cycle-1",
             "ndvi-neiva-2026-10-28-zone-1",
             "low-ndvi-neiva-2026-10-28-zone-1",
-            "bare-soil-neiva-2026-10-28-zone-1"
+            "bare-soil-neiva-2026-10-28-zone-1",
+            "task-1"
           ],
-          "text_es": "Zona 2 está seca con humedad de 20,0 % muy por debajo de la capacidad de campo de 32,0 %, en etapa de siembra con 0,0 GDD acumulados y lluvia prevista de 12 mm. La imagen muestra vigor bajo en Zona 2 con 21,2 % de área de bajo NDVI y aproximadamente 25,3 % de suelo desnudo. El riego propuesto espera la aprobación del agricultor."
+          "text_es": "Zona 2 está seca, con una humedad de 20,0 % por debajo de la capacidad de campo de 32,0 %. La imagen muestra bajo vigor con 21,2 % de vigor bajo y aproximadamente 25,3 % de suelo desnudo. Se propuso un riego de 20 mm que queda pendiente de aprobación del agricultor."
         }
       }
     }
