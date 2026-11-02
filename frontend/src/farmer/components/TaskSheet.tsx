@@ -23,7 +23,7 @@ export function TaskSheet({ task, onClose, onUndo }: TaskSheetProps) {
       <dialog
         open
         aria-label={en.plan.taskDetails}
-        className="relative m-0 flex w-full max-w-full animate-sheet-up flex-col gap-3.5 rounded-t-sheet border-0 bg-surface px-5 pt-3.5 pb-7 text-ink"
+        className="relative m-0 flex w-full max-w-full animate-sheet-up flex-col gap-3.5 rounded-t-sheet border-0 bg-surface px-5 pt-3.5 pb-[calc(1.75rem+env(safe-area-inset-bottom))] text-ink"
       >
         <span className="h-1.25 w-12 self-center rounded-full bg-border" />
         <div className="flex flex-col gap-1">

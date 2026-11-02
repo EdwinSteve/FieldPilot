@@ -128,7 +128,7 @@ export function FarmerApp() {
   const state = useFarm();
   const tab = tabOf(route);
   return (
-    <div className="relative mx-auto flex h-dvh w-full max-w-[430px] flex-col overflow-hidden bg-ground">
+    <div className="relative mx-auto flex h-dvh w-full max-w-[430px] flex-col overflow-hidden bg-ground pt-[env(safe-area-inset-top)]">
       {contentFor(route, state)}
       {tab === null ? null : <TabBar active={tab} />}
     </div>

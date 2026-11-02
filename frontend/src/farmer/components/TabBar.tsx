@@ -12,7 +12,7 @@ export function TabBar({ active }: { active: Tab }) {
   return (
     <nav
       aria-label={en.tabs.label}
-      className="grid h-22 shrink-0 grid-cols-3 items-center border-t border-border bg-surface"
+      className="grid h-[calc(5.5rem+env(safe-area-inset-bottom))] shrink-0 grid-cols-3 items-center border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]"
     >
       {TABS.map(({ tab, icon, label }) => {
         const current = tab === active;
