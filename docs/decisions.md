@@ -2270,3 +2270,34 @@ C was rejected: those values feed the safety rules and would have no source
 the agent and the dashboard work with any crop of the catalogue, and every
 number the agent uses about a crop still has a source.
 
+---
+
+## D078 — The bean waits for a days-based phenology model
+
+- **Date:** 2026-11-02
+- **Status:** Accepted (2026-11-02), chosen by Edwin.
+
+**Context.** D077 makes any annual crop a YAML file. Research for a second
+crop, the common bean, is in `docs/research/beans.md`.
+- **Verified:** the Kc values (FAO-56 Table 12), the stage lengths in days
+  (Table 11), the root depth (Table 22) and CIAT's development scale.
+- **Not verified:** the GDD base temperature, on which studies disagree from
+  0 to 10 °C, and any published degree-days per stage.
+
+The phenology engine counts degree-days (D017, D031), while the reliable
+bean data for the tropics is in days after sowing.
+
+**Decision.**
+- The bean is **not** added with stage thresholds converted from days to
+  degree-days. That conversion would be a project convention presented as
+  crop data, and it would set the moisture targets and Kc that steer
+  irrigation.
+- The next step is a days-based phenology model. A crop declares whether
+  its stages count degree-days or days after sowing. The bean follows it,
+  with the FAO-56 and CIAT values as published.
+
+**Consequences.** The catalogue keeps one standard: every crop value has a
+source. Multi-crop support is shown by the configuration (D077), not by a
+crop with converted data. The research stays in the repository, so it is
+not lost.
+
