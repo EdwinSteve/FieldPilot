@@ -2219,3 +2219,54 @@ for approval and rejected, autonomous and executed, and notified and
 reverted. It replays offline, and it can be re-recorded with one command
 when a prompt changes.
 
+---
+
+## D077 — Any annual crop: everything crop-specific lives in its YAML
+
+- **Date:** 2026-11-02
+- **Status:** Accepted (2026-11-02), chosen by Edwin. Amends D059 (the
+  low-NDVI threshold leaves `config/imaging.yaml`).
+
+**Context.** The catalogue, the gate, phenology and the simulator already
+read the crop from the cycle, so a second crop needs no new code there. Six
+places still assumed maize:
+- the five agent prompts ("for a maize farm");
+- the irrigation rule of thumb, which assumed a 300 mm root zone;
+- `config/imaging.yaml`'s single low-NDVI threshold;
+- the dashboard's hard-coded stage order;
+- its "Maíz" label;
+- the chat placeholder.
+
+Three options were weighed:
+- **(A)** generalize, and add crops by configuration;
+- **(B)** pluggable phenology models, for perennials;
+- **(C)** let the model generate crop parameters at run time.
+
+C was rejected: those values feed the safety rules and would have no source
+(D019).
+
+**Decision.**
+- **A now; B later**, with its own decision and an agronomist.
+- **Each crop's YAML gains two sourced fields:**
+  - `root_depth_mm`, the effective root zone used to size irrigation;
+  - `imaging.low_ndvi_threshold`.
+
+  For maize they keep today's values (300 mm, 0.4), marked as demo values
+  as before.
+- **The imagery reader takes the threshold from the active cycle's crop.**
+  `config/imaging.yaml` keeps only the segmentation prompt.
+- **`read_crop_stage` also returns the crop** (name and Spanish name) and
+  its root depth, as citable observations. The prompts say "a farm",
+  learn the crop from that tool, and size irrigation as about
+  `root_depth_mm / 100` mm per point of moisture below field capacity.
+- **`GET /crops/{crop}`** returns the display name and the stages in order.
+  The dashboard draws the stage bar and the crop's name from it.
+- **The demo is recorded again** with `make record-demo`, because the
+  prompts change. The replay test must still pass.
+- **A second annual crop** is added only with cited sources, in its own
+  commit.
+
+**Consequences.** Adding an annual crop is a reviewed YAML file. The code,
+the agent and the dashboard work with any crop of the catalogue, and every
+number the agent uses about a crop still has a source.
+

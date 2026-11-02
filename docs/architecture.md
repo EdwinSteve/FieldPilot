@@ -662,6 +662,8 @@ class CropSpec:
     maturity_gdd: float
     stages: tuple[StageSpec, ...]
     kc_curve: tuple[KcPoint, ...]                    # independent of the stages (D030)
+    root_depth_mm: float                             # effective root zone, for irrigation volumes (D077)
+    low_ndvi_threshold: float                        # mean NDVI below it is low vigour for this crop (D077)
     sources: Mapping[str, Source]                    # citation, url, verification
     reviewed_by_agronomist: bool
     calibration_note: str
@@ -689,6 +691,14 @@ harvest) mapped to degree-days (D030). `crop_coefficient_at` interpolates
 linearly between consecutive points and returns the last point's Kc from
 `maturity_gdd` on. Stages keep moisture targets, nutrients and autonomy
 only, so a stage boundary never forces a corner in the Kc curve.
+
+**Any crop of the catalogue (D077).** Nothing in the code names a crop. A
+cycle's `crop` selects its `CropSpec`, and everything crop-specific lives in
+its YAML: GDD method, stages, Kc curve, root depth and low-NDVI threshold.
+Adding an annual crop measured in degree-days is a new YAML file, with its
+sources. Perennial crops (coffee, cacao), whose stages do not follow
+degree-days from sowing, need another phenology model and their own
+decision.
 
 **Catalog validation.** Every numeric field in the YAML names a source
 declared in the same file (D017). The loader checks the following and stops
@@ -882,7 +892,8 @@ class FieldBrief:
 ```
 
 *Tools.* Read tools (`list_zones`, `read_zone`, `read_forecast`,
-`read_crop_stage`) go through a `FieldReader` port implemented in
+`read_crop_stage`, which also returns the crop and its root depth, so the
+prompts never assume one, D077) go through a `FieldReader` port implemented in
 `app/services`, so `app/agent` still never touches persistence. Writing
 tools have `writes=True`. Two more ports keep the closing tools free of
 storage: `ActionProposer` (`GateProposer` → `ProposalService`) and
@@ -1175,6 +1186,7 @@ startup writes a `config_override` event with both values.
 | GET | `/plots`, `/plots/{id}/zones` | plots and zones |
 | GET | `/plots/{id}/imagery` | NDVI, low-NDVI %, bare soil and low vigour per zone (D067), SAM boxes and zone areas (D073) |
 | GET | `/plots/{id}/imagery/image` | The scene's RGB PNG; 404 without a scene (D073) |
+| GET | `/crops/{crop}` | A crop's display name and its stages in order, for the dashboard (D077) |
 | GET | `/autonomy/policy` | Default level per action type and the always-approval list (D073) |
 | GET | `/readings?zone_id=` | readings |
 | GET | `/cycles`, `/cycles/{id}` | cycles and stages |
