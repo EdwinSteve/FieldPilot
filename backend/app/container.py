@@ -87,6 +87,7 @@ def build_container(settings: Settings, config: RuntimeConfig, runtime: Runtime)
         ImageryLoader.from_directory(settings.data_dir / "satellite"),
         _segmentation(settings),
         config.imaging,
+        config.crops,
     )
 
     def agent_deps(llm: LLMClient) -> AgentDeps:

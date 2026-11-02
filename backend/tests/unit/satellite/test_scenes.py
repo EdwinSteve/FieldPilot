@@ -6,10 +6,10 @@ from pathlib import Path
 import pytest
 
 from app.domain.errors import ConfigError
-from app.satellite.config import load_imaging_config
+from app.phenology.catalog import CropSpec
 from app.satellite.ndvi import compute_ndvi, zone_ndvi
 from app.satellite.scenes import ImageryLoader, load_scene
-from tests.conftest import CONFIG_DIR, SATELLITE_DIR
+from tests.conftest import SATELLITE_DIR
 
 DEMO_FARM = (2.93, -75.28)
 DAY = date(2026, 10, 28)
@@ -33,9 +33,9 @@ def _scene(tmp_path: Path, name: str = "s1", overrides: dict[str, object] | None
     return folder / "scene.json"
 
 
-def test_the_shipped_scene_matches_its_readme() -> None:
+def test_the_shipped_scene_matches_its_readme(maize: CropSpec) -> None:
     scene = ImageryLoader.from_directory(SATELLITE_DIR).latest(*DEMO_FARM, DAY)
-    threshold = load_imaging_config(CONFIG_DIR / "imaging.yaml").low_ndvi_threshold
+    threshold = maize.low_ndvi_threshold
 
     assert scene is not None and scene.synthetic
     ndvi = compute_ndvi(scene.red, scene.nir)
