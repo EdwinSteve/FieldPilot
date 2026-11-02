@@ -1,0 +1,201 @@
+// What each screen renders. Screens depend on these types and never on the API.
+import type { NormBox } from "../../types/api";
+import type { StageState } from "../../lib/stages";
+
+export interface SoilReading {
+  value: number;
+  fieldCapacity: number;
+}
+
+export interface DecisionLink {
+  taskId: number;
+  question: string;
+}
+
+export interface WeekDay {
+  day: string;
+  today: boolean;
+  water: boolean;
+  rain: boolean;
+}
+
+export interface TodayView {
+  dateLine: string;
+  greeting: string;
+  farmLine: string;
+  decision: DecisionLink | null;
+  stopped: boolean;
+  zoneId: number;
+  statusTitle: string;
+  statusDetail: string;
+  soil: SoilReading & { label: string };
+  rain: { mm: number; label: string };
+  plants: { value: string; label: string };
+  week: WeekDay[];
+}
+
+export interface DecisionView {
+  taskId: number;
+  zoneName: string;
+  question: string;
+  why: string;
+  soil: SoilReading;
+  rainMm: number;
+  waterMm: number;
+}
+
+export interface TalkChip {
+  kind: "soil" | "rain";
+  text: string;
+}
+
+export interface TalkExchange {
+  duration: string;
+  question: string;
+  answer: string;
+  detail: string;
+  chips: TalkChip[];
+}
+
+export interface TalkView {
+  exchange: TalkExchange | null;
+  decision: DecisionLink | null;
+  waitingCount: number;
+}
+
+export type UpdateKind = "water" | "satellite" | "report" | "said_no";
+
+export interface UpdateItem {
+  id: string;
+  kind: UpdateKind;
+  title: string;
+  time: string;
+  href: string;
+  unread: boolean;
+}
+
+export interface UndoItem {
+  taskId: number;
+  title: string;
+  detail: string;
+  timeLeft: string;
+  /** Share of the undo window still open, from 0 to 1. */
+  remaining: number;
+}
+
+export type RareCase =
+  | { kind: "recheck"; title: string; detail: string; note: string }
+  | { kind: "cut_off"; title: string; detail: string; note: string; zoneHref: string; action: string }
+  | { kind: "too_late"; title: string; detail: string };
+
+export interface UpdatesView {
+  dateLine: string;
+  undo: UndoItem | null;
+  undone: boolean;
+  rare: RareCase[];
+  items: UpdateItem[];
+}
+
+export interface FieldView {
+  caption: string;
+  headline: string;
+  detail: string;
+  barePct: string;
+  detailEnd: string;
+  imageUrl: string;
+  imageAlt: string;
+  zoneLabel: string;
+  zoneArea: NormBox;
+  spots: NormBox[];
+}
+
+export interface ZoneView {
+  name: string;
+  caption: string;
+  status: string;
+  soil: SoilReading;
+  needsMore: string;
+  history: number[];
+  historyStart: string;
+  historyAlt: string;
+  valve: string;
+  sensor: string;
+}
+
+export type ReportRowKind = "soil" | "rain" | "no_rain" | "done" | "waiting" | "planned" | "satellite";
+
+export interface ReportRow {
+  kind: ReportRowKind;
+  text: string;
+}
+
+export interface ReportView {
+  title: string;
+  dateLine: string;
+  soil: SoilReading;
+  rows: ReportRow[];
+  original: string;
+  saidNo: { detail: string } | null;
+  other: { label: string; href: string } | null;
+}
+
+export type TaskState = "done" | "automatic" | "can_undo" | "said_no";
+export type PlanTaskKind = "water" | "report";
+
+export interface PlanTask {
+  id: string;
+  kind: PlanTaskKind;
+  title: string;
+  when: string;
+  state: TaskState;
+  stateLabel: string;
+  source: string;
+  why: string;
+  undoTaskId: number | null;
+}
+
+export interface PlanDay {
+  label: string;
+  today: boolean;
+  rain: string | null;
+  tasks: PlanTask[];
+}
+
+export interface PlanStage {
+  steps: StageState[];
+  now: string;
+  next: string | null;
+}
+
+export interface PlanView {
+  crop: string;
+  dayCount: string;
+  /** Null while the backend's stage contradicts the crop's age. */
+  stage: PlanStage | null;
+  days: PlanDay[];
+}
+
+export interface StopView {
+  stopped: boolean;
+  since: string;
+  /** End of the watering that keeps running; the stop does not close a valve. */
+  runningUntil: string | null;
+}
+
+/** Everything the screens need. Mock data today, the real API later. */
+export interface Farm {
+  today: TodayView;
+  talk: TalkView;
+  updates: UpdatesView;
+  field: FieldView;
+  plan: PlanView;
+  stop: StopView;
+  decision: (taskId: number) => DecisionView | null;
+  zone: (zoneId: number) => ZoneView | null;
+  report: (reportId: number) => ReportView | null;
+  approve: (taskId: number) => Promise<void>;
+  reject: (taskId: number, reason?: string) => Promise<void>;
+  undo: (taskId: number) => Promise<void>;
+  markAllRead: () => Promise<void>;
+  setStopped: (stopped: boolean) => Promise<void>;
+}
