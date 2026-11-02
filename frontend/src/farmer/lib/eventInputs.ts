@@ -66,6 +66,11 @@ export function isInterruptedWatering(notice: LogEvent): boolean {
   return notice.inputs.simulator_state_resumed === false;
 }
 
+/** The water already on the field when an undo stopped it (D007). */
+export function appliedMm(revert: LogEvent): number {
+  return asNumber(revert.inputs.applied_mm) ?? 0;
+}
+
 /** The farmer's own words for a "no", or null when they skipped the question. */
 export function rejectionReason(rejection: LogEvent): string | null {
   const reason = rejection.inputs.reason;

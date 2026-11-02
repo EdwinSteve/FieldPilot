@@ -62,7 +62,7 @@ function statusDetail(rainMm: number | null): string {
 
 function stoppedBanner(snapshot: FarmSnapshot): string | null {
   if (!snapshot.stop.active) return null;
-  const running = activeRun(snapshot.executions, snapshot.tasks, snapshot.clock.now);
+  const running = activeRun(snapshot.executions, snapshot.tasks, snapshot.notices, snapshot.clock.now);
   return running === null ? en.stop.stopped : en.stop.stoppedWhileRunning;
 }
 

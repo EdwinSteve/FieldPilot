@@ -8,6 +8,7 @@ import { LEVEL_TEXT } from "../components/levelStyle";
 import { MoistureDrop } from "../components/MoistureDrop";
 import { RainLevelIcon } from "../components/RainLevelIcon";
 import { en } from "../i18n/en";
+import type { ApprovalOutcome } from "../lib/approvalOutcome";
 import { hrefOf } from "../lib/route";
 import { soilStatus } from "../lib/soilStatus";
 import { soilLevel } from "../lib/statusLevel";
@@ -17,7 +18,42 @@ type Step =
   | { name: "ask" }
   | { name: "reason" }
   | { name: "other" }
-  | { name: "done"; answer: "yes" | "no"; withReason: boolean };
+  | { name: "done"; answer: "yes"; outcome: ApprovalOutcome }
+  | { name: "done"; answer: "no"; withReason: boolean };
+
+function doneCopy(step: Extract<Step, { name: "done" }>, view: DecisionView) {
+  if (step.answer === "no") {
+    return {
+      title: en.decide.noWater,
+      detail: step.withReason ? en.decide.noWaterSaved : en.decide.noWaterSkipped,
+      icon: "check" as const,
+      tone: "neutral" as const,
+    };
+  }
+  switch (step.outcome) {
+    case "running":
+      return {
+        title: en.decide.wateringNow,
+        detail: en.decide.wateringDetail(view.zoneName, view.waterMm),
+        icon: "check" as const,
+        tone: "good" as const,
+      };
+    case "planned":
+      return {
+        title: en.decide.plannedTitle,
+        detail: en.decide.plannedDetail(view.zoneName),
+        icon: "clock" as const,
+        tone: "undo" as const,
+      };
+    case "not_run":
+      return {
+        title: en.decide.notRunTitle,
+        detail: en.decide.notRunDetail,
+        icon: "warning" as const,
+        tone: "stop" as const,
+      };
+  }
+}
 
 function FactRow({
   icon,
@@ -211,21 +247,16 @@ function Closed() {
 }
 
 function Done({ step, view }: { step: Extract<Step, { name: "done" }>; view: DecisionView }) {
-  const yes = step.answer === "yes";
-  const noDetail = step.withReason ? en.decide.noWaterSaved : en.decide.noWaterSkipped;
+  const { title, detail, icon, tone } = doneCopy(step, view);
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-4.5 px-4.5 pt-3 pb-5 text-center">
       <span className="animate-pop-in">
-        <IconCircle tone={yes ? "good" : "neutral"} size="hero">
-          <Icon name="check" size={66} strokeWidth={2.4} />
+        <IconCircle tone={tone} size="hero">
+          <Icon name={icon} size={66} strokeWidth={2.4} />
         </IconCircle>
       </span>
-      <h1 className="text-title font-extrabold">
-        {yes ? en.decide.wateringNow : en.decide.noWater}
-      </h1>
-      <span className="text-lead leading-normal text-ink-2">
-        {yes ? en.decide.wateringDetail(view.zoneName, view.waterMm) : noDetail}
-      </span>
+      <h1 className="text-title font-extrabold">{title}</h1>
+      <span className="text-lead leading-normal text-ink-2">{detail}</span>
       <BigLink variant="outline" href={hrefOf({ screen: "today" })}>
         <span className="px-5 text-body font-bold">{en.decide.backToToday}</span>
       </BigLink>
@@ -235,7 +266,7 @@ function Done({ step, view }: { step: Extract<Step, { name: "done" }>; view: Dec
 
 interface DecideScreenProps {
   view: DecisionView;
-  onApprove: (taskId: number) => Promise<boolean>;
+  onApprove: (taskId: number) => Promise<ApprovalOutcome | null>;
   onReject: (taskId: number, reason?: string) => Promise<boolean>;
 }
 
@@ -243,8 +274,8 @@ export function DecideScreen({ view, onApprove, onReject }: DecideScreenProps) {
   const [step, setStep] = useState<Step>({ name: "ask" });
 
   const approve = () => {
-    void onApprove(view.taskId).then((done) => {
-      if (done) setStep({ name: "done", answer: "yes", withReason: false });
+    void onApprove(view.taskId).then((outcome) => {
+      if (outcome !== null) setStep({ name: "done", answer: "yes", outcome });
     });
   };
   const reject = (reason?: string) => {

@@ -1,6 +1,7 @@
 // What each screen renders. Screens depend on these types and never on the API.
 import type { NormBox } from "../../types/api";
 import type { StageState } from "../../lib/stages";
+import type { ApprovalOutcome } from "../lib/approvalOutcome";
 import type { LookedAt } from "../lib/lookedAt";
 import type { TrendDirection } from "../lib/soilTrend";
 import type { Level } from "../lib/statusLevel";
@@ -152,7 +153,8 @@ export type RareCase =
 export interface UpdatesView {
   dateLine: string;
   undo: UndoItem | null;
-  undone: boolean;
+  /** What the last undo did, while it is still news. */
+  undone: string | null;
   rare: RareCase[];
   items: UpdateItem[];
   unreadCount: number;
@@ -273,7 +275,8 @@ export interface Farm {
   zone: (zoneId: number) => ZoneView | null;
   report: (reportId: number) => ReportView | null;
   /** Each action resolves true when the backend took it. */
-  approve: (taskId: number) => Promise<boolean>;
+  /** What the yes led to, or null when the backend could not be reached. */
+  approve: (taskId: number) => Promise<ApprovalOutcome | null>;
   reject: (taskId: number, reason?: string) => Promise<boolean>;
   undo: (taskId: number) => Promise<boolean>;
   markAllRead: () => Promise<boolean>;

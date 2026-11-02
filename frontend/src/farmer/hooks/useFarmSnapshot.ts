@@ -39,6 +39,7 @@ async function loadFarm(): Promise<FarmSnapshot | null> {
     rejections,
     refusals,
     notices,
+    reverts,
   ] = await Promise.all([
     fetchHealth(),
     api.clock(),
@@ -55,6 +56,7 @@ async function loadFarm(): Promise<FarmSnapshot | null> {
     events("rejection"),
     events("revert_refused"),
     events("notification"),
+    events("revert"),
   ]);
   const zone = zones[0] ?? null;
   const sensors = zone === null ? [] : await api.readings(zone.id, READINGS);
@@ -74,6 +76,7 @@ async function loadFarm(): Promise<FarmSnapshot | null> {
     executions,
     failures,
     rejections,
+    reverts,
     refusals,
     notices,
   };

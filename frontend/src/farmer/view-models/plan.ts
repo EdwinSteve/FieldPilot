@@ -2,7 +2,7 @@ import { plotDay } from "../../lib/format";
 import { daysSinceSowing } from "../../lib/stages";
 import type { Report, Task } from "../../types/api";
 import { en } from "../i18n/en";
-import { gateFacts } from "../lib/eventInputs";
+import { appliedMm, gateFacts } from "../lib/eventInputs";
 import {
   daysFromToday,
   formatCalendarDate,
@@ -81,8 +81,11 @@ function whyOf(snapshot: FarmSnapshot, task: Task, state: TaskState): string {
   switch (state) {
     case "said_no":
       return en.plan.whyNo(facts?.rainMm ?? null);
-    case "cancelled":
-      return en.plan.whyCancelled;
+    case "cancelled": {
+      const revert = eventOfTask(snapshot.reverts, task.id);
+      const applied = revert === null ? 0 : appliedMm(revert);
+      return applied > 0 ? en.plan.whyStopped(applied) : en.plan.whyCancelled;
+    }
     case "failed":
       return en.plan.whyFailed;
     case "needs_you":

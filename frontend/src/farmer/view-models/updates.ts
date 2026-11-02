@@ -1,7 +1,13 @@
 import { formatDuration } from "../../lib/format";
 import type { Task } from "../../types/api";
 import { en } from "../i18n/en";
-import { isInterruptedWatering, isRecheckFailure, recheckRainMm, rejectionReason } from "../lib/eventInputs";
+import {
+  appliedMm,
+  isInterruptedWatering,
+  isRecheckFailure,
+  recheckRainMm,
+  rejectionReason,
+} from "../lib/eventInputs";
 import {
   daysFromToday,
   formatClock,
@@ -11,6 +17,7 @@ import {
   relativeDay,
 } from "../lib/farmTime";
 import { activeRun, irrigationRun } from "../lib/irrigationRun";
+import { newestRecent } from "../lib/recentEvent";
 import { hrefOf } from "../lib/route";
 import { undoRemaining } from "../lib/undoProgress";
 import {
@@ -46,7 +53,8 @@ function wateredRow(snapshot: FarmSnapshot, task: Task): Dated | null {
   const execution = eventOfTask(snapshot.executions, task.id);
   const run = execution === null ? null : irrigationRun(execution);
   if (run === null) return null;
-  const running = activeRun(snapshot.executions, snapshot.tasks, now)?.taskId === task.id;
+  const running =
+    activeRun(snapshot.executions, snapshot.tasks, snapshot.notices, now)?.taskId === task.id;
   const mm = volumeOf(task);
   return {
     at: Date.parse(run.startedAt),
@@ -88,14 +96,23 @@ function saidNoRow(snapshot: FarmSnapshot, task: Task): Dated {
   };
 }
 
+function appliedBeforeUndo(snapshot: FarmSnapshot, task: Task): number {
+  const revert = eventOfTask(snapshot.reverts, task.id);
+  return revert === null ? 0 : appliedMm(revert);
+}
+
 function cancelledRow(snapshot: FarmSnapshot, task: Task): Dated {
   const offset = plotOffset(snapshot);
+  const applied = appliedBeforeUndo(snapshot, task);
   return {
     at: Date.parse(task.updated_at),
     item: {
       id: `cancelled-${task.id}`,
       kind: "said_no",
-      title: en.updates.cancelledRow(zoneName(snapshot), volumeOf(task)),
+      title:
+        applied > 0
+          ? en.updates.stoppedRow(zoneName(snapshot), applied, volumeOf(task))
+          : en.updates.cancelledRow(zoneName(snapshot), volumeOf(task)),
       time: en.updates.reportTime(
         relativeDay(task.updated_at, snapshot.clock.now, offset),
         formatClock(task.updated_at, offset),
@@ -239,19 +256,26 @@ function undoItem(snapshot: FarmSnapshot): UndoItem | null {
   };
 }
 
-/** True while a cancelled task's time is still ahead, so "no water used" holds. */
-function justUndone(snapshot: FarmSnapshot): boolean {
-  const now = Date.parse(snapshot.clock.now);
-  return snapshot.tasks.some(
-    (task) => task.status === "reverted" && Date.parse(task.scheduled_for) > now,
+/** What an undo did, while its task's time is ahead or it happened today. */
+function undoneNote(snapshot: FarmSnapshot): string | null {
+  const now = snapshot.clock.now;
+  const task = snapshot.tasks.find(
+    (candidate) =>
+      candidate.status === "reverted" &&
+      (Date.parse(candidate.scheduled_for) > Date.parse(now) ||
+        daysFromToday(candidate.updated_at, now, plotOffset(snapshot)) === 0),
   );
+  if (task === undefined) return null;
+  const applied = appliedBeforeUndo(snapshot, task);
+  return applied > 0 ? en.updates.stoppedEarly(applied) : en.updates.cancelled;
 }
 
 function rareCases(snapshot: FarmSnapshot): RareCase[] {
   const zone = zoneName(snapshot);
+  const now = snapshot.clock.now;
   const cases: RareCase[] = [];
-  const recheck = snapshot.failures.find(isRecheckFailure);
-  if (recheck !== undefined) {
+  const recheck = newestRecent(snapshot.failures.filter(isRecheckFailure), now);
+  if (recheck !== null) {
     cases.push({
       kind: "recheck",
       title: en.updates.rare.recheckTitle,
@@ -259,7 +283,7 @@ function rareCases(snapshot: FarmSnapshot): RareCase[] {
       note: en.updates.rare.recheckNote,
     });
   }
-  if (snapshot.notices.some(isInterruptedWatering)) {
+  if (newestRecent(snapshot.notices.filter(isInterruptedWatering), now) !== null) {
     cases.push({
       kind: "cut_off",
       title: en.updates.rare.cutOffTitle,
@@ -269,8 +293,8 @@ function rareCases(snapshot: FarmSnapshot): RareCase[] {
       action: en.updates.rare.cutOffAction(zone),
     });
   }
-  const refused = snapshot.refusals[0];
-  if (refused !== undefined) {
+  const refused = newestRecent(snapshot.refusals, now);
+  if (refused !== null) {
     const task = snapshot.tasks.find((candidate) => candidate.id === refused.task_id);
     cases.push({
       kind: "too_late",
@@ -290,7 +314,7 @@ export function updatesView(snapshot: FarmSnapshot): UpdatesView {
   return {
     dateLine: formatDateLine(snapshot.clock.now, plotOffset(snapshot)),
     undo: undoItem(snapshot),
-    undone: justUndone(snapshot),
+    undone: undoneNote(snapshot),
     rare: rareCases(snapshot),
     items: dated.toSorted((a, b) => b.at - a.at).map(({ item }) => item),
     unreadCount: snapshot.notifications.filter((notice) => notice.read_at === null).length,

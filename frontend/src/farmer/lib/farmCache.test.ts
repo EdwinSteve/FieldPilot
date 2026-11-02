@@ -13,7 +13,7 @@ describe("the farm cache", () => {
 
   it("ignores what it cannot trust", () => {
     expect(fromCache("not json")).toBeNull();
-    expect(fromCache('{"version":0,"snapshot":{}}')).toBeNull();
-    expect(fromCache('{"version":1}')).toBeNull();
+    expect(fromCache('{"version":1,"snapshot":{}}')).toBeNull();
+    expect(fromCache('{"version":2}')).toBeNull();
   });
 });

@@ -167,7 +167,7 @@ describe("updatesView", () => {
   it("after the undo: the card turns into the confirmation", () => {
     const view = updatesView(demo.day2Undone);
     expect(view.undo).toBeNull();
-    expect(view.undone).toBe(true);
+    expect(view.undone).toBe("Cancelled. No water used.");
     expect(view.items.some((item) => item.id === `cancelled-${EXTRA_TASK}`)).toBe(true);
   });
 
@@ -250,6 +250,42 @@ describe("updatesView", () => {
     });
   });
 
+  describe("an undo says what it really did", () => {
+    const stopped = {
+      ...demo.day2Undone,
+      reverts: demo.day2Undone.reverts.map((revert) => ({
+        ...revert,
+        inputs: { ...revert.inputs, applied_mm: 8 },
+      })),
+    };
+
+    it("admits water that had already gone on", () => {
+      const view = updatesView(stopped);
+      expect(view.undone).toBe("Stopped. 8 mm had already gone on.");
+      const row = view.items.find((item) => item.id === `cancelled-${EXTRA_TASK}`);
+      expect(row?.title).toBe("You stopped watering · Zone 2 · 8 of 20 mm");
+    });
+
+    it("says so on the plan too", () => {
+      const [extra] = planView(stopped).days[2]?.tasks ?? [];
+      expect(extra?.why).toBe("You stopped this while it ran. 8 mm had already gone on.");
+    });
+
+    it("keeps the plain wording when no water went on", () => {
+      const [extra] = planView(demo.day2Undone).days[2]?.tasks ?? [];
+      expect(extra?.why).toBe("You cancelled this before it ran.");
+    });
+  });
+
+  it("lets an old rare case go, and shows a new one", () => {
+    const event = demo.day2Cycle.verdicts[0]!;
+    const refusal = (occurredAt: string) => ({ ...event, task_id: EXTRA_TASK, occurred_at: occurredAt });
+    const old = updatesView({ ...demo.day2Cycle, refusals: [refusal("2026-11-01T11:00:00Z")] });
+    expect(old.rare).toEqual([]);
+    const recent = updatesView({ ...demo.day2Cycle, refusals: [refusal("2026-11-03T10:00:00Z")] });
+    expect(recent.rare.map((item) => item.kind)).toEqual(["too_late"]);
+  });
+
   it("shows no rare case on the demo", () => {
     expect(updatesView(demo.day2Undone).rare).toEqual([]);
   });
@@ -321,6 +357,16 @@ describe("zoneView", () => {
     expect(view?.trend).toBe("Down from 20% about a day ago");
     expect(view?.valveLevel).toBe("info");
     expect(view?.sensorLevel).toBe("good");
+  });
+
+  it("reads the valve closed once a restart cut the watering off", () => {
+    const notice = {
+      ...demo.day2Cycle.executions[0]!,
+      kind: "notification",
+      inputs: { simulator_state_resumed: false },
+    };
+    const view = zoneView({ ...demo.day2Cycle, notices: [notice] }, ZONE_ID);
+    expect(view?.valve).toBe("Closed");
   });
 
   it("is null for another zone", () => {

@@ -43,15 +43,33 @@ describe("irrigationRun", () => {
 
 describe("activeRun", () => {
   it("is on from the start until just before the end", () => {
-    expect(activeRun([WATERING], [task("executed")], "2026-11-03T11:00:00Z")).not.toBeNull();
-    expect(activeRun([WATERING], [task("executed")], "2026-11-03T14:19:59Z")).not.toBeNull();
+    expect(activeRun([WATERING], [task("executed")], [], "2026-11-03T11:00:00Z")).not.toBeNull();
+    expect(activeRun([WATERING], [task("executed")], [], "2026-11-03T14:19:59Z")).not.toBeNull();
   });
 
   it("is off once the water is applied", () => {
-    expect(activeRun([WATERING], [task("executed")], "2026-11-03T14:20:00Z")).toBeNull();
+    expect(activeRun([WATERING], [task("executed")], [], "2026-11-03T14:20:00Z")).toBeNull();
+  });
+
+  it("is off once a stop command closed the valve", () => {
+    const stop = {
+      ...execution({ action_type: "stop_irrigation", target_mm: 0, rate_mm_per_h: 6 }),
+      task_id: 9,
+      occurred_at: "2026-11-03T12:00:00Z",
+    };
+    expect(
+      activeRun([WATERING, stop], [task("executed")], [], "2026-11-03T12:30:00Z"),
+    ).toBeNull();
+  });
+
+  it("is off once a restart cut the run off", () => {
+    const notice = { ...WATERING, kind: "notification", inputs: { simulator_state_resumed: false } };
+    expect(
+      activeRun([WATERING], [task("executed")], [notice], "2026-11-03T12:00:00Z"),
+    ).toBeNull();
   });
 
   it("is off for a reverted task", () => {
-    expect(activeRun([WATERING], [task("reverted")], "2026-11-03T12:00:00Z")).toBeNull();
+    expect(activeRun([WATERING], [task("reverted")], [], "2026-11-03T12:00:00Z")).toBeNull();
   });
 });

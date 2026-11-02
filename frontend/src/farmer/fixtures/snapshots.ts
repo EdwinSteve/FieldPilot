@@ -36,6 +36,7 @@ interface Capture {
   events_execution: LogEvent[];
   events_execution_failed: LogEvent[];
   events_rejection: LogEvent[];
+  events_revert: LogEvent[];
   events_revert_refused: LogEvent[];
 }
 
@@ -59,6 +60,7 @@ function toSnapshot(raw: unknown): FarmSnapshot {
     executions: capture.events_execution,
     failures: capture.events_execution_failed,
     rejections: capture.events_rejection,
+    reverts: capture.events_revert,
     refusals: capture.events_revert_refused,
     notices: [],
   };

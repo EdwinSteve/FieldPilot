@@ -1,7 +1,8 @@
 // The last good read of the farm, for when the signal drops. Pure logic only.
 import type { FarmSnapshot } from "../view-models/snapshot";
 
-const VERSION = 1;
+/** Raise this whenever `FarmSnapshot` changes: an older save would miss fields. */
+const VERSION = 2;
 
 export function toCache(snapshot: FarmSnapshot): string {
   return JSON.stringify({ version: VERSION, snapshot });

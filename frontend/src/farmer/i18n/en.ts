@@ -150,6 +150,10 @@ export const en = {
     wateringNow: "Watering now",
     wateringDetail: (zone: string, mm: number | null) =>
       mm === null ? `${zone} gets water now.` : `${zone} gets ${mm} mm. You can see it in Updates.`,
+    plannedTitle: "Watering is planned",
+    plannedDetail: (zone: string) => `${zone} is on the plan. You can see it in Plan.`,
+    notRunTitle: "Watering didn’t start",
+    notRunDetail: "Something changed after I asked you. See Updates for what happened.",
     noWater: "OK, no water today",
     noWaterSaved: "Saved with your reason. I will check the soil again tomorrow morning.",
     noWaterSkipped: "I will check the soil again tomorrow morning.",
@@ -210,6 +214,7 @@ export const en = {
     undo: "Undo",
     unread: "New",
     cancelled: "Cancelled. No water used.",
+    stoppedEarly: (mm: number) => `Stopped. ${mm} mm had already gone on.`,
     empty: "Nothing yet. Your first update comes after the morning check.",
     undoTitle: (day: string) => `Extra water, ${day.toLowerCase()}`,
     undoDetail: (zone: string, mm: number | null, time: string) =>
@@ -232,6 +237,10 @@ export const en = {
     actionDidntRun: "An action didn’t run",
     planned: (zone: string, mm: number | null) =>
       mm === null ? `Watering planned · ${zone}` : `Watering planned · ${zone} · ${mm} mm`,
+    stoppedRow: (zone: string, applied: number, mm: number | null) =>
+      mm === null
+        ? `You stopped watering · ${zone} · ${applied} mm applied`
+        : `You stopped watering · ${zone} · ${applied} of ${mm} mm`,
     plantsWeak: (zone: string) => `Plants weak in ${zone}`,
     satelliteTime: (day: string, time: string) => `${day} ${time} · satellite check`,
     reportTitle: (daysAgo: number, date: string) => {
@@ -365,6 +374,7 @@ export const en = {
         : `The soil was at ${soilPct}%. All safety rules were OK.`,
     whyExtra: (zone: string) => `${zone} is still far from full, so the rest is planned. You can undo it.`,
     whyCancelled: "You cancelled this before it ran.",
+    whyStopped: (mm: number) => `You stopped this while it ran. ${mm} mm had already gone on.`,
     whyWaiting: "I need your answer before I do this.",
     whyFailed: "This did not run. I will look again at the next morning check.",
     whyReport: "Every morning, after my checks, I tell you what I found and planned. Every number is checked.",

@@ -36,6 +36,7 @@ export interface FarmSnapshot {
   executions: LogEvent[];
   failures: LogEvent[];
   rejections: LogEvent[];
+  reverts: LogEvent[];
   refusals: LogEvent[];
   notices: LogEvent[];
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/endpoints";
 import { useAction } from "../../hooks/useAction";
 import { en } from "../i18n/en";
+import { approvalOutcome, type ApprovalOutcome } from "../lib/approvalOutcome";
 import { fromCache, toCache } from "../lib/farmCache";
 import { stopView, talkView } from "../view-models/control";
 import { decisionView } from "../view-models/decide";
@@ -23,6 +24,8 @@ type FarmViews = Pick<
 >;
 
 const CACHE_KEY = "fieldpilot.farm";
+/** Long enough to read, short enough not to haunt the next screen. */
+const FAILURE_NOTICE_MS = 6_000;
 
 function readCachedFarm(): FarmSnapshot | null {
   try {
@@ -62,10 +65,17 @@ export function useFarm(): FarmState {
   const data = fresh ?? (error === null ? null : cached);
   const action = useAction(refresh);
   const talk = useTalk(data?.plot.id);
+  const [actionFailed, setActionFailed] = useState(false);
 
   useEffect(() => {
     if (fresh !== null) cacheFarm(fresh);
   }, [fresh]);
+
+  useEffect(() => {
+    if (!actionFailed) return undefined;
+    const timer = window.setTimeout(() => setActionFailed(false), FAILURE_NOTICE_MS);
+    return () => window.clearTimeout(timer);
+  }, [actionFailed]);
 
   const { exchanges } = talk;
   const views = useMemo(() => (data ? viewsOf(data, exchanges) : null), [data, exchanges]);
@@ -81,20 +91,27 @@ export function useFarm(): FarmState {
       await act();
       done = true;
     });
+    setActionFailed(!done);
     return done;
   };
 
   const unread = data.notifications.filter((notice) => notice.read_at === null);
   const farm: Farm = {
     ...views,
-    approve: (taskId) => attempt(() => api.approve(taskId)),
+    approve: async (taskId) => {
+      let outcome: ApprovalOutcome | null = null;
+      await attempt(async () => {
+        outcome = approvalOutcome((await api.approve(taskId)).status);
+      });
+      return outcome;
+    },
     reject: (taskId, reason) => attempt(() => api.reject(taskId, reason)),
     undo: (taskId) => attempt(() => api.revert(taskId)),
     markAllRead: () =>
       attempt(() => Promise.all(unread.map((notice) => api.markRead(notice.id)))),
     setStopped: (stopped) => attempt(() => api.setEmergencyStop(stopped)),
     busy: action.busy,
-    actionFailed: action.error !== null,
+    actionFailed,
     talk: {
       status: talk.status,
       failure: talk.failure === null ? null : en.talk.failures[talk.failure],

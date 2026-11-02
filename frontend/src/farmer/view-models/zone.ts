@@ -51,7 +51,7 @@ export function zoneView(snapshot: FarmSnapshot, zoneId: number): ZoneView | nul
   const soil = soilAt(snapshot);
   const points = history(snapshot);
   const values = points.map((reading) => roundReading(reading.value));
-  const running = activeRun(snapshot.executions, snapshot.tasks, snapshot.clock.now);
+  const running = activeRun(snapshot.executions, snapshot.tasks, snapshot.notices, snapshot.clock.now);
   const offset = plotOffset(snapshot);
   const missing = soil === null ? 0 : pointsToFull(soil.value, capacity);
   const level: Level = soil === null ? "neutral" : soilLevelOf(soil);

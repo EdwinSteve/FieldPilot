@@ -13,7 +13,7 @@ const FARMER_PREFIX = "farmer:";
 export function stopView(snapshot: FarmSnapshot): StopView {
   const offset = plotOffset(snapshot);
   const { changed_at: changedAt, changed_by: changedBy } = snapshot.stop;
-  const running = activeRun(snapshot.executions, snapshot.tasks, snapshot.clock.now);
+  const running = activeRun(snapshot.executions, snapshot.tasks, snapshot.notices, snapshot.clock.now);
   return {
     stopped: snapshot.stop.active,
     since:
