@@ -1,7 +1,7 @@
 // Every farmer-facing string. Spanish comes later: keep this file the only source.
 import type { RainLevel } from "../lib/rainLevel";
 import type { SoilStatus } from "../lib/soilStatus";
-import type { VoiceFailure } from "../lib/voiceFailure";
+import type { TalkFailure } from "../lib/talkFailure";
 
 function zoneIs(zone: string, status: string): string {
   return `${zone} is ${status === "OK" ? status : status.toLowerCase()}`;
@@ -150,9 +150,14 @@ export const en = {
     avatarAlt: "FieldPilot",
     onlyAnswers: "Here I only answer. Watering is decided every morning, and big choices come to you.",
     tapToTalk: "Tap to talk",
-    listening: "Listening… tap to send",
+    listening: "Listening…",
+    tapToSend: "Tap to send",
+    hint: "Type or tap the mic",
+    typeHere: "Type here…",
+    yourQuestion: "Your question",
+    send: "Send",
     stopAndSend: "Stop and send",
-    needsLiveModel: "Talking needs the live model. This demo is running on recorded days.",
+    needsLiveModel: "Asking needs the live model. This demo is running on recorded days.",
     gettingMic: "Getting the mic ready…",
     thinking: "Thinking…",
     noAnswer: "I could not finish that answer. Please ask again.",
@@ -162,10 +167,10 @@ export const en = {
       mic_blocked: "The mic is blocked. Allow it in your browser, then try again.",
       mic_missing: "I can’t use a mic on this page.",
       not_heard: "I didn’t hear a question. Please try again.",
-      needs_live_model: "Talking needs the live model. This demo is running on recorded days.",
+      needs_live_model: "Asking needs the live model. This demo is running on recorded days.",
       service_busy: "I can’t answer right now. Please try again in a moment.",
       unknown: "That didn’t work. Please try again.",
-    } satisfies Record<VoiceFailure, string>,
+    } satisfies Record<TalkFailure, string>,
     decisionsWaiting: (count: number) =>
       count === 1 ? "1 decision waiting" : `${count} decisions waiting`,
   },

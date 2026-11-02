@@ -354,6 +354,11 @@ describe("talkView", () => {
     });
   });
 
+  it("marks a typed question by having no recording", () => {
+    const typed = { ...exchange, durationMs: null };
+    expect(talkView(demo.day1Held, [typed]).exchanges[0]?.duration).toBeNull();
+  });
+
   it("drops a source with no figure today", () => {
     const [view] = talkView(demo.day2Morning, [exchange]).exchanges;
     expect(view?.chips.map((chip) => chip.kind)).toEqual(["soil"]);

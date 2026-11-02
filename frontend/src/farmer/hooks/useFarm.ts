@@ -9,22 +9,22 @@ import { planView } from "../view-models/plan";
 import { reportView } from "../view-models/report";
 import type { FarmSnapshot } from "../view-models/snapshot";
 import { todayView } from "../view-models/today";
-import type { Farm, FarmState, VoiceExchange } from "../view-models/types";
+import type { ChatExchange, Farm, FarmState } from "../view-models/types";
 import { updatesView } from "../view-models/updates";
 import { zoneView } from "../view-models/zone";
 import { useFarmRefresh } from "./useFarmRefresh";
 import { useFarmSnapshot } from "./useFarmSnapshot";
-import { useVoiceQuestion } from "./useVoiceQuestion";
+import { useTalk } from "./useTalk";
 
 type FarmViews = Pick<
   Farm,
-  "today" | "talk" | "updates" | "field" | "plan" | "stop" | "decision" | "zone" | "report"
+  "today" | "chat" | "updates" | "field" | "plan" | "stop" | "decision" | "zone" | "report"
 >;
 
-function viewsOf(snapshot: FarmSnapshot, exchanges: VoiceExchange[]): FarmViews {
+function viewsOf(snapshot: FarmSnapshot, exchanges: ChatExchange[]): FarmViews {
   return {
     today: todayView(snapshot),
-    talk: talkView(snapshot, exchanges),
+    chat: talkView(snapshot, exchanges),
     updates: updatesView(snapshot),
     field: fieldView(snapshot),
     plan: planView(snapshot),
@@ -40,8 +40,8 @@ export function useFarm(): FarmState {
   const { version, refresh } = useFarmRefresh();
   const { data, error, loading } = useFarmSnapshot(version);
   const action = useAction(refresh);
-  const voice = useVoiceQuestion(data?.plot.id);
-  const { exchanges } = voice;
+  const talk = useTalk(data?.plot.id);
+  const { exchanges } = talk;
   const views = useMemo(() => (data ? viewsOf(data, exchanges) : null), [data, exchanges]);
 
   if (loading) return { status: "loading" };
@@ -69,11 +69,15 @@ export function useFarm(): FarmState {
     setStopped: (stopped) => attempt(() => api.setEmergencyStop(stopped)),
     busy: action.busy,
     actionFailed: action.error !== null,
-    voice: {
-      status: voice.status,
-      failure: voice.failure === null ? null : en.talk.failures[voice.failure],
-      toggle: voice.toggle,
-      cancel: voice.cancel,
+    talk: {
+      status: talk.status,
+      failure: talk.failure === null ? null : en.talk.failures[talk.failure],
+      pendingQuestion: talk.pendingQuestion,
+      draft: talk.draft,
+      setDraft: talk.setDraft,
+      sendDraft: talk.sendDraft,
+      toggleMic: talk.toggleMic,
+      cancel: talk.cancel,
     },
   };
   return { status: "ready", farm, stale: error !== null };

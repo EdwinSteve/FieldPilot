@@ -6,7 +6,7 @@ import { activeRun } from "../lib/irrigationRun";
 import { clipLength, type LookedAt } from "../lib/lookedAt";
 import { pendingTasks, plotOffset, soilAt, type FarmSnapshot } from "./snapshot";
 import { firstDecision } from "./today";
-import type { StopView, TalkChip, TalkExchange, TalkView, VoiceExchange } from "./types";
+import type { ChatExchange, StopView, TalkChip, TalkExchange, TalkView } from "./types";
 
 const FARMER_PREFIX = "farmer:";
 
@@ -38,17 +38,17 @@ function chipOf(snapshot: FarmSnapshot, source: LookedAt): TalkChip | null {
   return rainMm === null ? null : { kind: source, text: en.talk.chipRain(rainMm) };
 }
 
-function exchangeView(snapshot: FarmSnapshot, exchange: VoiceExchange): TalkExchange {
+function exchangeView(snapshot: FarmSnapshot, exchange: ChatExchange): TalkExchange {
   return {
     id: exchange.id,
-    duration: clipLength(exchange.durationMs),
+    duration: exchange.durationMs === null ? null : clipLength(exchange.durationMs),
     question: exchange.question,
     answer: exchange.answer,
     chips: exchange.lookedAt.flatMap((source) => chipOf(snapshot, source) ?? []),
   };
 }
 
-export function talkView(snapshot: FarmSnapshot, exchanges: readonly VoiceExchange[]): TalkView {
+export function talkView(snapshot: FarmSnapshot, exchanges: readonly ChatExchange[]): TalkView {
   return {
     unavailable: snapshot.chatLive ? null : en.talk.needsLiveModel,
     exchanges: exchanges.map((exchange) => exchangeView(snapshot, exchange)),

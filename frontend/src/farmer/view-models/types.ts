@@ -53,12 +53,13 @@ export interface DecisionView {
   stopped: boolean;
 }
 
-export type VoiceStatus = "idle" | "starting" | "listening" | "thinking";
+export type TalkStatus = "idle" | "starting" | "listening" | "thinking";
 
 /** One question and its answer, as the backend gave them. */
-export interface VoiceExchange {
+export interface ChatExchange {
   id: number;
-  durationMs: number;
+  /** How long the recording ran; null for a typed question. */
+  durationMs: number | null;
   question: string;
   answer: string | null;
   lookedAt: LookedAt[];
@@ -71,8 +72,8 @@ export interface TalkChip {
 
 export interface TalkExchange {
   id: number;
-  duration: string;
-  /** Spanish, as spoken and answered. */
+  /** Null for a typed question. */
+  duration: string | null;
   question: string;
   answer: string | null;
   chips: TalkChip[];
@@ -86,11 +87,16 @@ export interface TalkView {
   waitingCount: number;
 }
 
-export interface VoiceControl {
-  status: VoiceStatus;
+export interface TalkControl {
+  status: TalkStatus;
   /** What went wrong with the last question, in the farmer's words. */
   failure: string | null;
-  toggle: () => void;
+  /** The typed question on its way, shown before its answer arrives. */
+  pendingQuestion: string | null;
+  draft: string;
+  setDraft: (text: string) => void;
+  sendDraft: () => void;
+  toggleMic: () => void;
   cancel: () => void;
 }
 
@@ -228,7 +234,7 @@ export interface StopView {
 /** Everything the screens need, read fresh from the backend. */
 export interface Farm {
   today: TodayView;
-  talk: TalkView;
+  chat: TalkView;
   updates: UpdatesView;
   field: FieldView | null;
   plan: PlanView;
@@ -244,7 +250,7 @@ export interface Farm {
   setStopped: (stopped: boolean) => Promise<boolean>;
   busy: boolean;
   actionFailed: boolean;
-  voice: VoiceControl;
+  talk: TalkControl;
 }
 
 export type FarmState =

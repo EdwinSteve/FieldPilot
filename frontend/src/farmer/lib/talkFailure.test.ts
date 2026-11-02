@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../../api/client";
-import { micFailure, sendFailure } from "./voiceFailure";
+import { micFailure, sendFailure } from "./talkFailure";
 
 describe("micFailure", () => {
   it("tells a refused permission from a missing mic", () => {

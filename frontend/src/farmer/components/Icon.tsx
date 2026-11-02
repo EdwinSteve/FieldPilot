@@ -64,6 +64,7 @@ const PATHS = {
       <path d="M3 5l6 4M21 5l-6 4M3 19l6-4M21 19l-6-4" />
     </>
   ),
+  send: <path d="M12 19V5M6 11l6-6 6 6" />,
   sensor: (
     <>
       <path d="M12 3v12M8 7h8" />
@@ -76,6 +77,7 @@ const PATHS = {
       <path d="M8.5 12l2.5 2.5 4.5-5" />
     </>
   ),
+  stopSquare: <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none" />,
   undo: (
     <>
       <path d="M9 14L4 9l5-5" />
