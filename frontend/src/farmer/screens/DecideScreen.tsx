@@ -13,6 +13,7 @@ import type { DecisionView } from "../view-models/types";
 type Step =
   | { name: "ask" }
   | { name: "reason" }
+  | { name: "other" }
   | { name: "done"; answer: "yes" | "no"; withReason: boolean };
 
 function FactRow({
@@ -96,7 +97,19 @@ function Ask({
   );
 }
 
-function Reason({ onPick }: { onPick: (reason?: string) => void }) {
+const REASON_BUTTON =
+  "flex min-h-17 items-center gap-3.5 rounded-control border-2 border-border bg-surface px-4.5 text-left text-row font-bold text-ink";
+const REASON_NUMBER =
+  "flex size-10 shrink-0 items-center justify-center rounded-full bg-ground text-lead font-extrabold text-primary";
+const MAX_REASON_CHARS = 500;
+
+function Reason({
+  onPick,
+  onOther,
+}: {
+  onPick: (reason?: string) => void;
+  onOther: () => void;
+}) {
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-4.5 overflow-y-auto px-4.5 pt-2 pb-5">
       <h1 className="mx-0.5 text-title-md font-extrabold tracking-title">{en.decide.whyNot}</h1>
@@ -107,14 +120,16 @@ function Reason({ onPick }: { onPick: (reason?: string) => void }) {
             key={reason}
             type="button"
             onClick={() => onPick(reason)}
-            className="flex min-h-17 items-center gap-3.5 rounded-control border-2 border-border bg-surface px-4.5 text-left text-row font-bold text-ink"
+            className={REASON_BUTTON}
           >
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-ground text-lead font-extrabold text-primary">
-              {index + 1}
-            </span>
+            <span className={REASON_NUMBER}>{index + 1}</span>
             {reason}
           </button>
         ))}
+        <button type="button" onClick={onOther} className={REASON_BUTTON}>
+          <span className={REASON_NUMBER}>{en.decide.reasons.length + 1}</span>
+          {en.decide.anotherReason}
+        </button>
       </div>
       <button
         type="button"
@@ -123,6 +138,49 @@ function Reason({ onPick }: { onPick: (reason?: string) => void }) {
       >
         {en.decide.skip}
       </button>
+    </main>
+  );
+}
+
+function OtherReason({
+  onSave,
+  onBack,
+}: {
+  onSave: (reason: string) => void;
+  onBack: () => void;
+}) {
+  const [text, setText] = useState("");
+  const reason = text.trim();
+  return (
+    <main className="flex min-h-0 flex-1 flex-col gap-4.5 overflow-y-auto px-4.5 pt-2 pb-5">
+      <h1 className="mx-0.5 text-title-md font-extrabold tracking-title">{en.decide.whyNot}</h1>
+      <label className="flex flex-col gap-2 px-0.5 text-body font-bold text-ink-2">
+        {en.decide.yourReason}
+        <textarea
+          rows={4}
+          value={text}
+          maxLength={MAX_REASON_CHARS}
+          onChange={(event) => setText(event.target.value)}
+          className="resize-none rounded-control border-2 border-border bg-surface p-4 text-body font-normal text-ink"
+        />
+      </label>
+      <div className="mt-auto flex flex-col gap-2">
+        <BigButton
+          variant="primary"
+          size="large"
+          disabled={reason === ""}
+          onClick={() => onSave(reason)}
+        >
+          {en.decide.saveReason}
+        </BigButton>
+        <button
+          type="button"
+          onClick={onBack}
+          className="min-h-15 border-0 bg-transparent text-lead font-bold text-ink-2 underline"
+        >
+          {en.decide.backToReasons}
+        </button>
+      </div>
     </main>
   );
 }
@@ -192,7 +250,12 @@ export function DecideScreen({ view, onApprove, onReject }: DecideScreenProps) {
         <Ask view={view} onYes={approve} onNo={() => setStep({ name: "reason" })} />
       ) : null}
       {step.name === "ask" && !view.open ? <Closed /> : null}
-      {step.name === "reason" ? <Reason onPick={reject} /> : null}
+      {step.name === "reason" ? (
+        <Reason onPick={reject} onOther={() => setStep({ name: "other" })} />
+      ) : null}
+      {step.name === "other" ? (
+        <OtherReason onSave={reject} onBack={() => setStep({ name: "reason" })} />
+      ) : null}
       {step.name === "done" ? <Done step={step} view={view} /> : null}
     </>
   );
