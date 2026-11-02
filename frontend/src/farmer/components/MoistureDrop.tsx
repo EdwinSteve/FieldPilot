@@ -20,14 +20,16 @@ export function MoistureDrop({ value, fieldCapacity, size, strokeWidth = 1.6 }: 
           <path d={DROP_PATH} />
         </clipPath>
       </defs>
-      <rect
-        x="0"
-        y={y}
-        width="24"
-        height={24 - y}
-        fill="var(--color-soil)"
-        clipPath={`url(#${clipId})`}
-      />
+      <g clipPath={`url(#${clipId})`}>
+        {/* Moved, not resized, so a new reading can ease to its level. */}
+        <rect
+          width="24"
+          height="24"
+          fill="var(--color-soil)"
+          className="transition-transform duration-400 ease-calm"
+          style={{ transform: `translateY(${y}px)` }}
+        />
+      </g>
       <path d={DROP_PATH} fill="none" stroke="var(--color-needs-icon)" strokeWidth={strokeWidth} />
     </svg>
   );

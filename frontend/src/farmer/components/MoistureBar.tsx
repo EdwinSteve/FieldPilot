@@ -8,7 +8,7 @@ export function MoistureBar({ value, fieldCapacity }: SoilReading) {
     <div aria-hidden="true" className="flex flex-col gap-3.5">
       <div className="relative h-5.5 rounded-full bg-divider">
         <div
-          className="absolute inset-y-0 left-0 rounded-full bg-needs"
+          className="absolute inset-y-0 left-0 rounded-full bg-needs transition-[width] duration-400 ease-calm"
           style={{ width: `${valuePct}%` }}
         />
         <div

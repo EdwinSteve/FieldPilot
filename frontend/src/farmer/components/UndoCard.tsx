@@ -25,7 +25,7 @@ export function UndoCard({ item, onUndo }: UndoCardProps) {
         <Icon name="hourglass" size={28} strokeWidth={2} className="text-undo-icon" />
         <div className="h-3.5 flex-1 overflow-hidden rounded-full bg-undo-tint">
           <div
-            className="h-full rounded-full bg-undo"
+            className="h-full rounded-full bg-undo transition-[width] duration-400 ease-calm"
             style={{ width: `${item.remaining * 100}%` }}
           />
         </div>
