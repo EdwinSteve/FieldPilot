@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+@theme {
+  --color-*: initial;
+  --text-*: initial;
+
+  --color-ground: #f3f5f0;
+  --color-ground-welcome: #f8f6ef;
+  --color-surface: #ffffff;
+  --color-border: #dce2da;
+  --color-divider: #e6ebe4;
+  --color-ink: #152728;
+  --color-ink-2: #33403a;
+  --color-ink-3: #55625a;
+  --color-primary: #3c5c29;
+  --color-primary-hover: #2c4520;
+  --color-field: #5e8530;
+  --color-leaf: #8cb052;
+  --color-tint: #eaf0df;
+  --color-leaf-dry: #c9b26a;
+  --color-earth: #a97a3b;
+  --color-ring: #f2b25c;
+  --color-needs: #a8661a;
+  --color-needs-icon: #8a5212;
+  --color-needs-text: #6b4210;
+  --color-needs-tint: #f6e7cc;
+  --color-soil: #c98a3a;
+  --color-undo: #2f79b0;
+  --color-undo-icon: #24618f;
+  --color-undo-text: #1e4e73;
+  --color-undo-tint: #e1eef7;
+  --color-stop: #b42318;
+  --color-stop-tint: #fde7e4;
+  --color-overlay: rgb(21 39 40 / 0.45);
+  --color-photo-label: rgb(21 39 40 / 0.72);
+
+  --text-caption: 15px;
+  --text-small: 16px;
+  --text-body: 17px;
+  --text-lead: 18px;
+  --text-row: 19px;
+  --text-key: 20px;
+  --text-key-lg: 22px;
+  --text-head: 24px;
+  --text-title-sm: 26px;
+  --text-title-md: 28px;
+  --text-title: 30px;
+  --text-hero: 40px;
+
+  --radius-chip: 14px;
+  --radius-tile: 16px;
+  --radius-control: 18px;
+  --radius-button: 20px;
+  --radius-start: 22px;
+  --radius-card: 24px;
+  --radius-card-lg: 26px;
+  --radius-sheet: 28px;
+  --radius-pill: 999px;
+
+  --shadow-needs: 0 4px 14px rgb(168 102 26 / 0.18);
+  --shadow-bubble: 0 2px 6px rgb(21 39 40 / 0.18);
+  --shadow-bubble-soft: 0 2px 6px rgb(21 39 40 / 0.08);
+  --shadow-avatar: 0 1px 4px rgb(21 39 40 / 0.2);
+
+  --tracking-title: -0.02em;
+  --tracking-key: -0.01em;
+
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+}
+
+@layer base {
+  html,
+  body,
+  #farmer-root {
+    height: 100%;
+  }
+
+  body {
+    background: var(--color-ground);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
+  }
+
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-undo);
+    outline-offset: 2px;
+  }
+}
