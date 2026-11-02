@@ -14,7 +14,6 @@ interface UpdatesScreenProps {
 }
 
 export function UpdatesScreen({ view, onUndo, onMarkAllRead }: UpdatesScreenProps) {
-  const anyUnread = view.items.some((item) => item.unread);
   return (
     <ScreenBody>
       <div className="flex items-end justify-between gap-2.5 px-0.5">
@@ -22,7 +21,7 @@ export function UpdatesScreen({ view, onUndo, onMarkAllRead }: UpdatesScreenProp
           <span className="text-small text-ink-3">{view.dateLine}</span>
           <h1 className="text-title font-extrabold tracking-title">{en.updates.title}</h1>
         </div>
-        {anyUnread ? (
+        {view.unreadCount > 0 ? (
           <button
             type="button"
             onClick={onMarkAllRead}

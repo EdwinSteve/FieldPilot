@@ -19,17 +19,21 @@ export interface WeekDay {
   rain: boolean;
 }
 
+export type SoilTone = "needs" | "good";
+
 export interface TodayView {
   dateLine: string;
   greeting: string;
   farmLine: string;
   decision: DecisionLink | null;
-  stopped: boolean;
+  /** Null unless the emergency stop is on. */
+  stoppedBanner: string | null;
   zoneId: number;
   statusTitle: string;
   statusDetail: string;
-  soil: SoilReading & { label: string };
-  rain: { mm: number; label: string };
+  soil: SoilReading & { display: string; label: string; tone: SoilTone };
+  /** `known` is false before the day's check: no figure is not the same as no rain. */
+  rain: { mm: number; known: boolean; display: string; label: string };
   plants: { value: string; label: string };
   week: WeekDay[];
 }
@@ -41,24 +45,16 @@ export interface DecisionView {
   why: string;
   soil: SoilReading;
   rainMm: number;
-  waterMm: number;
-}
-
-export interface TalkChip {
-  kind: "soil" | "rain";
-  text: string;
-}
-
-export interface TalkExchange {
-  duration: string;
-  question: string;
-  answer: string;
-  detail: string;
-  chips: TalkChip[];
+  waterMm: number | null;
+  /** False once answered, here or on the dashboard. */
+  open: boolean;
+  /** True while the emergency stop forbids a yes (D004). */
+  stopped: boolean;
 }
 
 export interface TalkView {
-  exchange: TalkExchange | null;
+  /** Why the mic is off, until voice questions are wired. */
+  micNote: string;
   decision: DecisionLink | null;
   waitingCount: number;
 }
@@ -94,14 +90,15 @@ export interface UpdatesView {
   undone: boolean;
   rare: RareCase[];
   items: UpdateItem[];
+  unreadCount: number;
 }
 
 export interface FieldView {
   caption: string;
   headline: string;
   detail: string;
-  barePct: string;
-  detailEnd: string;
+  /** Null when the bare share is unknown (D059). */
+  barePct: string | null;
   imageUrl: string;
   imageAlt: string;
   zoneLabel: string;
@@ -113,7 +110,9 @@ export interface ZoneView {
   name: string;
   caption: string;
   status: string;
+  tone: SoilTone;
   soil: SoilReading;
+  display: string;
   needsMore: string;
   history: number[];
   historyStart: string;
@@ -139,7 +138,15 @@ export interface ReportView {
   other: { label: string; href: string } | null;
 }
 
-export type TaskState = "done" | "automatic" | "can_undo" | "said_no";
+export type TaskState =
+  | "done"
+  | "automatic"
+  | "can_undo"
+  | "said_no"
+  | "needs_you"
+  | "planned"
+  | "cancelled"
+  | "failed";
 export type PlanTaskKind = "water" | "report";
 
 export interface PlanTask {
@@ -152,6 +159,7 @@ export interface PlanTask {
   source: string;
   why: string;
   undoTaskId: number | null;
+  decideHref: string | null;
 }
 
 export interface PlanDay {
@@ -182,20 +190,29 @@ export interface StopView {
   runningUntil: string | null;
 }
 
-/** Everything the screens need. Mock data today, the real API later. */
+/** Everything the screens need, read fresh from the backend. */
 export interface Farm {
   today: TodayView;
   talk: TalkView;
   updates: UpdatesView;
-  field: FieldView;
+  field: FieldView | null;
   plan: PlanView;
   stop: StopView;
   decision: (taskId: number) => DecisionView | null;
   zone: (zoneId: number) => ZoneView | null;
   report: (reportId: number) => ReportView | null;
-  approve: (taskId: number) => Promise<void>;
-  reject: (taskId: number, reason?: string) => Promise<void>;
-  undo: (taskId: number) => Promise<void>;
-  markAllRead: () => Promise<void>;
-  setStopped: (stopped: boolean) => Promise<void>;
+  /** Each action resolves true when the backend took it. */
+  approve: (taskId: number) => Promise<boolean>;
+  reject: (taskId: number, reason?: string) => Promise<boolean>;
+  undo: (taskId: number) => Promise<boolean>;
+  markAllRead: () => Promise<boolean>;
+  setStopped: (stopped: boolean) => Promise<boolean>;
+  busy: boolean;
+  actionFailed: boolean;
 }
+
+export type FarmState =
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "empty" }
+  | { status: "ready"; farm: Farm; stale: boolean };

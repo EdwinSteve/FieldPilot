@@ -27,7 +27,7 @@ function Header({ view }: { view: TodayView }) {
   );
 }
 
-function StoppedBanner() {
+function StoppedBanner({ text }: { text: string }) {
   return (
     <a
       href={hrefOf({ screen: "stop" })}
@@ -35,7 +35,7 @@ function StoppedBanner() {
     >
       <StopSign size={36} inverted />
       <span className="flex flex-col gap-0.5">
-        <span className="text-key font-extrabold">{en.today.stoppedBanner}</span>
+        <span className="text-key font-extrabold">{text}</span>
         <span className="text-small">{en.today.stoppedDetail}</span>
       </span>
     </a>
@@ -59,16 +59,22 @@ function StatusCard({ view }: { view: TodayView }) {
       <div className="grid grid-cols-3 gap-2">
         <StatusTile
           href={zoneHref}
-          tone="needs"
+          tone={view.soil.tone}
           visual={<MoistureDrop {...view.soil} size={40} />}
-          value={`${view.soil.value}%`}
+          value={view.soil.display}
           label={view.soil.label}
         />
         <StatusTile
           href={zoneHref}
           tone="rain"
-          visual={<RainLevelIcon mm={view.rain.mm} size={40} />}
-          value={`${view.rain.mm} mm`}
+          visual={
+            view.rain.known ? (
+              <RainLevelIcon mm={view.rain.mm} size={40} />
+            ) : (
+              <Icon name="cloud" size={40} strokeWidth={1.8} className="text-undo-icon" />
+            )
+          }
+          value={view.rain.display}
           label={view.rain.label}
         />
         <StatusTile
@@ -87,7 +93,7 @@ export function TodayScreen({ view }: { view: TodayView }) {
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-4.5 pt-6 pb-4.5">
       <Header view={view} />
-      {view.stopped ? <StoppedBanner /> : null}
+      {view.stoppedBanner === null ? null : <StoppedBanner text={view.stoppedBanner} />}
       {view.decision ? <NeedsYouCard decision={view.decision} /> : null}
       <StatusCard view={view} />
       <WeekStrip week={view.week} />

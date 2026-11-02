@@ -4,6 +4,7 @@ import type { WeekDay } from "../view-models/types";
 import { Icon } from "./Icon";
 
 function DayCell({ day }: { day: WeekDay }) {
+  const iconSize = day.water && day.rain ? 14 : 18;
   const box = day.today ? "bg-primary text-surface" : "bg-surface text-ink";
   const dot = day.today ? "bg-surface" : "bg-ground";
   return (
@@ -12,13 +13,13 @@ function DayCell({ day }: { day: WeekDay }) {
       <span className={`flex size-7.5 items-center justify-center rounded-full ${dot}`}>
         {day.water ? (
           <>
-            <Icon name="drop" size={18} strokeWidth={2.4} className="text-needs" />
+            <Icon name="drop" size={iconSize} strokeWidth={2.4} className="text-needs" />
             <span className="sr-only">{en.today.weekDayWater}</span>
           </>
         ) : null}
         {day.rain ? (
           <>
-            <Icon name="cloudRain" size={18} strokeWidth={2.4} className="text-undo-icon" />
+            <Icon name="cloudRain" size={iconSize} strokeWidth={2.4} className="text-undo-icon" />
             <span className="sr-only">{en.today.weekDayRain}</span>
           </>
         ) : null}

@@ -72,15 +72,22 @@ function Ask({
         <FactRow
           icon={<Icon name="waterAdd" size={28} strokeWidth={2} className="text-ink-2" />}
           label={en.decide.waterToAdd}
-          value={<span className="text-row font-extrabold">{view.waterMm} mm</span>}
+          value={
+            <span className="text-row font-extrabold">
+              {view.waterMm === null ? "" : en.rain.amount(view.waterMm)}
+            </span>
+          }
         />
       </div>
-      <div className="mt-auto grid grid-cols-2 gap-3">
+      {view.stopped ? (
+        <p className="mt-auto text-center text-body font-bold text-stop">{en.decide.stoppedNote}</p>
+      ) : null}
+      <div className={`grid grid-cols-2 gap-3 ${view.stopped ? "" : "mt-auto"}`}>
         <BigButton variant="outline" size="large" onClick={onNo}>
           <Icon name="close" strokeWidth={2.8} />
           {en.decide.no}
         </BigButton>
-        <BigButton variant="primary" size="large" onClick={onYes}>
+        <BigButton variant="primary" size="large" disabled={view.stopped} onClick={onYes}>
           <Icon name="check" strokeWidth={2.8} />
           {en.decide.yes}
         </BigButton>
@@ -120,6 +127,18 @@ function Reason({ onPick }: { onPick: (reason?: string) => void }) {
   );
 }
 
+function Closed() {
+  return (
+    <main className="flex flex-1 flex-col items-center justify-center gap-4.5 px-4.5 pt-3 pb-5 text-center">
+      <IconCircle tone="neutral" size="hero">
+        <Icon name="check" size={66} strokeWidth={2.4} />
+      </IconCircle>
+      <h1 className="text-title font-extrabold">{en.decide.closedTitle}</h1>
+      <span className="text-lead leading-normal text-ink-2">{en.decide.closedDetail}</span>
+    </main>
+  );
+}
+
 function Done({ step, view }: { step: Extract<Step, { name: "done" }>; view: DecisionView }) {
   const yes = step.answer === "yes";
   const noDetail = step.withReason ? en.decide.noWaterSaved : en.decide.noWaterSkipped;
@@ -143,19 +162,23 @@ function Done({ step, view }: { step: Extract<Step, { name: "done" }>; view: Dec
 
 interface DecideScreenProps {
   view: DecisionView;
-  onApprove: (taskId: number) => Promise<void>;
-  onReject: (taskId: number, reason?: string) => Promise<void>;
+  onApprove: (taskId: number) => Promise<boolean>;
+  onReject: (taskId: number, reason?: string) => Promise<boolean>;
 }
 
 export function DecideScreen({ view, onApprove, onReject }: DecideScreenProps) {
   const [step, setStep] = useState<Step>({ name: "ask" });
 
-  const approve = () =>
-    onApprove(view.taskId).then(() => setStep({ name: "done", answer: "yes", withReason: false }));
-  const reject = (reason?: string) =>
-    onReject(view.taskId, reason).then(() =>
-      setStep({ name: "done", answer: "no", withReason: reason !== undefined }),
-    );
+  const approve = () => {
+    void onApprove(view.taskId).then((done) => {
+      if (done) setStep({ name: "done", answer: "yes", withReason: false });
+    });
+  };
+  const reject = (reason?: string) => {
+    void onReject(view.taskId, reason).then((done) => {
+      if (done) setStep({ name: "done", answer: "no", withReason: reason !== undefined });
+    });
+  };
 
   return (
     <>
@@ -165,9 +188,10 @@ export function DecideScreen({ view, onApprove, onReject }: DecideScreenProps) {
           <span className="text-small">{en.autonomy.needsYou}</span>
         </Chip>
       </header>
-      {step.name === "ask" ? (
+      {step.name === "ask" && view.open ? (
         <Ask view={view} onYes={approve} onNo={() => setStep({ name: "reason" })} />
       ) : null}
+      {step.name === "ask" && !view.open ? <Closed /> : null}
       {step.name === "reason" ? <Reason onPick={reject} /> : null}
       {step.name === "done" ? <Done step={step} view={view} /> : null}
     </>

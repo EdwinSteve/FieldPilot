@@ -1,7 +1,7 @@
 import avatar from "../assets/avatar.png";
 import { en } from "../i18n/en";
 import type { PlanTask } from "../view-models/types";
-import { BigButton } from "./BigButton";
+import { BigButton, BigLink } from "./BigButton";
 
 interface TaskSheetProps {
   task: PlanTask;
@@ -38,6 +38,11 @@ export function TaskSheet({ task, onClose, onUndo }: TaskSheetProps) {
           </div>
           <span className="text-body leading-relaxed">{task.why}</span>
         </div>
+        {task.decideHref === null ? null : (
+          <BigLink variant="needs" href={task.decideHref}>
+            {en.plan.answer}
+          </BigLink>
+        )}
         {undoTaskId === null ? (
           <BigButton variant="outline" onClick={onClose}>
             {en.plan.close}

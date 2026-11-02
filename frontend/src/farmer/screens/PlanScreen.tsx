@@ -71,13 +71,15 @@ function DaySection({ day, onOpen }: { day: PlanDay; onOpen: (task: PlanTask) =>
 
 interface PlanScreenProps {
   view: PlanView;
-  onUndo: (taskId: number) => Promise<void>;
+  onUndo: (taskId: number) => Promise<boolean>;
 }
 
 export function PlanScreen({ view, onUndo }: PlanScreenProps) {
   const [selected, setSelected] = useState<PlanTask | null>(null);
   const undo = (taskId: number) => {
-    void onUndo(taskId).then(() => setSelected(null));
+    void onUndo(taskId).then((done) => {
+      if (done) setSelected(null);
+    });
   };
   return (
     <>

@@ -8,11 +8,15 @@ const STATE_CHIPS: Record<TaskState, ChipTone> = {
   automatic: "good",
   can_undo: "undo",
   said_no: "neutral",
+  needs_you: "needs",
+  planned: "undo",
+  cancelled: "neutral",
+  failed: "needs",
 };
 
 function circleTone(task: PlanTask): CircleTone {
   if (task.kind === "report") return "good";
-  return task.state === "said_no" ? "neutral" : "undo";
+  return task.state === "said_no" || task.state === "cancelled" ? "neutral" : "undo";
 }
 
 interface TaskRowProps {
@@ -21,7 +25,7 @@ interface TaskRowProps {
 }
 
 export function TaskRow({ task, onOpen }: TaskRowProps) {
-  const crossedOut = task.state === "said_no";
+  const crossedOut = task.state === "said_no" || task.state === "cancelled";
   return (
     <button
       type="button"

@@ -4,11 +4,15 @@ import { FieldPhoto } from "../components/FieldPhoto";
 import { Icon, PlantIcon } from "../components/Icon";
 import { IconCircle } from "../components/IconCircle";
 import { ScreenBody } from "../components/ScreenBody";
+import { StateView } from "../components/StateView";
 import { en } from "../i18n/en";
 import { hrefOf } from "../lib/route";
 import type { FieldView } from "../view-models/types";
 
-export function FieldScreen({ view }: { view: FieldView }) {
+export function FieldScreen({ view }: { view: FieldView | null }) {
+  if (view === null) {
+    return <StateView icon="satellite" title={en.field.emptyTitle} detail={en.field.emptyDetail} />;
+  }
   return (
     <>
       <BackHeader href={hrefOf({ screen: "today" })} label={en.back.today}>
@@ -26,8 +30,13 @@ export function FieldScreen({ view }: { view: FieldView }) {
             <span className="text-key-lg font-extrabold tracking-key">{view.headline}</span>
             <span className="text-body leading-snug text-ink-2">
               {view.detail}
-              <strong className="text-needs-text">{view.barePct}</strong>
-              {view.detailEnd}
+              {view.barePct === null ? null : (
+                <>
+                  {en.field.bareBefore}
+                  <strong className="text-needs-text">{view.barePct}</strong>
+                  {en.field.bareAfter}
+                </>
+              )}
             </span>
           </span>
         </section>

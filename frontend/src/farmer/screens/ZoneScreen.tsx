@@ -19,17 +19,17 @@ export function ZoneScreen({ view }: { view: ZoneView }) {
           <h1 className="text-title-sm font-extrabold tracking-title">{view.name}</h1>
           <span className="text-caption text-ink-3">{view.caption}</span>
         </div>
-        <Chip tone="needs">{view.status}</Chip>
+        <Chip tone={view.tone}>{view.status}</Chip>
       </BackHeader>
       <ScreenBody underHeader>
         <section className="flex flex-col gap-3.5 rounded-card bg-surface p-5">
           <div className="flex items-center gap-3.5">
-            <IconCircle tone="needs" size="tall">
+            <IconCircle tone={view.tone} size="tall">
               <MoistureDrop {...view.soil} size={50} strokeWidth={1.4} />
             </IconCircle>
             <div className="flex flex-col">
               <span className="text-caption font-semibold text-ink-3">{en.zone.waterInSoil}</span>
-              <span className="text-hero leading-tight font-extrabold">{view.soil.value}%</span>
+              <span className="text-hero leading-tight font-extrabold">{view.display}</span>
             </div>
           </div>
           <MoistureBar {...view.soil} />
