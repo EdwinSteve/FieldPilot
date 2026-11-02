@@ -51,7 +51,8 @@ def read_tools(ctx: ReadContext) -> list[Tool[Any]]:
         ),
         Tool(
             "read_crop_stage",
-            "Current crop stage, accumulated growing degree-days and crop coefficient (Kc).",
+            "The crop of this plot (name and root depth), its current stage, accumulated "
+            "growing degree-days and crop coefficient (Kc). Call it before assuming a crop.",
             NoArgs,
             _read_crop_stage(ctx),
         ),
@@ -174,14 +175,25 @@ def _read_crop_stage(ctx: ReadContext) -> Callable[[NoArgs], JsonObject]:
         stage = ctx.reader.crop_stage(ctx.plot_id)
         cycle = stage.cycle_id
         facts = [
+            Observation(f"crop-cycle-{cycle}", ObservationKind.CROP, None, stage.crop, "", None),
+            Observation(
+                f"root-depth-cycle-{cycle}",
+                ObservationKind.ROOT_DEPTH,
+                None,
+                stage.root_depth_mm,
+                "mm",
+                None,
+            ),
             Observation(f"stage-cycle-{cycle}", ObservationKind.STAGE, None, stage.stage, "", None),
             Observation(
                 f"gdd-cycle-{cycle}", ObservationKind.GDD, None, stage.accumulated_gdd, "GDD", None
             ),
             Observation(f"kc-cycle-{cycle}", ObservationKind.KC, None, stage.kc, "", None),
         ]
-        stage_obs, gdd, kc = (ctx.ledger.add(fact) for fact in facts)
+        crop, root_depth, stage_obs, gdd, kc = (ctx.ledger.add(fact) for fact in facts)
         return {
+            "crop": {**cite(crop), "display_es": stage.crop_display_es},
+            "root_depth": cite(root_depth),
             "stage": {**cite(stage_obs), "display_es": stage.stage_display_es},
             "accumulated_gdd": cite(gdd),
             "kc": cite(kc),

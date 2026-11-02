@@ -39,6 +39,9 @@ class ZoneView:
 @dataclass(frozen=True)
 class StageView:
     cycle_id: int
+    crop: str  # the catalogue key, e.g. "maize" (D077)
+    crop_display_es: str
+    root_depth_mm: float  # to size irrigation (D077)
     stage: str
     stage_display_es: str
     accumulated_gdd: float

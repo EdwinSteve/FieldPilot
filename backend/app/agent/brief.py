@@ -17,6 +17,8 @@ class ObservationKind(StrEnum):
     RAIN_FORECAST = "rain_forecast"
     GDD = "gdd"
     KC = "kc"
+    CROP = "crop"
+    ROOT_DEPTH = "root_depth"
     STAGE = "stage"
     IRRIGATION = "irrigation"
     NDVI = "ndvi"

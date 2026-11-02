@@ -128,3 +128,20 @@ def test_extra_arguments_are_refused(ledger: ObservationLedger) -> None:
     outcome = _tools(ledger).call("read_forecast", '{"days": 3}')
 
     assert outcome.error is not None and outcome.error.startswith("Invalid arguments: days")
+
+
+def test_read_crop_stage_names_the_crop_and_its_root_depth(ledger: ObservationLedger) -> None:
+    """D077: the agent learns the crop from the tool, never from its prompt."""
+    result = _call(_tools(ledger), "read_crop_stage")
+
+    assert result["crop"] == {
+        "observation_id": "crop-cycle-4",
+        "value": "maize",
+        "unit": "",
+        "at": None,
+        "display_es": "Maíz",
+    }
+    root = result["root_depth"]
+    assert isinstance(root, dict) and (root["value"], root["unit"]) == (300.0, "mm")
+    depth = ledger.get("root-depth-cycle-4")
+    assert depth is not None and depth.kind is ObservationKind.ROOT_DEPTH

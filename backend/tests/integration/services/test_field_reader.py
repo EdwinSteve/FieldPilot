@@ -132,6 +132,7 @@ def test_crop_stage_comes_from_the_accumulated_gdd(
     assert stage.cycle_id == field.cycle_id
     assert stage.accumulated_gdd == 600.0
     assert stage.stage == "vegetative"
+    assert (stage.crop, stage.crop_display_es, stage.root_depth_mm) == ("maize", "Maíz", 300.0)
     assert stage.stage_display_es
     assert 0 < stage.kc < 2
 

@@ -47,7 +47,7 @@ class FakeReader:
         return self.rain
 
     def crop_stage(self, plot_id: int) -> StageView:
-        return StageView(4, "v6", "V6 (seis hojas)", 412.5, 0.71)
+        return StageView(4, "maize", "Maíz", 300.0, "v6", "V6 (seis hojas)", 412.5, 0.71)
 
     def task_status(self, plot_id: int, task_id: int) -> str | None:
         return {7: "executed", 9: "scheduled", 21: "executed"}.get(task_id)
