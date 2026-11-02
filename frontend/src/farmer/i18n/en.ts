@@ -117,7 +117,11 @@ export const en = {
     yes: "Yes",
     whyNot: "Why not?",
     pickOne: "Pick one. It stays in your record.",
-    reasons: ["Wait for the rain", "Water costs too much now", "Another reason"],
+    reasons: ["Wait for the rain", "Water costs too much now"],
+    anotherReason: "Another reason",
+    yourReason: "Your reason",
+    saveReason: "Save",
+    backToReasons: "Back to the list",
     skip: "Skip",
     wateringNow: "Watering now",
     wateringDetail: (zone: string, mm: number | null) =>
@@ -197,6 +201,11 @@ export const en = {
       mm === null ? `${day} ${time} · ${zone}` : `${day} ${time} · ${zone} · ${mm} mm`,
     cancelledRow: (zone: string, mm: number | null) =>
       mm === null ? `You cancelled water for ${zone}` : `You cancelled water · ${zone} · ${mm} mm`,
+    didntRun: (zone: string, mm: number | null) =>
+      mm === null ? `Watering didn’t run · ${zone}` : `Watering didn’t run · ${zone} · ${mm} mm`,
+    actionDidntRun: "An action didn’t run",
+    planned: (zone: string, mm: number | null) =>
+      mm === null ? `Watering planned · ${zone}` : `Watering planned · ${zone} · ${mm} mm`,
     plantsWeak: (zone: string) => `Plants weak in ${zone}`,
     satelliteTime: (day: string, time: string) => `${day} ${time} · satellite check`,
     reportTitle: (daysAgo: number, date: string) => {

@@ -8,20 +8,23 @@ const LOOK: Record<UpdateKind, { icon: IconName; tone: CircleTone }> = {
   satellite: { icon: "satellite", tone: "good" },
   report: { icon: "document", tone: "undo" },
   said_no: { icon: "close", tone: "neutral" },
+  problem: { icon: "warning", tone: "needs" },
+  alert: { icon: "warning", tone: "needs" },
 };
+
+const ROW = "flex min-h-14 items-center gap-3.5 border-b border-divider py-3.5 no-underline last:border-b-0";
 
 export function UpdateRow({ item }: { item: UpdateItem }) {
   const { icon, tone } = LOOK[item.kind];
-  return (
-    <a
-      href={item.href}
-      className="flex min-h-14 items-center gap-3.5 border-b border-divider py-3.5 no-underline last:border-b-0"
-    >
+  const content = (
+    <>
       <IconCircle tone={tone} size="medium">
         <Icon name={icon} strokeWidth={2} />
       </IconCircle>
       <span className="flex flex-1 flex-col gap-0.5">
-        <span className="text-body font-bold text-ink">{item.title}</span>
+        <span lang={item.lang} className="text-body font-bold text-ink">
+          {item.title}
+        </span>
         <span className="text-caption text-ink-3">{item.time}</span>
       </span>
       {item.unread ? (
@@ -29,6 +32,12 @@ export function UpdateRow({ item }: { item: UpdateItem }) {
           <span className="sr-only">{en.updates.unread}</span>
         </span>
       ) : null}
+    </>
+  );
+  if (item.href === null) return <div className={ROW}>{content}</div>;
+  return (
+    <a href={item.href} className={ROW}>
+      {content}
     </a>
   );
 }

@@ -100,14 +100,17 @@ export interface TalkControl {
   cancel: () => void;
 }
 
-export type UpdateKind = "water" | "satellite" | "report" | "said_no";
+export type UpdateKind = "water" | "satellite" | "report" | "said_no" | "problem" | "alert";
 
 export interface UpdateItem {
   id: string;
   kind: UpdateKind;
   title: string;
+  /** Set when the words are the backend's own, not this app's. */
+  lang?: "es";
   time: string;
-  href: string;
+  /** Null when there is nothing more to open. */
+  href: string | null;
   unread: boolean;
 }
 

@@ -156,6 +156,65 @@ describe("updatesView", () => {
     expect(titles).toContain("Report · Monday, 2 Nov");
   });
 
+  describe("alerts the farmer must not miss", () => {
+    const failedExtra = demo.day2Cycle.tasks.map((task) =>
+      task.id === EXTRA_TASK ? { ...task, status: "failed" as const, revert_open: false } : task,
+    );
+
+    it("lists a watering that failed", () => {
+      const view = updatesView({ ...demo.day2Cycle, tasks: failedExtra });
+      const row = view.items.find((item) => item.id === `failed-${EXTRA_TASK}`);
+      expect(row?.title).toBe("Watering didn’t run · Zone 2 · 20 mm");
+      expect(row?.kind).toBe("problem");
+      expect(row?.unread).toBe(true);
+    });
+
+    it("leaves a re-check failure to its card", () => {
+      const failure = { ...demo.day2Cycle.verdicts[0]!, task_id: EXTRA_TASK, inputs: { recheck_verdict: {} } };
+      const view = updatesView({ ...demo.day2Cycle, tasks: failedExtra, failures: [failure] });
+      expect(view.items.some((item) => item.id === `failed-${EXTRA_TASK}`)).toBe(false);
+      expect(view.rare.map((item) => item.kind)).toEqual(["recheck"]);
+    });
+
+    it("lists an alert with no task, in the backend's words", () => {
+      const notice = {
+        id: 9,
+        message: "El ciclo diario se detuvo sin terminar",
+        created_at: "2026-11-03T11:00:00Z",
+        task_id: null,
+        read_at: null,
+        revert_deadline: null,
+      };
+      const view = updatesView({ ...demo.day2Cycle, notifications: [notice] });
+      expect(view.items.find((item) => item.id === "alert-9")).toEqual({
+        id: "alert-9",
+        kind: "alert",
+        title: notice.message,
+        lang: "es",
+        time: "Today 6:00 am",
+        href: null,
+        unread: true,
+      });
+      expect(view.unreadCount).toBe(1);
+    });
+
+    it("keeps a planned watering in view once its undo window closes", () => {
+      const tasks = demo.day2Cycle.tasks.map((task) =>
+        task.id === EXTRA_TASK ? { ...task, revert_open: false } : task,
+      );
+      const row = updatesView({ ...demo.day2Cycle, tasks }).items.find(
+        (item) => item.id === `planned-${EXTRA_TASK}`,
+      );
+      expect(row?.title).toBe("Watering planned · Zone 2 · 20 mm");
+      expect(row?.time).toBe("Tomorrow 6:00 am");
+    });
+
+    it("adds no such row while the undo card is showing", () => {
+      const ids = updatesView(demo.day2Cycle).items.map((item) => item.id);
+      expect(ids).not.toContain(`planned-${EXTRA_TASK}`);
+    });
+  });
+
   it("shows no rare case on the demo", () => {
     expect(updatesView(demo.day2Undone).rare).toEqual([]);
   });

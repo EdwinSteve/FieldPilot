@@ -106,12 +106,79 @@ function cancelledRow(snapshot: FarmSnapshot, task: Task): Dated {
   };
 }
 
+/** A failed task, unless the re-check's own card already explains it (D033). */
+function failedRow(snapshot: FarmSnapshot, task: Task): Dated | null {
+  const offset = plotOffset(snapshot);
+  const failure = eventOfTask(snapshot.failures, task.id);
+  if (failure !== null && isRecheckFailure(failure)) return null;
+  const at = failure?.occurred_at ?? task.updated_at;
+  return {
+    at: Date.parse(at),
+    item: {
+      id: `failed-${task.id}`,
+      kind: "problem",
+      title: isWatering(task)
+        ? en.updates.didntRun(zoneName(snapshot), volumeOf(task))
+        : en.updates.actionDidntRun,
+      time: en.updates.reportTime(
+        relativeDay(at, snapshot.clock.now, offset),
+        formatClock(at, offset),
+      ),
+      href: hrefOf({ screen: "plan" }),
+      unread: isUnread(snapshot, task.id),
+    },
+  };
+}
+
+/** A planned watering past its undo window: until then the undo card speaks for it. */
+function plannedRow(snapshot: FarmSnapshot, task: Task): Dated | null {
+  if (task.revert_open === true) return null;
+  const offset = plotOffset(snapshot);
+  return {
+    at: Date.parse(task.created_at),
+    item: {
+      id: `planned-${task.id}`,
+      kind: "water",
+      title: en.updates.planned(zoneName(snapshot), volumeOf(task)),
+      time: en.updates.reportTime(
+        relativeDay(task.scheduled_for, snapshot.clock.now, offset),
+        formatClock(task.scheduled_for, offset),
+      ),
+      href: hrefOf({ screen: "plan" }),
+      unread: isUnread(snapshot, task.id),
+    },
+  };
+}
+
 function taskRow(snapshot: FarmSnapshot, task: Task): Dated | null {
+  if (task.status === "failed") return failedRow(snapshot, task);
   if (!isWatering(task)) return null;
   if (task.status === "executed") return wateredRow(snapshot, task);
   if (task.status === "rejected") return saidNoRow(snapshot, task);
   if (task.status === "reverted") return cancelledRow(snapshot, task);
-  return null;
+  return task.status === "scheduled" ? plannedRow(snapshot, task) : null;
+}
+
+/** Alerts about the system, not a task. The API gives no type, so they keep its words. */
+function alertRows(snapshot: FarmSnapshot): Dated[] {
+  const offset = plotOffset(snapshot);
+  return snapshot.notifications
+    .filter((notice) => notice.task_id === null)
+    .map((notice) => ({
+      at: Date.parse(notice.created_at),
+      item: {
+        id: `alert-${notice.id}`,
+        kind: "alert",
+        title: notice.message,
+        lang: "es",
+        time: en.updates.reportTime(
+          relativeDay(notice.created_at, snapshot.clock.now, offset),
+          formatClock(notice.created_at, offset),
+        ),
+        href: null,
+        unread: notice.read_at === null,
+      },
+    }));
 }
 
 function reportRows(snapshot: FarmSnapshot): Dated[] {
@@ -217,6 +284,7 @@ function rareCases(snapshot: FarmSnapshot): RareCase[] {
 export function updatesView(snapshot: FarmSnapshot): UpdatesView {
   const dated = [
     ...snapshot.tasks.flatMap((task) => taskRow(snapshot, task) ?? []),
+    ...alertRows(snapshot),
     ...reportRows(snapshot),
   ];
   return {
