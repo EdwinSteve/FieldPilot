@@ -1,4 +1,4 @@
-import logo from "../assets/logo.png";
+import logo from "../assets/logo.webp";
 import { Icon } from "../components/Icon";
 import { IconCircle } from "../components/IconCircle";
 import { en } from "../i18n/en";

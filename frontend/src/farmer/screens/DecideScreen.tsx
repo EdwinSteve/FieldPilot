@@ -22,16 +22,21 @@ type Step =
 function FactRow({
   icon,
   label,
+  note,
   value,
 }: {
   icon: React.ReactNode;
   label: string;
+  note?: string;
   value: React.ReactNode;
 }) {
   return (
     <div className="flex items-center gap-3.5 border-b border-divider py-3.5 last:border-b-0">
       {icon}
-      <span className="flex-1 text-lead font-semibold">{label}</span>
+      <span className="flex flex-1 flex-col">
+        <span className="text-lead font-semibold">{label}</span>
+        {note === undefined ? null : <span className="text-caption text-ink-2">{note}</span>}
+      </span>
       {value}
     </div>
   );
@@ -59,6 +64,7 @@ function Ask({
         <FactRow
           icon={<MoistureDrop {...view.soil} size={34} />}
           label={en.decide.soilNow}
+          note={view.percentFull}
           value={
             <span
               className={`text-row font-extrabold ${

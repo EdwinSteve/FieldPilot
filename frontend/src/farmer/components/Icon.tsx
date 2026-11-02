@@ -4,6 +4,9 @@ export const DROP_PATH = "M12 3c3 4 6 7.5 6 11a6 6 0 0 1-12 0c0-3.5 3-7 6-11z";
 export const CLOUD_PATH = "M7 14a4 4 0 0 1 .5-8 5.5 5.5 0 0 1 10.5 2 3 3 0 0 1 0 6z";
 
 const PATHS = {
+  arrowDown: <path d="M12 5v14M6 13l6 6 6-6" />,
+  arrowRight: <path d="M5 12h14M13 6l6 6-6 6" />,
+  arrowUp: <path d="M12 19V5M6 11l6-6 6 6" />,
   back: <path d="M15 5l-7 7 7 7" />,
   bell: <path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 20a2 2 0 0 0 4 0" />,
   calendar: (

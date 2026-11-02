@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import avatar from "../assets/avatar.png";
+import avatar from "../assets/avatar.webp";
 import { ChatBar } from "../components/ChatBar";
 import { Chip } from "../components/Chip";
 import { Icon } from "../components/Icon";
@@ -12,7 +12,7 @@ const FARMER_BUBBLE = "rounded-[22px_22px_6px_22px] bg-primary px-4.5 py-3.5 tex
 
 function TypedBubble({ question }: { question: string }) {
   return (
-    <p lang="es" className={`max-w-[88%] self-end text-body font-semibold ${FARMER_BUBBLE}`}>
+    <p className={`max-w-[88%] self-end text-body font-semibold ${FARMER_BUBBLE}`}>
       {question}
     </p>
   );
@@ -104,13 +104,32 @@ function DecisionsLink({ view }: { view: TalkView }) {
   );
 }
 
+function Suggestions({ onAsk }: { onAsk: (question: string) => void }) {
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="px-1 text-caption font-bold text-ink-2">{en.talk.tryAsking}</h2>
+      {en.talk.suggestions.map((question) => (
+        <button
+          key={question}
+          type="button"
+          onClick={() => onAsk(question)}
+          className="press flex min-h-14 items-center justify-between gap-3 rounded-control border-2 border-border bg-surface px-4 text-left text-body font-bold text-ink"
+        >
+          {question}
+          <Icon name="forward" size={20} strokeWidth={2.6} className="shrink-0 text-ink-3" />
+        </button>
+      ))}
+    </section>
+  );
+}
+
 interface TalkScreenProps {
   view: TalkView;
   control: TalkControl;
 }
 
 export function TalkScreen({ view, control }: TalkScreenProps) {
-  const { cancel, status, pendingQuestion } = control;
+  const { cancel, status, pendingQuestion, ask } = control;
   const end = useRef<HTMLDivElement>(null);
   const count = view.exchanges.length;
   const thinking = status === "thinking";
@@ -131,6 +150,9 @@ export function TalkScreen({ view, control }: TalkScreenProps) {
           <Icon name="info" size={18} className="shrink-0" />
           {en.talk.onlyAnswers}
         </span>
+        {count === 0 && status === "idle" && view.unavailable === null ? (
+          <Suggestions onAsk={ask} />
+        ) : null}
         {view.exchanges.map((exchange) => (
           <div key={exchange.id} className="flex flex-col gap-3.5">
             {exchange.duration === null ? (

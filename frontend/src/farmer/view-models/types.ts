@@ -2,6 +2,7 @@
 import type { NormBox } from "../../types/api";
 import type { StageState } from "../../lib/stages";
 import type { LookedAt } from "../lib/lookedAt";
+import type { TrendDirection } from "../lib/soilTrend";
 import type { Level } from "../lib/statusLevel";
 
 export interface SoilReading {
@@ -35,7 +36,14 @@ export interface TodayView {
   statusTitle: string;
   statusDetail: string;
   /** `display` and `ofFull` read together: "20" "of 32%". */
-  soil: SoilReading & { display: string; ofFull: string | null; label: string; level: Level };
+  soil: SoilReading & {
+    display: string;
+    ofFull: string | null;
+    label: string;
+    level: Level;
+    /** Null until there is a reading from about a day before. */
+    trend: TrendDirection | null;
+  };
   /** `known` is false before the day's check: no figure is not the same as no rain. */
   rain: { mm: number; known: boolean; display: string; label: string };
   plants: { value: string; label: string; level: Level };
@@ -49,6 +57,7 @@ export interface DecisionView {
   question: string;
   why: string;
   soil: SoilReading;
+  percentFull: string;
   rainMm: number;
   waterMm: number | null;
   /** False once answered, here or on the dashboard. */
@@ -100,6 +109,7 @@ export interface TalkControl {
   draft: string;
   setDraft: (text: string) => void;
   sendDraft: () => void;
+  ask: (question: string) => void;
   toggleMic: () => void;
   cancel: () => void;
 }
@@ -168,6 +178,10 @@ export interface ZoneView {
   level: Level;
   soil: SoilReading & { level: Level };
   display: string;
+  /** "About 63% full": the number in everyday words. */
+  percentFull: string | null;
+  /** Null until there is a reading from about a day before. */
+  trend: string | null;
   needsMore: string;
   history: number[];
   historyStart: string;

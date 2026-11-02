@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/endpoints";
 import { useAction } from "../../hooks/useAction";
 import { en } from "../i18n/en";
+import { fromCache, toCache } from "../lib/farmCache";
 import { stopView, talkView } from "../view-models/control";
 import { decisionView } from "../view-models/decide";
 import { fieldView } from "../view-models/field";
@@ -21,6 +22,24 @@ type FarmViews = Pick<
   "today" | "chat" | "updates" | "field" | "plan" | "stop" | "decision" | "zone" | "report"
 >;
 
+const CACHE_KEY = "fieldpilot.farm";
+
+function readCachedFarm(): FarmSnapshot | null {
+  try {
+    return fromCache(window.localStorage.getItem(CACHE_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function cacheFarm(snapshot: FarmSnapshot): void {
+  try {
+    window.localStorage.setItem(CACHE_KEY, toCache(snapshot));
+  } catch {
+    // Private mode or a full disk: the app simply has no fallback.
+  }
+}
+
 function viewsOf(snapshot: FarmSnapshot, exchanges: ChatExchange[]): FarmViews {
   return {
     today: todayView(snapshot),
@@ -38,9 +57,16 @@ function viewsOf(snapshot: FarmSnapshot, exchanges: ChatExchange[]): FarmViews {
 /** The farm as the screens see it: fresh views, and actions that report success. */
 export function useFarm(): FarmState {
   const { version, refresh } = useFarmRefresh();
-  const { data, error, loading } = useFarmSnapshot(version);
+  const { data: fresh, error, loading } = useFarmSnapshot(version);
+  const [cached] = useState(readCachedFarm);
+  const data = fresh ?? (error === null ? null : cached);
   const action = useAction(refresh);
   const talk = useTalk(data?.plot.id);
+
+  useEffect(() => {
+    if (fresh !== null) cacheFarm(fresh);
+  }, [fresh]);
+
   const { exchanges } = talk;
   const views = useMemo(() => (data ? viewsOf(data, exchanges) : null), [data, exchanges]);
 
@@ -76,6 +102,7 @@ export function useFarm(): FarmState {
       draft: talk.draft,
       setDraft: talk.setDraft,
       sendDraft: talk.sendDraft,
+      ask: talk.ask,
       toggleMic: talk.toggleMic,
       cancel: talk.cancel,
     },

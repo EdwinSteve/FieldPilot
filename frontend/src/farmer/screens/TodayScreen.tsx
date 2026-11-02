@@ -73,6 +73,7 @@ function StatusCard({ view }: { view: TodayView }) {
           visual={<MoistureDrop {...view.soil} size={40} />}
           value={view.soil.display}
           valueNote={view.soil.ofFull}
+          trend={view.soil.trend}
           label={view.soil.label}
         />
         <StatusTile
@@ -107,8 +108,8 @@ export function TodayScreen({ view }: { view: TodayView }) {
       {view.stoppedBanner === null ? null : <StoppedBanner text={view.stoppedBanner} />}
       {view.decision ? <NeedsYouCard decision={view.decision} /> : null}
       <StatusCard view={view} />
-      <RecentUpdates items={view.recent} />
       <WeekStrip week={view.week} />
+      <RecentUpdates items={view.recent} />
     </main>
   );
 }

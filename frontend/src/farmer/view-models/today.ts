@@ -13,6 +13,7 @@ import { activeRun } from "../lib/irrigationRun";
 import { cropLabel, farmLabel } from "../lib/names";
 import { hrefOf } from "../lib/route";
 import { rainLevel } from "../lib/rainLevel";
+import { soilTrend } from "../lib/soilTrend";
 import { plantsLevel, worstLevel } from "../lib/statusLevel";
 import {
   fieldCapacity,
@@ -130,6 +131,7 @@ export function todayView(snapshot: FarmSnapshot): TodayView {
       ofFull: soil === null ? null : en.soil.ofFull(soil.fieldCapacity),
       label: soil === null ? en.soil.tileUnknown : soilTileLabel(soil),
       level: soilTileLevel,
+      trend: soilTrend(snapshot.readings, snapshot.clock.now)?.direction ?? null,
     },
     rain: {
       mm: rainMm ?? 0,

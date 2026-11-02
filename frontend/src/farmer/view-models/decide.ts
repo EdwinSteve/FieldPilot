@@ -1,6 +1,7 @@
 import { en } from "../i18n/en";
 import { gateFacts } from "../lib/eventInputs";
 import { roundReading } from "../lib/soilStatus";
+import { percentFull } from "../lib/soilTrend";
 import {
   eventOfTask,
   fieldCapacity,
@@ -21,12 +22,15 @@ export function decisionView(snapshot: FarmSnapshot, taskId: number): DecisionVi
   const zone = zoneName(snapshot);
   const soilPct = facts?.soilPct ?? soilAt(snapshot)?.value ?? 0;
   const rule = verdict?.rule ?? "";
+  const soilValue = roundReading(soilPct);
+  const capacity = fieldCapacity(snapshot);
   return {
     taskId,
     zoneName: zone,
     question: questionOf(task, zone),
     why: en.decide.holdReasons[rule] ?? en.decide.holdGeneric,
-    soil: { value: roundReading(soilPct), fieldCapacity: fieldCapacity(snapshot) },
+    soil: { value: soilValue, fieldCapacity: capacity },
+    percentFull: en.soil.percentFull(percentFull(soilValue, capacity)),
     rainMm: facts?.rainMm ?? 0,
     waterMm: volumeOf(task),
     open: task.status === "pending_approval",

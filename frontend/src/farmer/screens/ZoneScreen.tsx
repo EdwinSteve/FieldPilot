@@ -31,10 +31,16 @@ export function ZoneScreen({ view }: { view: ZoneView }) {
             <div className="flex flex-col">
               <span className="text-caption font-semibold text-ink-3">{en.zone.waterInSoil}</span>
               <span className="text-hero leading-tight font-extrabold">{view.display}</span>
+              {view.percentFull === null ? null : (
+                <span className="text-small font-bold text-ink-2">{view.percentFull}</span>
+              )}
             </div>
           </div>
           <MoistureBar {...view.soil} />
           <span className="text-small leading-normal text-ink-2">{view.needsMore}</span>
+          {view.trend === null ? null : (
+            <span className="text-small leading-normal text-ink-2">{view.trend}</span>
+          )}
         </section>
         <section className="flex flex-col gap-2.5 rounded-card bg-surface p-4.5">
           <h2 className="text-body font-extrabold">{en.zone.lastDays}</h2>

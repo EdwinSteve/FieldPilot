@@ -30,6 +30,7 @@ export interface Talk {
   draft: string;
   setDraft: (text: string) => void;
   sendDraft: () => void;
+  ask: (question: string) => void;
   toggleMic: () => void;
   /** Drops the recording, sending nothing. An answer already on its way still arrives. */
   cancel: () => void;
@@ -80,18 +81,23 @@ export function useTalk(plotId: number | undefined): Talk {
     }
   }, []);
 
-  const sendDraft = useCallback(() => {
-    const question = draft.trim();
-    if (plotId === undefined || question === "" || status !== "idle") return;
-    setDraft("");
-    setPendingQuestion(question);
-    void ask(null, async () => ({ reply: await api.chat(plotId, question), question })).then(
-      (answered) => {
-        // A failed question goes back in the box, so it need not be typed again.
-        if (!answered) setDraft(question);
-      },
-    );
-  }, [ask, draft, plotId, status]);
+  const askTyped = useCallback(
+    (text: string) => {
+      const question = text.trim();
+      if (plotId === undefined || question === "" || status !== "idle") return;
+      setDraft("");
+      setPendingQuestion(question);
+      void ask(null, async () => ({ reply: await api.chat(plotId, question), question })).then(
+        (answered) => {
+          // A failed question goes back in the box, so it need not be typed again.
+          if (!answered) setDraft(question);
+        },
+      );
+    },
+    [ask, plotId, status],
+  );
+
+  const sendDraft = useCallback(() => askTyped(draft), [askTyped, draft]);
 
   const sendRecording = useCallback(async () => {
     const current = open.current;
@@ -148,6 +154,7 @@ export function useTalk(plotId: number | undefined): Talk {
     draft,
     setDraft,
     sendDraft,
+    ask: askTyped,
     toggleMic,
     cancel,
   };

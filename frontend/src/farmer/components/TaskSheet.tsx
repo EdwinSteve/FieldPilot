@@ -1,4 +1,4 @@
-import avatar from "../assets/avatar.png";
+import avatar from "../assets/avatar.webp";
 import { en } from "../i18n/en";
 import type { PlanTask } from "../view-models/types";
 import { BigButton, BigLink } from "./BigButton";

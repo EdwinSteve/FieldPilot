@@ -41,6 +41,7 @@ describe("todayView", () => {
     expect(view.stoppedBanner).toBeNull();
     expect(view.status).toBe("watch");
     expect(view.statusLabel).toBe("Keep an eye on this");
+    expect(view.soil.trend).toBeNull();
     expect(view.soil.level).toBe("watch");
     expect(view.plants.level).toBe("watch");
   });
@@ -87,7 +88,8 @@ describe("todayView", () => {
     expect(view.soil.display).toBe("16.7");
     expect(view.soil.label).toBe("Very dry");
     expect(view.status).toBe("bad");
-    expect(view.statusLabel).toBe("Needs attention");
+    expect(view.statusLabel).toBe("Problem");
+    expect(view.soil.trend).toBe("down");
     expect(view.rain.known).toBe(true);
   });
 
@@ -108,6 +110,7 @@ describe("decisionView", () => {
       why: "I held this because rain is coming.",
       soil: { value: 20, fieldCapacity: 32 },
       rainMm: 12,
+      percentFull: "About 63% full",
       waterMm: 20,
       open: true,
       stopped: false,
@@ -314,6 +317,8 @@ describe("zoneView", () => {
     expect(view?.history).toEqual([20, 16.7]);
     expect(view?.valve).toBe("Open until 9:20 am");
     expect(view?.level).toBe("bad");
+    expect(view?.percentFull).toBe("About 52% full");
+    expect(view?.trend).toBe("Down from 20% about a day ago");
     expect(view?.valveLevel).toBe("info");
     expect(view?.sensorLevel).toBe("good");
   });

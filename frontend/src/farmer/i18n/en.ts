@@ -1,5 +1,6 @@
 // Every farmer-facing string. Spanish comes later: keep this file the only source.
 import type { RainLevel } from "../lib/rainLevel";
+import type { TrendDirection } from "../lib/soilTrend";
 import type { Level } from "../lib/statusLevel";
 import type { SoilStatus } from "../lib/soilStatus";
 import type { TalkFailure } from "../lib/talkFailure";
@@ -28,7 +29,7 @@ export const en = {
   levels: {
     good: "All good",
     watch: "Keep an eye on this",
-    bad: "Needs attention",
+    bad: "Problem",
     neutral: "No reading yet",
     info: "",
   } satisfies Record<Level, string>,
@@ -61,6 +62,16 @@ export const en = {
     fullAt: (fieldCapacity: number) => `Full ${fieldCapacity}%`,
     of: (fieldCapacity: number) => `/ ${fieldCapacity}%`,
     ofFull: (fieldCapacity: number) => `of ${fieldCapacity}%`,
+    percentFull: (percent: number) => `About ${percent}% full`,
+    trend: { up: "going up", down: "going down", steady: "steady" } satisfies Record<
+      TrendDirection,
+      string
+    >,
+    trendLine: {
+      up: (previous: number) => `Up from ${previous}% about a day ago`,
+      down: (previous: number) => `Down from ${previous}% about a day ago`,
+      steady: (previous: number) => `About the same as a day ago (${previous}%)`,
+    } satisfies Record<TrendDirection, (previous: number) => string>,
     unknown: "—",
     tiles: {
       very_dry: "Very dry",
@@ -170,6 +181,8 @@ export const en = {
     listening: "Listening…",
     tapToSend: "Tap to send",
     hint: "Type or tap the mic",
+    tryAsking: "Try asking",
+    suggestions: ["Does my maize need water?", "Will it rain soon?", "How is my soil today?"],
     typeHere: "Type here…",
     yourQuestion: "Your question",
     send: "Send",

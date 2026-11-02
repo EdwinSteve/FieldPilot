@@ -4,6 +4,7 @@ import { activeRun } from "../lib/irrigationRun";
 import { cropLabel } from "../lib/names";
 import { sensorIsStale } from "../lib/sensorHealth";
 import { pointsToFull, roundReading } from "../lib/soilStatus";
+import { percentFull, soilTrend } from "../lib/soilTrend";
 import {
   fieldCapacity,
   latestReading,
@@ -54,6 +55,7 @@ export function zoneView(snapshot: FarmSnapshot, zoneId: number): ZoneView | nul
   const offset = plotOffset(snapshot);
   const missing = soil === null ? 0 : pointsToFull(soil.value, capacity);
   const level: Level = soil === null ? "neutral" : soilLevelOf(soil);
+  const trend = soilTrend(snapshot.readings, snapshot.clock.now);
   return {
     name,
     caption: en.zone.caption(
@@ -64,6 +66,8 @@ export function zoneView(snapshot: FarmSnapshot, zoneId: number): ZoneView | nul
     level,
     soil: { ...(soil ?? { value: 0, fieldCapacity: capacity }), level },
     display: soil === null ? en.soil.unknown : `${soil.value}%`,
+    percentFull: soil === null ? null : en.soil.percentFull(percentFull(soil.value, capacity)),
+    trend: trend === null ? null : en.soil.trendLine[trend.direction](roundReading(trend.previous)),
     needsMore: missing > 0 ? en.zone.needsMore(name, missing) : en.zone.isFull(name),
     history: values,
     historyStart: points[0] === undefined ? "" : shortWeekday(points[0].recorded_at, offset),
