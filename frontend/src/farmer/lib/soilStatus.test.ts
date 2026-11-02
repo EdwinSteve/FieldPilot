@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pointsToFull, roundReading, soilIsDry, soilStatus } from "./soilStatus";
+import { pointsToFull, roundReading, soilStatus } from "./soilStatus";
 
 describe("soilStatus", () => {
   it.each([
@@ -11,15 +11,6 @@ describe("soilStatus", () => {
     [32, "wet"],
   ])("reads %s of 32 as %s", (value, status) => {
     expect(soilStatus(value, 32)).toBe(status);
-  });
-});
-
-describe("soilIsDry", () => {
-  it("marks only the dry readings", () => {
-    expect(soilIsDry("very_dry")).toBe(true);
-    expect(soilIsDry("dry")).toBe(true);
-    expect(soilIsDry("ok")).toBe(false);
-    expect(soilIsDry("wet")).toBe(false);
   });
 });
 

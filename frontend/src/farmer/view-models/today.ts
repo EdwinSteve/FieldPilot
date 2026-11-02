@@ -11,7 +11,9 @@ import {
 import { forecastOfDay } from "../lib/forecast";
 import { activeRun } from "../lib/irrigationRun";
 import { cropLabel, farmLabel } from "../lib/names";
+import { hrefOf } from "../lib/route";
 import { rainLevel } from "../lib/rainLevel";
+import { plantsLevel, worstLevel } from "../lib/statusLevel";
 import {
   fieldCapacity,
   isWatering,
@@ -19,17 +21,19 @@ import {
   plotOffset,
   questionOf,
   soilAt,
+  soilLevelOf,
   soilStatusLabel,
   soilTileLabel,
-  soilTone,
   zoneName,
   type FarmSnapshot,
 } from "./snapshot";
-import type { DecisionLink, TodayView, WeekDay } from "./types";
+import type { DecisionLink, TodayView, UpdateItem, WeekDay } from "./types";
+import { updatesView } from "./updates";
 
 const MONDAY_INDEX = 1;
 const NOON = 12;
 const EVENING = 18;
+const RECENT_UPDATES = 2;
 
 export function firstDecision(snapshot: FarmSnapshot): DecisionLink | null {
   const task = pendingTasks(snapshot)[0];
@@ -83,6 +87,21 @@ function week(snapshot: FarmSnapshot, rainMm: number | null): WeekDay[] {
   });
 }
 
+/** The newest updates, with an open undo first: it is the one that can run out. */
+function recentUpdates(snapshot: FarmSnapshot): UpdateItem[] {
+  const { undo, items } = updatesView(snapshot);
+  if (undo === null) return items.slice(0, RECENT_UPDATES);
+  const undoRow: UpdateItem = {
+    id: `undo-${undo.taskId}`,
+    kind: "undo",
+    title: undo.title,
+    time: en.today.undoLeft(undo.timeLeft),
+    href: hrefOf({ screen: "updates" }),
+    unread: false,
+  };
+  return [undoRow, ...items.slice(0, RECENT_UPDATES - 1)];
+}
+
 export function todayView(snapshot: FarmSnapshot): TodayView {
   const offset = plotOffset(snapshot);
   const zone = zoneName(snapshot);
@@ -90,6 +109,9 @@ export function todayView(snapshot: FarmSnapshot): TodayView {
   const rainMm = forecastOfDay(snapshot.verdicts, snapshot.clock.now, offset);
   const imaging = snapshot.imagery.zones[0];
   const statusLabel = soil === null ? null : soilStatusLabel(soil);
+  const soilTileLevel = soil === null ? "neutral" : soilLevelOf(soil);
+  const plants = plantsLevel(imaging === undefined ? null : imaging.low_vigor);
+  const status = worstLevel([soilTileLevel, plants]);
   return {
     dateLine: formatDateLine(snapshot.clock.now, offset),
     greeting: greeting(snapshot),
@@ -97,14 +119,17 @@ export function todayView(snapshot: FarmSnapshot): TodayView {
     decision: firstDecision(snapshot),
     stoppedBanner: stoppedBanner(snapshot),
     zoneId: snapshot.zone?.id ?? 0,
+    status,
+    statusLabel: en.levels[status],
     statusTitle: statusLabel === null ? en.soil.noReading : en.soil.zoneIs(zone, statusLabel),
     statusDetail: statusDetail(rainMm),
     soil: {
       value: soil?.value ?? 0,
       fieldCapacity: fieldCapacity(snapshot),
-      display: soil === null ? en.soil.unknown : `${soil.value}%`,
+      display: soil === null ? en.soil.unknown : String(soil.value),
+      ofFull: soil === null ? null : en.soil.ofFull(soil.fieldCapacity),
       label: soil === null ? en.soil.tileUnknown : soilTileLabel(soil),
-      tone: soil === null ? "good" : soilTone(soil),
+      level: soilTileLevel,
     },
     rain: {
       mm: rainMm ?? 0,
@@ -117,7 +142,9 @@ export function todayView(snapshot: FarmSnapshot): TodayView {
       value:
         imaging === undefined ? en.plants.unknown : imaging.low_vigor ? en.plants.weak : en.plants.ok,
       label: en.plants.label,
+      level: plants,
     },
+    recent: recentUpdates(snapshot),
     week: week(snapshot, rainMm),
   };
 }

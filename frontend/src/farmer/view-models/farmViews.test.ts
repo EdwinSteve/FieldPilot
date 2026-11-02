@@ -19,7 +19,8 @@ describe("todayView", () => {
   it("before the first cycle: soil only, nothing to decide", () => {
     const view = todayView(demo.seed);
     expect(view.decision).toBeNull();
-    expect(view.soil.display).toBe("20%");
+    expect(view.soil.display).toBe("20");
+    expect(view.soil.ofFull).toBe("of 32%");
     expect(view.rain.display).toBe("—");
     expect(view.rain.known).toBe(false);
     expect(view.statusDetail).toBe("Today’s check has not run yet");
@@ -38,6 +39,35 @@ describe("todayView", () => {
     expect(view.plants.value).toBe("Weak");
     expect(view.week[0]).toEqual({ day: "Mon", today: true, water: true, rain: true });
     expect(view.stoppedBanner).toBeNull();
+    expect(view.status).toBe("watch");
+    expect(view.statusLabel).toBe("Keep an eye on this");
+    expect(view.soil.level).toBe("watch");
+    expect(view.plants.level).toBe("watch");
+  });
+
+  it("judges nothing it cannot read", () => {
+    const view = todayView({ ...demo.seed, readings: [], imagery: { scene: null, zones: [], boxes: [] } });
+    expect(view.status).toBe("neutral");
+    expect(view.soil.level).toBe("neutral");
+    expect(view.plants.level).toBe("neutral");
+  });
+
+  it("recent updates: newest first, two at most", () => {
+    const view = todayView(demo.day2Undone);
+    expect(view.recent.map((item) => item.id)).toEqual(["water-2", "cancelled-3"]);
+  });
+
+  it("recent updates: an open undo comes first, with its time left", () => {
+    const [undo, next, ...rest] = todayView(demo.day2Cycle).recent;
+    expect(undo?.title).toBe("Extra water, tomorrow");
+    expect(undo?.time).toBe("6 h 00 min left to undo");
+    expect(undo?.href).toBe("#/updates");
+    expect(next?.id).toBe("water-2");
+    expect(rest).toEqual([]);
+  });
+
+  it("recent updates: empty before the first cycle", () => {
+    expect(todayView(demo.seed).recent).toEqual([]);
   });
 
   it("a rejected task leaves the week strip", () => {
@@ -54,8 +84,10 @@ describe("todayView", () => {
     const view = todayView(demo.day2Cycle);
     expect(view.decision).toBeNull();
     expect(view.statusDetail).toBe("No rain expected");
-    expect(view.soil.display).toBe("16.7%");
+    expect(view.soil.display).toBe("16.7");
     expect(view.soil.label).toBe("Very dry");
+    expect(view.status).toBe("bad");
+    expect(view.statusLabel).toBe("Needs attention");
     expect(view.rain.known).toBe(true);
   });
 
@@ -281,6 +313,9 @@ describe("zoneView", () => {
     expect(view?.status).toBe("Very dry");
     expect(view?.history).toEqual([20, 16.7]);
     expect(view?.valve).toBe("Open until 9:20 am");
+    expect(view?.level).toBe("bad");
+    expect(view?.valveLevel).toBe("info");
+    expect(view?.sensorLevel).toBe("good");
   });
 
   it("is null for another zone", () => {

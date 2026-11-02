@@ -1,43 +1,39 @@
-import type { ReactNode } from "react";
 import { BackHeader } from "../components/BackHeader";
 import { Icon, type IconName } from "../components/Icon";
-import { IconCircle, type CircleTone } from "../components/IconCircle";
+import { CardIcon, IconCircle } from "../components/IconCircle";
+import { LEVEL_TEXT, levelCard } from "../components/levelStyle";
 import { MoistureDrop } from "../components/MoistureDrop";
 import { ScreenBody } from "../components/ScreenBody";
 import { en } from "../i18n/en";
 import { hrefOf } from "../lib/route";
+import { soilStatus } from "../lib/soilStatus";
+import { soilLevel, type Level } from "../lib/statusLevel";
 import type { ReportRow, ReportRowKind, ReportView, SoilReading } from "../view-models/types";
 
-const ROW_LOOK: Record<Exclude<ReportRowKind, "soil">, { icon: IconName; tone: CircleTone }> = {
-  rain: { icon: "cloudRain", tone: "undo" },
-  no_rain: { icon: "cloudOff", tone: "undo" },
-  done: { icon: "check", tone: "good" },
-  waiting: { icon: "clock", tone: "needs" },
-  planned: { icon: "calendar", tone: "undo" },
-  satellite: { icon: "satellite", tone: "needs" },
+const ROW_LOOK: Record<Exclude<ReportRowKind, "soil">, { icon: IconName; level: Level }> = {
+  rain: { icon: "cloudRain", level: "info" },
+  no_rain: { icon: "cloudOff", level: "info" },
+  done: { icon: "check", level: "good" },
+  waiting: { icon: "clock", level: "watch" },
+  planned: { icon: "calendar", level: "info" },
+  satellite: { icon: "satellite", level: "watch" },
 };
 
-function rowVisual(kind: ReportRowKind, soil: SoilReading): ReactNode {
-  if (kind === "soil") {
-    return (
-      <IconCircle tone="needs" size="row">
-        <MoistureDrop {...soil} size={30} />
-      </IconCircle>
-    );
-  }
-  const { icon, tone } = ROW_LOOK[kind];
-  return (
-    <IconCircle tone={tone} size="row">
-      <Icon name={icon} strokeWidth={2} />
-    </IconCircle>
-  );
-}
-
 function Row({ row, soil }: { row: ReportRow; soil: SoilReading }) {
+  const level =
+    row.kind === "soil"
+      ? soilLevel(soilStatus(soil.value, soil.fieldCapacity))
+      : ROW_LOOK[row.kind].level;
   return (
-    <div className="flex items-center gap-3.5 border-b border-divider py-3.5 last:border-b-0">
-      {rowVisual(row.kind, soil)}
-      <span className="flex-1 text-body leading-snug font-bold">{row.text}</span>
+    <div className={`flex items-center gap-3.5 ${levelCard(level)}`}>
+      <CardIcon colour={LEVEL_TEXT[level]} size="row">
+        {row.kind === "soil" ? (
+          <MoistureDrop {...soil} size={30} />
+        ) : (
+          <Icon name={ROW_LOOK[row.kind].icon} strokeWidth={2} />
+        )}
+      </CardIcon>
+      <span className="flex-1 text-body leading-snug font-bold text-ink">{row.text}</span>
     </div>
   );
 }
@@ -79,7 +75,7 @@ export function ReportScreen({ view }: { view: ReportView }) {
         </div>
       </BackHeader>
       <ScreenBody underHeader>
-        <section className="rounded-card bg-surface px-4.5 py-1">
+        <section className="flex flex-col gap-2">
           {view.rows.map((row) => (
             <Row key={row.text} row={row} soil={view.soil} />
           ))}

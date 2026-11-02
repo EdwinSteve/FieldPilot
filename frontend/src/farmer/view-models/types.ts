@@ -2,6 +2,7 @@
 import type { NormBox } from "../../types/api";
 import type { StageState } from "../../lib/stages";
 import type { LookedAt } from "../lib/lookedAt";
+import type { Level } from "../lib/statusLevel";
 
 export interface SoilReading {
   value: number;
@@ -20,8 +21,6 @@ export interface WeekDay {
   rain: boolean;
 }
 
-export type SoilTone = "needs" | "good";
-
 export interface TodayView {
   dateLine: string;
   greeting: string;
@@ -30,12 +29,17 @@ export interface TodayView {
   /** Null unless the emergency stop is on. */
   stoppedBanner: string | null;
   zoneId: number;
+  /** The worst of what the tiles judge: the answer at a glance. */
+  status: Level;
+  statusLabel: string;
   statusTitle: string;
   statusDetail: string;
-  soil: SoilReading & { display: string; label: string; tone: SoilTone };
+  /** `display` and `ofFull` read together: "20" "of 32%". */
+  soil: SoilReading & { display: string; ofFull: string | null; label: string; level: Level };
   /** `known` is false before the day's check: no figure is not the same as no rain. */
   rain: { mm: number; known: boolean; display: string; label: string };
-  plants: { value: string; label: string };
+  plants: { value: string; label: string; level: Level };
+  recent: UpdateItem[];
   week: WeekDay[];
 }
 
@@ -100,7 +104,14 @@ export interface TalkControl {
   cancel: () => void;
 }
 
-export type UpdateKind = "water" | "satellite" | "report" | "said_no" | "problem" | "alert";
+export type UpdateKind =
+  | "water"
+  | "undo"
+  | "satellite"
+  | "report"
+  | "said_no"
+  | "problem"
+  | "alert";
 
 export interface UpdateItem {
   id: string;
@@ -154,15 +165,17 @@ export interface ZoneView {
   name: string;
   caption: string;
   status: string;
-  tone: SoilTone;
-  soil: SoilReading;
+  level: Level;
+  soil: SoilReading & { level: Level };
   display: string;
   needsMore: string;
   history: number[];
   historyStart: string;
   historyAlt: string;
   valve: string;
+  valveLevel: Level;
   sensor: string;
+  sensorLevel: Level;
 }
 
 export type ReportRowKind = "soil" | "rain" | "no_rain" | "done" | "waiting" | "planned" | "satellite";

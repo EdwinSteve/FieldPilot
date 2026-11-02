@@ -3,6 +3,7 @@ import { Chip } from "../components/Chip";
 import { Icon } from "../components/Icon";
 import { IconCircle } from "../components/IconCircle";
 import { InfoRow } from "../components/InfoRow";
+import { LEVEL_CHIP, LEVEL_CIRCLE, LEVEL_TEXT } from "../components/levelStyle";
 import { MoistureBar } from "../components/MoistureBar";
 import { MoistureChart } from "../components/MoistureChart";
 import { MoistureDrop } from "../components/MoistureDrop";
@@ -19,12 +20,12 @@ export function ZoneScreen({ view }: { view: ZoneView }) {
           <h1 className="text-title-sm font-extrabold tracking-title">{view.name}</h1>
           <span className="text-caption text-ink-3">{view.caption}</span>
         </div>
-        <Chip tone={view.tone}>{view.status}</Chip>
+        <Chip tone={LEVEL_CHIP[view.level]}>{view.status}</Chip>
       </BackHeader>
       <ScreenBody underHeader>
         <section className="flex flex-col gap-3.5 rounded-card bg-surface p-5">
           <div className="flex items-center gap-3.5">
-            <IconCircle tone={view.tone} size="tall">
+            <IconCircle tone={LEVEL_CIRCLE[view.level]} size="tall">
               <MoistureDrop {...view.soil} size={50} strokeWidth={1.4} />
             </IconCircle>
             <div className="flex flex-col">
@@ -42,18 +43,27 @@ export function ZoneScreen({ view }: { view: ZoneView }) {
             fieldCapacity={view.soil.fieldCapacity}
             startLabel={view.historyStart}
             alt={view.historyAlt}
+            level={view.level}
           />
         </section>
         <section className="rounded-card bg-surface px-4.5 py-1">
           <InfoRow
             icon={<Icon name="valve" size={26} className="text-ink-2" />}
-            value={<span className="text-small font-extrabold">{view.valve}</span>}
+            value={
+              <span className={`text-small font-extrabold ${LEVEL_TEXT[view.valveLevel]}`}>
+                {view.valve}
+              </span>
+            }
           >
             {en.zone.valve}
           </InfoRow>
           <InfoRow
             icon={<Icon name="sensor" size={26} className="text-ink-2" />}
-            value={<span className="text-small font-extrabold text-primary">{view.sensor}</span>}
+            value={
+              <span className={`text-small font-extrabold ${LEVEL_TEXT[view.sensorLevel]}`}>
+                {view.sensor}
+              </span>
+            }
           >
             {en.zone.sensor}
           </InfoRow>

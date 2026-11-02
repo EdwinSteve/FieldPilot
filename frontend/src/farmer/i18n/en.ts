@@ -1,5 +1,6 @@
 // Every farmer-facing string. Spanish comes later: keep this file the only source.
 import type { RainLevel } from "../lib/rainLevel";
+import type { Level } from "../lib/statusLevel";
 import type { SoilStatus } from "../lib/soilStatus";
 import type { TalkFailure } from "../lib/talkFailure";
 
@@ -24,6 +25,13 @@ export const en = {
     maize: "Maize",
     yourField: "Your field",
   },
+  levels: {
+    good: "All good",
+    watch: "Keep an eye on this",
+    bad: "Needs attention",
+    neutral: "No reading yet",
+    info: "",
+  } satisfies Record<Level, string>,
   autonomy: {
     automatic: "Automatic",
     canUndo: "Can undo",
@@ -36,6 +44,7 @@ export const en = {
     emptyTitle: "No farm yet",
     emptyDetail: "Your farm will appear here once it is set up.",
     actionFailed: "That didn’t work. Please try again.",
+    working: "Saving…",
     staleData: "I can’t reach the farm. This may be out of date.",
   },
   tabs: {
@@ -51,6 +60,7 @@ export const en = {
   soil: {
     fullAt: (fieldCapacity: number) => `Full ${fieldCapacity}%`,
     of: (fieldCapacity: number) => `/ ${fieldCapacity}%`,
+    ofFull: (fieldCapacity: number) => `of ${fieldCapacity}%`,
     unknown: "—",
     tiles: {
       very_dry: "Very dry",
@@ -103,6 +113,9 @@ export const en = {
     weekDayRain: "rain",
     farmLine: (farm: string, crop: string, day: number) => `${farm} · ${crop}, day ${day}`,
     stoppedDetail: "Tap to see or start again",
+    recentUpdates: "Recent updates",
+    seeAll: "See all",
+    undoLeft: (timeLeft: string) => `${timeLeft} left to undo`,
   },
   task: {
     water: (zone: string) => `Water ${zone}?`,
@@ -122,7 +135,7 @@ export const en = {
     yourReason: "Your reason",
     saveReason: "Save",
     backToReasons: "Back to the list",
-    skip: "Skip",
+    skip: "Say no, with no reason",
     wateringNow: "Watering now",
     wateringDetail: (zone: string, mm: number | null) =>
       mm === null ? `${zone} gets water now.` : `${zone} gets ${mm} mm. You can see it in Updates.`,
@@ -146,7 +159,7 @@ export const en = {
     holdGeneric: "I want your answer before I do this.",
   },
   talk: {
-    title: "Ask me",
+    title: "Talk",
     understood: "I understood:",
     lookedAt: "What I looked at",
     agentFirst: "Field",
@@ -179,7 +192,7 @@ export const en = {
       count === 1 ? "1 decision waiting" : `${count} decisions waiting`,
   },
   updates: {
-    title: "What I did",
+    title: "Updates",
     markAllRead: "Mark all read",
     undo: "Undo",
     unread: "New",

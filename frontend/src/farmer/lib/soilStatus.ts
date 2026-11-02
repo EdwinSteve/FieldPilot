@@ -13,11 +13,6 @@ export function soilStatus(value: number, fieldCapacity: number): SoilStatus {
   return fraction >= 1 ? "wet" : "ok";
 }
 
-/** True when the farmer should see the soil in the amber "needs water" colours. */
-export function soilIsDry(status: SoilStatus): boolean {
-  return status === "dry" || status === "very_dry";
-}
-
 /** Percentage points missing to field capacity, rounded. Never negative. */
 export function pointsToFull(value: number, fieldCapacity: number): number {
   return Math.max(0, Math.round(fieldCapacity - value));

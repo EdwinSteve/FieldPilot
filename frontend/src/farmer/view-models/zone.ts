@@ -9,11 +9,12 @@ import {
   latestReading,
   plotOffset,
   soilAt,
+  soilLevelOf,
   soilStatusLabel,
-  soilTone,
   zoneName,
   type FarmSnapshot,
 } from "./snapshot";
+import type { Level } from "../lib/statusLevel";
 import type { ZoneView } from "./types";
 
 const HISTORY_DAYS = 7;
@@ -26,6 +27,12 @@ function history(snapshot: FarmSnapshot) {
     const at = Date.parse(reading.recorded_at);
     return at >= start && at <= end;
   });
+}
+
+function sensorLevel(snapshot: FarmSnapshot): Level {
+  const reading = latestReading(snapshot);
+  if (reading === null) return "neutral";
+  return sensorIsStale(reading.recorded_at, snapshot.clock.now) ? "bad" : "good";
 }
 
 function sensorText(snapshot: FarmSnapshot): string {
@@ -46,6 +53,7 @@ export function zoneView(snapshot: FarmSnapshot, zoneId: number): ZoneView | nul
   const running = activeRun(snapshot.executions, snapshot.tasks, snapshot.clock.now);
   const offset = plotOffset(snapshot);
   const missing = soil === null ? 0 : pointsToFull(soil.value, capacity);
+  const level: Level = soil === null ? "neutral" : soilLevelOf(soil);
   return {
     name,
     caption: en.zone.caption(
@@ -53,8 +61,8 @@ export function zoneView(snapshot: FarmSnapshot, zoneId: number): ZoneView | nul
       snapshot.cycle === null ? "" : cropLabel(snapshot.cycle.crop),
     ),
     status: soil === null ? en.soil.unknown : soilStatusLabel(soil),
-    tone: soil === null ? "good" : soilTone(soil),
-    soil: soil ?? { value: 0, fieldCapacity: capacity },
+    level,
+    soil: { ...(soil ?? { value: 0, fieldCapacity: capacity }), level },
     display: soil === null ? en.soil.unknown : `${soil.value}%`,
     needsMore: missing > 0 ? en.zone.needsMore(name, missing) : en.zone.isFull(name),
     history: values,
@@ -64,6 +72,8 @@ export function zoneView(snapshot: FarmSnapshot, zoneId: number): ZoneView | nul
       running === null
         ? en.zone.valveClosed
         : en.zone.valveOpen(formatClock(running.endsAt, offset)),
+    valveLevel: running === null ? "neutral" : "info",
     sensor: sensorText(snapshot),
+    sensorLevel: sensorLevel(snapshot),
   };
 }

@@ -33,10 +33,28 @@ const SIZES: Record<CircleSize, string> = {
   stop: "size-33",
 };
 
+interface CardIconProps {
+  /** A text colour class, from the level. */
+  colour: string;
+  size?: CircleSize;
+  children: ReactNode;
+}
+
 interface IconCircleProps {
   tone: CircleTone;
   size: CircleSize;
   children: ReactNode;
+}
+
+/** An icon on a tinted card: white, so it stands out from the tint. */
+export function CardIcon({ colour, size = "medium", children }: CardIconProps) {
+  return (
+    <span
+      className={`flex shrink-0 items-center justify-center rounded-full bg-surface ${colour} ${SIZES[size]}`}
+    >
+      {children}
+    </span>
+  );
 }
 
 export function IconCircle({ tone, size, children }: IconCircleProps) {

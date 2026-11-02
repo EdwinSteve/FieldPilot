@@ -1,14 +1,16 @@
 import { en } from "../i18n/en";
 import { moistureBarScale } from "../lib/soilFill";
+import type { Level } from "../lib/statusLevel";
 import type { SoilReading } from "../view-models/types";
+import { LEVEL_FILL } from "./levelStyle";
 
-export function MoistureBar({ value, fieldCapacity }: SoilReading) {
+export function MoistureBar({ value, fieldCapacity, level }: SoilReading & { level: Level }) {
   const { valuePct, fullPct } = moistureBarScale(value, fieldCapacity);
   return (
     <div aria-hidden="true" className="flex flex-col gap-3.5">
       <div className="relative h-5.5 rounded-full bg-divider">
         <div
-          className="absolute inset-y-0 left-0 rounded-full bg-needs transition-[width] duration-400 ease-calm"
+          className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-400 ease-calm ${LEVEL_FILL[level]}`}
           style={{ width: `${valuePct}%` }}
         />
         <div

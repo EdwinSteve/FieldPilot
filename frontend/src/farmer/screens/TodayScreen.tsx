@@ -1,7 +1,10 @@
+import { Chip } from "../components/Chip";
 import { Icon, PlantIcon, StopSign } from "../components/Icon";
+import { LEVEL_CHIP, LEVEL_ICON } from "../components/levelStyle";
 import { MoistureDrop } from "../components/MoistureDrop";
 import { NeedsYouCard } from "../components/NeedsYouCard";
 import { RainLevelIcon } from "../components/RainLevelIcon";
+import { RecentUpdates } from "../components/RecentUpdates";
 import { StatusTile } from "../components/StatusTile";
 import { WeekStrip } from "../components/WeekStrip";
 import { en } from "../i18n/en";
@@ -44,8 +47,15 @@ function StoppedBanner({ text }: { text: string }) {
 
 function StatusCard({ view }: { view: TodayView }) {
   const zoneHref = hrefOf({ screen: "zone", zoneId: view.zoneId });
+  const statusIcon = LEVEL_ICON[view.status];
   return (
     <section className="flex flex-col gap-3 rounded-card bg-surface p-4">
+      <span className="self-start">
+        <Chip tone={LEVEL_CHIP[view.status]}>
+          {statusIcon === null ? null : <Icon name={statusIcon} size={16} strokeWidth={2.6} />}
+          {view.statusLabel}
+        </Chip>
+      </span>
       <a
         href={zoneHref}
         className="flex items-center justify-between gap-2.5 px-0.5 text-ink no-underline"
@@ -59,14 +69,15 @@ function StatusCard({ view }: { view: TodayView }) {
       <div className="grid grid-cols-3 gap-2">
         <StatusTile
           href={zoneHref}
-          tone={view.soil.tone}
+          level={view.soil.level}
           visual={<MoistureDrop {...view.soil} size={40} />}
           value={view.soil.display}
+          valueNote={view.soil.ofFull}
           label={view.soil.label}
         />
         <StatusTile
           href={zoneHref}
-          tone="rain"
+          level="info"
           visual={
             view.rain.known ? (
               <RainLevelIcon mm={view.rain.mm} size={40} />
@@ -79,7 +90,7 @@ function StatusCard({ view }: { view: TodayView }) {
         />
         <StatusTile
           href={hrefOf({ screen: "field" })}
-          tone="good"
+          level={view.plants.level}
           visual={<PlantIcon size={40} />}
           value={view.plants.value}
           label={view.plants.label}
@@ -96,6 +107,7 @@ export function TodayScreen({ view }: { view: TodayView }) {
       {view.stoppedBanner === null ? null : <StoppedBanner text={view.stoppedBanner} />}
       {view.decision ? <NeedsYouCard decision={view.decision} /> : null}
       <StatusCard view={view} />
+      <RecentUpdates items={view.recent} />
       <WeekStrip week={view.week} />
     </main>
   );

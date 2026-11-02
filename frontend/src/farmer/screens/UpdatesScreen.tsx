@@ -45,12 +45,12 @@ export function UpdatesScreen({ view, onUndo, onMarkAllRead }: UpdatesScreenProp
       {view.rare.map((item) => (
         <RareCard key={item.kind} item={item} />
       ))}
-      <section className="rounded-card bg-surface px-4 py-1">
+      <section className="flex flex-col gap-2">
         {view.items.map((item) => (
           <UpdateRow key={item.id} item={item} />
         ))}
         {view.items.length === 0 ? (
-          <p className="py-4 text-body text-ink-3">{en.updates.empty}</p>
+          <p className="rounded-tile bg-surface p-4 text-body text-ink-2">{en.updates.empty}</p>
         ) : null}
       </section>
     </ScreenBody>

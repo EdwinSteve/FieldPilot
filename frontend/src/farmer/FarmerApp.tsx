@@ -89,6 +89,7 @@ function contentFor(route: Route, state: FarmState): ReactNode {
         <>
           {state.stale ? <Notice text={en.state.staleData} /> : null}
           {state.farm.actionFailed ? <Notice text={en.state.actionFailed} /> : null}
+          {state.farm.busy ? <Saving /> : null}
           {/* `inert` stops every tap while an action runs, without greying the buttons. */}
           <div inert={state.farm.busy} className="contents">
             {/* The key plays the entrance on a change of screen, never on a data refresh. */}
@@ -99,6 +100,15 @@ function contentFor(route: Route, state: FarmState): ReactNode {
         </>
       );
   }
+}
+
+/** Floats over the screen so nothing jumps. A fast action never shows it. */
+function Saving() {
+  return (
+    <output className="absolute top-3 left-1/2 z-20 -translate-x-1/2 animate-fade-in rounded-pill bg-ink px-4 py-2 text-small font-bold text-surface shadow-bubble [animation-delay:250ms]">
+      {en.state.working}
+    </output>
+  );
 }
 
 function Notice({ text }: { text: string }) {

@@ -14,8 +14,9 @@ import type {
 } from "../../types/api";
 import { en } from "../i18n/en";
 import { zoneLabel } from "../lib/names";
-import { roundReading, soilIsDry, soilStatus } from "../lib/soilStatus";
-import type { SoilReading, SoilTone } from "./types";
+import { roundReading, soilStatus } from "../lib/soilStatus";
+import { soilLevel, type Level } from "../lib/statusLevel";
+import type { SoilReading } from "./types";
 
 export interface FarmSnapshot {
   chatLive: boolean;
@@ -59,8 +60,8 @@ export function soilAt(snapshot: FarmSnapshot, atIso?: string): SoilReading | nu
   return { value: roundReading(reading.value), fieldCapacity: fieldCapacity(snapshot) };
 }
 
-export function soilTone(soil: SoilReading): SoilTone {
-  return soilIsDry(soilStatus(soil.value, soil.fieldCapacity)) ? "needs" : "good";
+export function soilLevelOf(soil: SoilReading): Level {
+  return soilLevel(soilStatus(soil.value, soil.fieldCapacity));
 }
 
 export function soilStatusLabel(soil: SoilReading): string {

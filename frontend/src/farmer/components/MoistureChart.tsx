@@ -1,5 +1,7 @@
 import { toPoints } from "../../lib/chart";
 import { en } from "../i18n/en";
+import type { Level } from "../lib/statusLevel";
+import { LEVEL_COLOUR } from "./levelStyle";
 
 const WIDTH = 320;
 const HEIGHT = 130;
@@ -12,10 +14,11 @@ interface MoistureChartProps {
   fieldCapacity: number;
   startLabel: string;
   alt: string;
+  level: Level;
 }
 
 /** Soil water over the last days, under a dashed "Full" line. Needs two readings to draw. */
-export function MoistureChart({ values, fieldCapacity, startLabel, alt }: MoistureChartProps) {
+export function MoistureChart({ values, fieldCapacity, startLabel, alt, level }: MoistureChartProps) {
   if (values.length < 2) {
     return <p className="text-small text-ink-3">{en.zone.fewReadings}</p>;
   }
@@ -50,12 +53,12 @@ export function MoistureChart({ values, fieldCapacity, startLabel, alt }: Moistu
           <polyline
             points={points}
             fill="none"
-            stroke="var(--color-needs)"
+            stroke={LEVEL_COLOUR[level]}
             strokeWidth="4"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-          <circle cx={last[0]} cy={last[1]} r="6" fill="var(--color-needs)" />
+          <circle cx={last[0]} cy={last[1]} r="6" fill={LEVEL_COLOUR[level]} />
         </g>
         <text x={MARGIN_X} y="126" fontSize="15" fill="var(--color-ink-3)">
           {startLabel}

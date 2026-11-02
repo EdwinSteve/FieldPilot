@@ -4,10 +4,13 @@ import { BigButton, BigLink } from "../components/BigButton";
 import { Chip } from "../components/Chip";
 import { Icon } from "../components/Icon";
 import { IconCircle } from "../components/IconCircle";
+import { LEVEL_TEXT } from "../components/levelStyle";
 import { MoistureDrop } from "../components/MoistureDrop";
 import { RainLevelIcon } from "../components/RainLevelIcon";
 import { en } from "../i18n/en";
 import { hrefOf } from "../lib/route";
+import { soilStatus } from "../lib/soilStatus";
+import { soilLevel } from "../lib/statusLevel";
 import type { DecisionView } from "../view-models/types";
 
 type Step =
@@ -57,7 +60,11 @@ function Ask({
           icon={<MoistureDrop {...view.soil} size={34} />}
           label={en.decide.soilNow}
           value={
-            <span className="text-row font-extrabold text-needs-text">
+            <span
+              className={`text-row font-extrabold ${
+                LEVEL_TEXT[soilLevel(soilStatus(view.soil.value, view.soil.fieldCapacity))]
+              }`}
+            >
               {view.soil.value}%{" "}
               <span className="text-caption font-semibold text-ink-3">
                 {en.soil.of(view.soil.fieldCapacity)}
