@@ -19,6 +19,7 @@ const PATHS = {
     <path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
   ),
   check: <path d="M5 12.5l4.5 4.5L19 7" />,
+  chevronDown: <path d="M6 9l6 6 6-6" />,
   clock: (
     <>
       <circle cx="12" cy="12" r="9" />
@@ -42,6 +43,18 @@ const PATHS = {
       <path d="M9 14.5a3 3 0 0 0 3 3" />
     </>
   ),
+  eye: (
+    <>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  eyeOff: (
+    <>
+      <path d="M10.6 5.1A9.8 9.8 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.6 3.6M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18" />
+    </>
+  ),
   forward: <path d="M9 5l7 7-7 7" />,
   home: <path d="M3 11l9-7 9 7v9H3z" />,
   hourglass: <path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9" />,
@@ -63,6 +76,7 @@ const PATHS = {
       <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
     </>
   ),
+  plus: <path d="M12 5v14M5 12h14" />,
   play: <path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke="none" />,
   satellite: (
     <>

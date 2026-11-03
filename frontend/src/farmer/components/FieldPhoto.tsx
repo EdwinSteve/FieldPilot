@@ -1,6 +1,7 @@
 import { boxRect } from "../../lib/imagery";
 import type { NormBox } from "../../types/api";
 import { en } from "../i18n/en";
+import { useFarmImage } from "../hooks/useFarmImage";
 import { bareSpotRings } from "../lib/bareSpotRings";
 
 const WIDTH = 512;
@@ -17,10 +18,11 @@ interface FieldPhotoProps {
 /** The satellite photo, with the zone outlined and a ring on each bare spot. */
 export function FieldPhoto({ imageUrl, alt, zoneLabel, zoneArea, spots }: FieldPhotoProps) {
   const zone = boxRect(zoneArea);
+  const src = useFarmImage(imageUrl);
   return (
     <figure className="flex flex-col gap-2.5 rounded-card bg-surface p-2.5">
       <div className="relative aspect-[2/1] w-full overflow-hidden rounded-tile bg-field">
-        <img src={imageUrl} alt={alt} className="absolute inset-0 size-full" />
+        {src === null ? null : <img src={src} alt={alt} className="absolute inset-0 size-full" />}
         <svg
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           preserveAspectRatio="none"
