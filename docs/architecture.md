@@ -1160,6 +1160,140 @@ class AuthService:                       # wall clock, not the simulated one
 (30), `max_failed_logins` (5), `lockout_minutes` (15),
 `password_min_length` (10), `privacy_policy_version`.
 
+### 4.13 Plots and crop cycles (`app/services/plots.py`, `app/services/cycles.py`) (D083)
+
+The lifecycle that joins the three stages. A plan is advice. A sowing and a
+harvest are facts the farmer confirms. A lot exists only after a confirmed
+harvest.
+
+```mermaid
+flowchart LR
+    P["Plan (stage 1)<br/>recommendation<br/>advice only"] --> S["Sowing confirmed<br/>the farmer declares<br/>the crop was sown"]
+    S --> C["Cycle (stage 2)<br/>irrigation, phenology,<br/>approvals"]
+    C --> H["Harvest confirmed<br/>the farmer declares<br/>kg, grade and date"]
+    H --> L["Lot + passport (stage 3)<br/>the passport is<br/>created only here"]
+```
+
+```python
+class SiteStatus(StrEnum):
+    MISSING = "missing"; PENDING = "pending"; READY = "ready"; FAILED = "failed"
+
+class PlotService:
+    def create(self, principal: Principal, form: NewPlot) -> Plot: ...
+    # stores the plot; a farmer becomes its member; starts the site snapshot job
+    def visible(self, principal: Principal) -> Sequence[Plot]: ...   # members only; admin all
+    def site(self, plot_id: int) -> SiteState: ...
+    def refresh_site(self, plot_id: int) -> SiteState: ...           # 409 while one is pending
+
+class SiteBuilder(Protocol):             # SubprocessSiteBuilder: `fieldpilot_planner.site`
+    def build(self, lat: float, lon: float, out: Path) -> None: ...  # SiteBuildError
+# SiteJobs runs one build at a time in a background thread and records the
+# state in PlotSite. A job still pending at startup is marked failed.
+
+class CycleService:
+    def start(self, principal: Principal, plot_id: int, form: NewCycle) -> CropCycle: ...
+    def harvest(self, principal: Principal, cycle_id: int, form: Harvest) -> HarvestLot: ...
+```
+
+**Plots.**
+- **Creating a plot:** `POST /plots` takes a name, a municipality, a
+  department, the coordinates and the area. The coordinates must be in
+  Colombia (lat −4.3 to 13.5, lon −82 to −66.8), because the planner was
+  trained there. The area must be over 0 and at most 1000 ha.
+- **The site snapshot** (D081) is built in the background, from the
+  backend's own process, by the planner's environment. The backend never
+  imports GDAL. It is written to `data/planner/sites/site_<id>.json`.
+- **Committed fixtures** stay in `data/fixtures/planner/`.
+- **A snapshot is used only if its coordinates match the plot's** (within
+  0.01°), so a fixture cannot serve another plot that took its id.
+- **`GET /plots`** lists only the caller's plots; an admin sees all.
+
+**Starting a cycle: the sowing confirmation.**
+1. **Only one active cycle per plot.** Otherwise it is
+   `ActiveCycleExistsError` (409).
+2. **The sowing date has already happened:** at most the plot's local
+   today, and at least 60 days back. Otherwise it is `InvalidSowingDateError`
+   (422).
+3. **The crop is a slug** (`^[a-z][a-z_]{1,39}$`). It may be any crop the
+   farmer grows.
+4. **The planner is asked for that sowing week**, without logging a
+   `planting_plan_served`.
+   - **If the crop ranks in the top 3**, the cycle follows the
+     recommendation.
+   - **Otherwise**, the farmer must send `accept_own_risk: true`, or gets
+     `OwnRiskRequiredError` (422). "Otherwise" covers three cases: the crop
+     ranks lower, it is not a planner crop, or the plot has no ready site.
+   - The decision is the farmer's and is never blocked; it is recorded.
+5. **`automated` is true only if the crop has a YAML in `config/crops/`.**
+   Stage 2 only ever sees automated cycles: `active_cycle`, phenology, the
+   ticker, the field reader and imagery. A manual cycle is recorded and can
+   be harvested, but nothing is irrigated or proposed for it.
+6. **A `cycle_started` event** records the crop, the date, `automated`, the
+   plan's model, rank, p50 and P(success) when the planner had it, and
+   `own_risk`.
+
+**Confirming the harvest.**
+1. The cycle is `active`, and the caller is a member of its plot.
+2. The harvest date is after sowing and at most the plot's local today.
+3. The quantity is above 0 kg and at most 100 t/ha × the plot's area,
+   above any crop in the catalogue. The quantity is stored in integer
+   grams.
+4. The grade is `extra`, `first` or `second`.
+5. **No task of the cycle is `pending_approval` or `scheduled`.**
+   Otherwise it is `OpenTasksError` (409): nothing may irrigate a field
+   that was already harvested.
+6. **One transaction does all of this:**
+   - the cycle goes to `completed`, with `harvested_on`;
+   - one `HarvestLot` is created;
+   - its commissioning trace event (seq 0) is written;
+   - `harvest_confirmed` and `lot_commissioned` events are appended.
+7. A completed cycle never goes back to active, and one cycle yields one
+   lot during the hackathon.
+
+### 4.14 Lots and passports (`app/market/trace`): the first slice of stage 3 (D080, D083)
+
+```python
+@dataclass(frozen=True)
+class HarvestLot:
+    code: str                            # FP-<plot>-<yyyymmdd>-<n>, printed in the QR
+    cycle_id: int; plot_id: int; crop: str
+    harvested_on: date; quantity_g: int; grade: Grade
+    created_at: datetime
+
+@dataclass(frozen=True)
+class TraceEvent:                        # one hash chain per lot (market.md §4.3)
+    lot_code: str; seq: int; biz_step: BizStep   # commissioning only, for now
+    occurred_at: datetime; actor: str; quantity_g: int
+    data: Mapping[str, JsonValue]        # source_digest, cultivation record, plan
+    prev_hash: str                       # 64 zeros for seq 0
+    hash: str                            # sha256(prev_hash ‖ canonical JSON of the body)
+
+def verify_chain(events: Sequence[TraceEvent]) -> bool: ...          # pure
+
+class PassportService:
+    def public(self, code: str) -> Passport: ...   # GET /trace/{code}, no token
+```
+
+- **The cultivation record** is built from the stage-2 event log at
+  harvest. It holds the `cycle_started` event and every event of the
+  cycle's tasks.
+- **`source_digest`** is the SHA-256 of their canonical JSON. It is sealed
+  into the commissioning event.
+- **The record's contents:**
+  - the irrigation applied: the sum of `volume_mm` of the executed
+    `irrigation` and `extra_irrigation` tasks;
+  - the inputs applied: the executed `fertilizer` and `agrochemical`
+    tasks, with their dates;
+  - whether the cycle was automated (the data was measured) or manual (the
+    data was declared).
+- **`verified`** is true only when two checks pass: the chain recomputes,
+  and the digest recomputed from today's event log equals the sealed one.
+- **The public passport never shows** coordinates, names, phone numbers,
+  sensor readings or prices. The producer is shown as "Productor de
+  <municipio>, <departamento>" (market.md §4.2: the name is opt-in, later).
+- **A cycle that predates D083** (the demo seed) has no `cycle_started`
+  event, so its plan is shown as unknown, never guessed.
+
 ### 4.10 Persistence (`app/persistence`)
 
 The domain uses frozen dataclasses (`app/domain/models.py`) and knows
@@ -1229,11 +1363,11 @@ erDiagram
 
 | Table | Key fields |
 |---|---|
-| **Plot** | id, name, latitude, longitude, area_ha, utc_offset_hours (local day, D018), created_at |
+| **Plot** | id, name, municipality, department, latitude, longitude, area_ha, utc_offset_hours (local day, D018), created_at |
 | **Zone** | id, plot_id, name, area_ha, field_capacity_pct, valve_id |
 | **Sensor** | id, zone_id, kind (`soil_moisture`, `temperature`, `humidity`), unit |
 | **Reading** | id, sensor_id, value, recorded_at |
-| **CropCycle** | id, plot_id, crop, sowing_date, accumulated_gdd, gdd_updated_through?, status (`active`, `completed`) |
+| **CropCycle** | id, plot_id, crop, sowing_date, accumulated_gdd, gdd_updated_through?, status (`active`, `completed`), automated, own_risk, plan_model?, plan_rank?, plan_rel_yield_p50?, plan_p_success?, harvested_on? (D083) |
 | **Stage** | id, cycle_id, name, started_at, ended_at, gdd_at_start |
 | **Task** | id, cycle_id, zone_id?, action_type, params (JSON), scheduled_for, status, effective_level, rationale, estimated_cost_minor?, estimated_cost_currency?, revert_deadline?, created_at, updated_at |
 | **Decision** | id, task_id, requested_level, effective_level, outcome, violations (JSON), reason, inputs (JSON snapshot of the `SafetyContext`), created_at |
@@ -1246,6 +1380,9 @@ erDiagram
 | **RefreshSession** | id, user_id, token_hash (unique), family_id, expires_at, created_at, used_at?, revoked_at? |
 | **AuthEvent** | id, occurred_at (wall clock), kind, user_id?, detail (JSON, no personal data) |
 | **PlotMember** | id, plot_id, user_id · unique (plot_id, user_id) |
+| **PlotSite** | plot_id (key), status (`pending`, `ready`, `failed`), requested_at, finished_at?, message? (D083; the API says `ready` only when a matching snapshot file exists) |
+| **HarvestLot** | code (key), cycle_id (unique), plot_id, crop, harvested_on, quantity_g, grade, created_at (D083) |
+| **TraceEventRow** | id, lot_code, seq, biz_step, occurred_at, actor, quantity_g, data (JSON), prev_hash, hash · unique (lot_code, seq) |
 
 Money is stored in minor units (`Money(amount_minor, currency)`) to avoid
 float rounding. Every datetime column is aware UTC (§4.10).
@@ -1255,7 +1392,8 @@ float rounding. Every datetime column is aware UTC (§4.10).
 `revert_refused`, `approval`, `rejection`, `notification`,
 `emergency_stop`, `stage_transition`, `agent_tool_call`, `config_override`,
 `clock_changed`, `scenario_injected`, `phenology_gap`,
-`planting_plan_served` (D079).
+`planting_plan_served` (D079), `cycle_started`, `harvest_confirmed`,
+`lot_commissioned` (D083).
 
 Task lifecycle (`domain/task_transitions.py`). A task is created as
 `pending_approval` or `scheduled`, and these are the allowed transitions:
@@ -1346,7 +1484,13 @@ startup writes a `config_override` event with both values.
 | GET | `/auth/me` | The calling user |
 | GET | `/auth/privacy-policy` | The current policy version, sent back on register |
 | POST | `/plots/{id}/members` | Admin only: give a user access to a plot |
-| GET | `/plots`, `/plots/{id}/zones` | plots and zones |
+| POST | `/plots` | `PlotService.create`: a farmer's plot; starts its site snapshot (D083) |
+| GET | `/plots`, `/plots/{id}/zones` | the caller's plots (admin: all) and zones |
+| GET, POST | `/plots/{id}/site` | Site snapshot state (`missing`, `pending`, `ready`, `failed`); POST rebuilds it |
+| POST | `/plots/{id}/cycles` | `CycleService.start`: the sowing confirmation (D083) |
+| POST | `/cycles/{id}/harvest` | `CycleService.harvest`: the harvest confirmation; creates the lot (D083) |
+| GET | `/plots/{id}/lots` | The plot's lots, with their passport links |
+| GET | `/trace/{code}` | **Public**: the lot's passport, with `verified` (D083) |
 | GET | `/plots/{id}/imagery` | NDVI, low-NDVI %, bare soil and low vigour per zone (D067), SAM boxes and zone areas (D073) |
 | GET | `/plots/{id}/imagery/image` | The scene's RGB PNG; 404 without a scene (D073) |
 | GET | `/plots/{id}/planting-plan?from=&weeks=` | `PlanningService.plan`: crops ranked per sowing week, with the model id (D079) |
@@ -1382,9 +1526,9 @@ Errors map to HTTP codes in one place (`app/api/errors.py`):
 | `InvalidCredentialsError`, `InvalidSessionError` | 401 |
 | `ForbiddenError` | 403 |
 | `NotFoundError` | 404 |
-| `PhoneTakenError`, `StalePolicyError` | 409 |
+| `PhoneTakenError`, `StalePolicyError`, `ActiveCycleExistsError`, `OpenTasksError`, `SiteJobPendingError` | 409 |
 | `AccountLockedError` | 423 |
-| `InvalidPhoneError`, `WeakPasswordError`, `ConsentRequiredError` | 422 |
+| `InvalidPhoneError`, `WeakPasswordError`, `ConsentRequiredError`, `InvalidSowingDateError`, `OwnRiskRequiredError`, `InvalidHarvestError` | 422 |
 | `InvalidTransitionError`, `RevertRefusedError`, `MissingDataError` | 409 |
 | `UnsupportedActionError`, `UnsupportedAudioError`, `NothingHeardError` | 422 |
 | `LLMUnavailableError` (or a `PAUSED` chat run), `SpeechUnavailableError`, chat under `MOCK_LLM=1`, `FixtureExhaustedError` (a replay that does not match the farm) | 503 |

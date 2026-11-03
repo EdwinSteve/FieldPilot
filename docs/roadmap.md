@@ -286,3 +286,12 @@ the help of a shopping agent that reads their purchase record. The design
 is [`docs/market.md`](market.md), and its hackathon slice is §12. That
 slice starts after the stage 1 integration and never changes the two-day
 demo of stage 2.
+
+## 11. From plan to passport (D083)
+
+The API now covers the whole path: a farmer creates a plot, its site
+snapshot builds itself, the planner recommends, the farmer confirms the
+sowing (following the plan or at their own risk), stage 2 automates the
+cycle, the farmer confirms the harvest, and a lot is born with a public,
+verifiable passport. The guide for the front end is
+[`docs/api.md`](api.md).
