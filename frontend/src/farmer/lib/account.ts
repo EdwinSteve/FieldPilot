@@ -1,104 +1,80 @@
-// The demo account kept on this phone. Pure logic only.
+// The sign-up and log-in forms' rules, as the backend checks them (D082). Pure logic only.
 //
-// This is not security: the backend has no sign-in, and anyone with the URL can
-// still reach the farm. The PIN is hashed only so it is never stored as typed.
-
-export interface Account {
-  name: string;
-  /** Digits only, with a leading + kept. */
-  phone: string;
-  salt: string;
-  pinHash: string;
-}
+// The backend checks every rule again; these say what is wrong before the farmer waits.
 
 export type FieldProblem =
-  | "name_missing"
-  | "phone_short"
-  | "phone_long"
-  | "pin_length"
-  | "pin_mismatch";
+  | "name_short"
+  | "phone_invalid"
+  | "password_missing"
+  | "password_short"
+  | "password_long"
+  | "password_has_phone"
+  | "password_mismatch"
+  | "department_missing"
+  | "town_missing"
+  | "consent_missing";
 
-export type LogInResult = "ok" | "no_account" | "wrong";
+/** The farmer as the backend knows them, kept so the log-in can greet them. */
+export interface Farmer {
+  id: number;
+  name: string;
+  /** "+573001234567", as the backend stores it. */
+  phone: string;
+}
 
-const VERSION = 1;
-const PIN_LENGTH = 4;
-/** ITU numbers run 8 to 15 digits once spaces and dashes are gone. */
-const MIN_PHONE_DIGITS = 8;
-const MAX_PHONE_DIGITS = 15;
-const HASH_ROUNDS = 1000;
-const FNV_OFFSET = 0x811c9dc5;
-const FNV_PRIME = 0x01000193;
+const MIN_NAME = 2;
+const MAX_NAME = 120;
+/** config/identity.yaml and MAX_PASSWORD_LENGTH in the backend. */
+const MIN_PASSWORD = 10;
+const MAX_PASSWORD = 128;
+/** A Colombian mobile: 10 digits starting with 3, with or without +57. */
+const MOBILE = /^(?:57)?(3\d{9})$/;
 
-/** "+57 300-123 4567" as "+573001234567": the same number however it is typed. */
-export function normalPhone(text: string): string {
-  const trimmed = text.trim();
-  const digits = trimmed.replace(/\D/g, "");
-  return trimmed.startsWith("+") ? `+${digits}` : digits;
+/** "300 123-4567" or "+57 300 123 4567" as "3001234567"; null when it is not a Colombian mobile. */
+export function colombianMobile(text: string): string | null {
+  return MOBILE.exec(text.replace(/[\s\-+().]/g, ""))?.[1] ?? null;
 }
 
 export function nameProblem(name: string): FieldProblem | null {
-  return name.trim() === "" ? "name_missing" : null;
+  const length = name.trim().length;
+  return length < MIN_NAME || length > MAX_NAME ? "name_short" : null;
 }
 
 export function phoneProblem(text: string): FieldProblem | null {
-  const digits = normalPhone(text).replace("+", "").length;
-  if (digits < MIN_PHONE_DIGITS) return "phone_short";
-  return digits > MAX_PHONE_DIGITS ? "phone_long" : null;
+  return colombianMobile(text) === null ? "phone_invalid" : null;
 }
 
-export function pinProblem(pin: string): FieldProblem | null {
-  return new RegExp(`^\\d{${PIN_LENGTH}}$`).test(pin) ? null : "pin_length";
+export function passwordProblem(password: string, phone: string): FieldProblem | null {
+  if (password.length < MIN_PASSWORD) return "password_short";
+  if (password.length > MAX_PASSWORD) return "password_long";
+  const mobile = colombianMobile(phone);
+  return mobile !== null && password.includes(mobile) ? "password_has_phone" : null;
 }
 
-/** The second PIN must match the first; a wrong first PIN is reported on its own. */
-export function pinAgainProblem(pin: string, again: string): FieldProblem | null {
-  return pinProblem(pin) === null && pin !== again ? "pin_mismatch" : null;
+/** The second password must match the first; a wrong first one is reported on its own. */
+export function passwordAgainProblem(
+  password: string,
+  again: string,
+  phone: string,
+): FieldProblem | null {
+  return passwordProblem(password, phone) === null && password !== again
+    ? "password_mismatch"
+    : null;
 }
 
-function fnv1a(text: string, seed: number): number {
-  let hash = seed;
-  for (let index = 0; index < text.length; index += 1) {
-    hash ^= text.charCodeAt(index);
-    hash = Math.imul(hash, FNV_PRIME) >>> 0;
-  }
-  return hash;
+/** The log-in checks only that something was typed: the backend says whether it is right. */
+export function passwordMissing(password: string): FieldProblem | null {
+  return password === "" ? "password_missing" : null;
 }
 
-/** A repeated FNV-1a: enough that the PIN is not stored as typed, far short of real security. */
-export function hashPin(pin: string, salt: string): string {
-  let hash = FNV_OFFSET;
-  for (let round = 0; round < HASH_ROUNDS; round += 1) {
-    hash = fnv1a(`${salt}:${pin}:${round}`, hash);
-  }
-  return hash.toString(16).padStart(8, "0");
+/** Where the farmer lives is chosen from the list: a department, then one of its towns. */
+export function homeProblems(department: string, town: string) {
+  return {
+    department: department === "" ? ("department_missing" as const) : null,
+    town: department !== "" && town === "" ? ("town_missing" as const) : null,
+  };
 }
 
-export function newAccount(name: string, phone: string, pin: string, salt: string): Account {
-  return { name: name.trim(), phone: normalPhone(phone), salt, pinHash: hashPin(pin, salt) };
-}
-
-export function logInResult(account: Account | null, phone: string, pin: string): LogInResult {
-  if (account === null) return "no_account";
-  const matches =
-    account.phone === normalPhone(phone) && account.pinHash === hashPin(pin, account.salt);
-  return matches ? "ok" : "wrong";
-}
-
-export function toStoredAccount(account: Account): string {
-  return JSON.stringify({ version: VERSION, ...account });
-}
-
-/** Null for anything this version of the app did not write. */
-export function fromStoredAccount(text: string | null): Account | null {
-  if (text === null) return null;
-  try {
-    const parsed = JSON.parse(text) as Record<string, unknown>;
-    const { name, phone, salt, pinHash } = parsed;
-    if (parsed.version !== VERSION) return null;
-    if (typeof name !== "string" || typeof phone !== "string") return null;
-    if (typeof salt !== "string" || typeof pinHash !== "string") return null;
-    return { name, phone, salt, pinHash };
-  } catch {
-    return null;
-  }
+export function consentProblem(accepted: boolean): FieldProblem | null {
+  return accepted ? null : "consent_missing";
 }

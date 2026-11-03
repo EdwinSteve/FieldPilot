@@ -1,92 +1,65 @@
 import { describe, expect, it } from "vitest";
 import {
-  fromStoredAccount,
-  hashPin,
-  logInResult,
+  homeProblems,
+  passwordMissing,
+  colombianMobile,
+  consentProblem,
   nameProblem,
-  newAccount,
-  normalPhone,
+  passwordAgainProblem,
+  passwordProblem,
   phoneProblem,
-  pinAgainProblem,
-  pinProblem,
-  toStoredAccount,
 } from "./account";
 
-const MARIA = newAccount(" María ", "+57 300-123 4567", "1234", "salt-1");
-
-describe("phone numbers", () => {
-  it("ignores spaces and dashes and keeps a leading +", () => {
-    expect(normalPhone(" +57 300-123 4567 ")).toBe("+573001234567");
-    expect(normalPhone("300 123 4567")).toBe("3001234567");
+describe("colombianMobile", () => {
+  it("reads a number however it is typed", () => {
+    expect(colombianMobile("300 123-4567")).toBe("3001234567");
+    expect(colombianMobile("+57 300 123 4567")).toBe("3001234567");
+    expect(colombianMobile("573001234567")).toBe("3001234567");
   });
 
-  it("wants 8 to 15 digits", () => {
-    expect(phoneProblem("123 4567")).toBe("phone_short");
-    expect(phoneProblem("1234 5678")).toBeNull();
-    expect(phoneProblem("+57 300 123 4567")).toBeNull();
-    expect(phoneProblem("1234567890123456")).toBe("phone_long");
+  it("refuses a landline, a short number or another country", () => {
+    expect(colombianMobile("6012345678")).toBeNull();
+    expect(colombianMobile("300123456")).toBeNull();
+    expect(colombianMobile("+1 300 123 4567")).toBeNull();
   });
 });
 
-describe("names and PINs", () => {
-  it("needs a name", () => {
-    expect(nameProblem("   ")).toBe("name_missing");
-    expect(nameProblem("María")).toBeNull();
+describe("the form rules", () => {
+  it("wants a name of two letters or more", () => {
+    expect(nameProblem(" A ")).toBe("name_short");
+    expect(nameProblem("Ana")).toBeNull();
   });
 
-  it("wants exactly four digits", () => {
-    expect(pinProblem("1234")).toBeNull();
-    expect(pinProblem("123")).toBe("pin_length");
-    expect(pinProblem("12345")).toBe("pin_length");
-    expect(pinProblem("12a4")).toBe("pin_length");
+  it("wants a Colombian mobile", () => {
+    expect(phoneProblem("12345")).toBe("phone_invalid");
+    expect(phoneProblem("310 987 6543")).toBeNull();
   });
 
-  it("checks the second PIN only once the first is right", () => {
-    expect(pinAgainProblem("1234", "1234")).toBeNull();
-    expect(pinAgainProblem("1234", "4321")).toBe("pin_mismatch");
-    expect(pinAgainProblem("12", "34")).toBeNull();
-  });
-});
-
-describe("the PIN hash", () => {
-  it("is the same for the same PIN and salt, and never the PIN itself", () => {
-    expect(hashPin("1234", "salt-1")).toBe(hashPin("1234", "salt-1"));
-    expect(hashPin("1234", "salt-1")).not.toContain("1234");
-    expect(hashPin("1234", "salt-1")).toMatch(/^[0-9a-f]{8}$/);
+  it("wants 10 to 128 characters, without the phone number", () => {
+    expect(passwordProblem("cafe", "3001234567")).toBe("password_short");
+    expect(passwordProblem("x".repeat(129), "3001234567")).toBe("password_long");
+    expect(passwordProblem("mi3001234567", "300 123 4567")).toBe("password_has_phone");
+    expect(passwordProblem("cafe-con-panela", "3001234567")).toBeNull();
   });
 
-  it("changes with the PIN or the salt", () => {
-    expect(hashPin("1234", "salt-1")).not.toBe(hashPin("1235", "salt-1"));
-    expect(hashPin("1234", "salt-1")).not.toBe(hashPin("1234", "salt-2"));
-  });
-});
-
-describe("logInResult", () => {
-  it("signs in with the same phone and PIN, however the phone is typed", () => {
-    expect(MARIA.name).toBe("María");
-    expect(logInResult(MARIA, "+573001234567", "1234")).toBe("ok");
-    expect(logInResult(MARIA, "+57 300 123 4567", "1234")).toBe("ok");
+  it("checks the second password only once the first is fine", () => {
+    expect(passwordAgainProblem("cafe", "other", "3001234567")).toBeNull();
+    expect(passwordAgainProblem("cafe-con-panela", "cafe-con-pan", "3001234567")).toBe(
+      "password_mismatch",
+    );
+    expect(passwordAgainProblem("cafe-con-panela", "cafe-con-panela", "3001234567")).toBeNull();
   });
 
-  it("does not say which of the two was wrong", () => {
-    expect(logInResult(MARIA, "+573001234567", "0000")).toBe("wrong");
-    expect(logInResult(MARIA, "+573009999999", "1234")).toBe("wrong");
+  it("asks the log-in only for some password", () => {
+    expect(passwordMissing("")).toBe("password_missing");
+    expect(passwordMissing("x")).toBeNull();
   });
 
-  it("asks for an account when the phone has none", () => {
-    expect(logInResult(null, "+573001234567", "1234")).toBe("no_account");
-  });
-});
-
-describe("the stored account", () => {
-  it("reads back what it saved", () => {
-    expect(fromStoredAccount(toStoredAccount(MARIA))).toEqual(MARIA);
-  });
-
-  it("ignores what it cannot trust", () => {
-    expect(fromStoredAccount(null)).toBeNull();
-    expect(fromStoredAccount("not json")).toBeNull();
-    expect(fromStoredAccount(JSON.stringify({ ...MARIA, version: 2 }))).toBeNull();
-    expect(fromStoredAccount(JSON.stringify({ version: 1, name: "María" }))).toBeNull();
+  it("wants a department, then a town, and the consent", () => {
+    expect(homeProblems("", "")).toEqual({ department: "department_missing", town: null });
+    expect(homeProblems("Huila", "")).toEqual({ department: null, town: "town_missing" });
+    expect(homeProblems("Huila", "La Plata")).toEqual({ department: null, town: null });
+    expect(consentProblem(false)).toBe("consent_missing");
+    expect(consentProblem(true)).toBeNull();
   });
 });

@@ -4,6 +4,8 @@ export type Route =
   | { screen: "welcome" }
   | { screen: "login" }
   | { screen: "signup" }
+  | { screen: "setup" }
+  | { screen: "advice" }
   | { screen: "today" }
   | { screen: "talk" }
   | { screen: "updates" }
@@ -19,6 +21,8 @@ export type Tab = "today" | "talk" | "updates";
 const PLAIN: Record<string, Route> = {
   login: { screen: "login" },
   signup: { screen: "signup" },
+  setup: { screen: "setup" },
+  advice: { screen: "advice" },
   today: { screen: "today" },
   talk: { screen: "talk" },
   updates: { screen: "updates" },
@@ -61,9 +65,14 @@ export function isEntryScreen(route: Route): boolean {
   return route.screen === "welcome" || route.screen === "login" || route.screen === "signup";
 }
 
-/** The tab a screen belongs to, as the design marks it. Entry screens have no tab bar. */
+/** Setting up the farm and choosing what to sow come before the crop is growing. */
+export function isSetupScreen(route: Route): boolean {
+  return route.screen === "setup" || route.screen === "advice";
+}
+
+/** The tab a screen belongs to, as the design marks it. Entry and setup screens have no tab bar. */
 export function tabOf(route: Route): Tab | null {
-  if (isEntryScreen(route)) return null;
+  if (isEntryScreen(route) || isSetupScreen(route)) return null;
   switch (route.screen) {
     case "talk":
       return "talk";

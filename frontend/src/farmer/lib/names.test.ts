@@ -20,8 +20,9 @@ describe("farmLabel", () => {
 });
 
 describe("cropLabel", () => {
-  it("names a known crop and passes an unknown one through", () => {
+  it("names every planner crop and writes an unknown one as words", () => {
     expect(cropLabel("maize")).toBe("Maize");
-    expect(cropLabel("sorghum")).toBe("sorghum");
+    expect(cropLabel("common_bean")).toBe("Beans");
+    expect(cropLabel("aguacate_hass")).toBe("aguacate hass");
   });
 });

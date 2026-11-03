@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gatedRoute, startRoute } from "./accountGate";
+import { gatedRoute, homeRoute, startRoute } from "./accountGate";
 import type { Route } from "./route";
 
 const PLAN: Route = { screen: "plan" };
@@ -12,23 +12,47 @@ describe("startRoute", () => {
   });
 });
 
-describe("gatedRoute", () => {
-  it("shows any screen once signed in", () => {
-    expect(gatedRoute(PLAN, true, true)).toEqual(PLAN);
-    expect(gatedRoute({ screen: "signup" }, true, true)).toEqual({ screen: "signup" });
+describe("homeRoute", () => {
+  it("sets up the farm, then chooses what to sow, then farms", () => {
+    expect(homeRoute("no_plot")).toEqual({ screen: "setup" });
+    expect(homeRoute("no_cycle")).toEqual({ screen: "advice" });
+    expect(homeRoute("farming")).toEqual({ screen: "today" });
+  });
+});
+
+describe("gatedRoute signed out", () => {
+  it("puts the log-in, or a first account, in front of farm and setup screens", () => {
+    expect(gatedRoute(PLAN, false, true, "loading")).toEqual({ screen: "login" });
+    expect(gatedRoute({ screen: "setup" }, false, false, "loading")).toEqual({ screen: "signup" });
   });
 
-  it("skips the log-in for a farmer already signed in", () => {
-    expect(gatedRoute({ screen: "login" }, true, true)).toEqual({ screen: "today" });
+  it("lets Welcome and the account screens open", () => {
+    expect(gatedRoute({ screen: "welcome" }, false, false, "loading")).toEqual({ screen: "welcome" });
+    expect(gatedRoute({ screen: "login" }, false, true, "loading")).toEqual({ screen: "login" });
+  });
+});
+
+describe("gatedRoute signed in", () => {
+  it("keeps the screen asked for while the farm loads", () => {
+    expect(gatedRoute(PLAN, true, true, "loading")).toEqual(PLAN);
   });
 
-  it("puts the log-in, or a first account, in front of farm screens", () => {
-    expect(gatedRoute(PLAN, false, true)).toEqual({ screen: "login" });
-    expect(gatedRoute(PLAN, false, false)).toEqual({ screen: "signup" });
+  it("sends a farmer without a farm to set one up, whatever was asked", () => {
+    expect(gatedRoute(PLAN, true, true, "no_plot")).toEqual({ screen: "setup" });
+    expect(gatedRoute({ screen: "signup" }, true, true, "no_plot")).toEqual({ screen: "setup" });
   });
 
-  it("lets Welcome and the account screens open signed out", () => {
-    expect(gatedRoute({ screen: "welcome" }, false, false)).toEqual({ screen: "welcome" });
-    expect(gatedRoute({ screen: "login" }, false, true)).toEqual({ screen: "login" });
+  it("sends a farm not yet sown to choose what to sow", () => {
+    expect(gatedRoute({ screen: "setup" }, true, true, "no_cycle")).toEqual({ screen: "advice" });
+  });
+
+  it("shows any farm screen once a crop grows, and setup is done", () => {
+    expect(gatedRoute(PLAN, true, true, "farming")).toEqual(PLAN);
+    expect(gatedRoute({ screen: "advice" }, true, true, "farming")).toEqual({ screen: "today" });
+    expect(gatedRoute({ screen: "login" }, true, true, "farming")).toEqual({ screen: "today" });
+  });
+
+  it("still lets Welcome open", () => {
+    expect(gatedRoute({ screen: "welcome" }, true, true, "farming")).toEqual({ screen: "welcome" });
   });
 });

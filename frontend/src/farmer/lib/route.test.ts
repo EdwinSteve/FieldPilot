@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hrefOf, isEntryScreen, parseRoute, tabOf, type Route } from "./route";
+import { hrefOf, isEntryScreen, isSetupScreen, parseRoute, tabOf, type Route } from "./route";
 
 describe("parseRoute", () => {
   it("opens on Welcome with no hash", () => {
@@ -42,6 +42,16 @@ describe("isEntryScreen", () => {
     expect(isEntryScreen({ screen: "login" })).toBe(true);
     expect(isEntryScreen({ screen: "signup" })).toBe(true);
     expect(isEntryScreen({ screen: "today" })).toBe(false);
+  });
+});
+
+describe("isSetupScreen", () => {
+  it("marks setting up the farm and choosing what to sow", () => {
+    expect(parseRoute("#/setup")).toEqual({ screen: "setup" });
+    expect(parseRoute("#/advice")).toEqual({ screen: "advice" });
+    expect(isSetupScreen({ screen: "advice" })).toBe(true);
+    expect(isSetupScreen({ screen: "plan" })).toBe(false);
+    expect(tabOf({ screen: "setup" })).toBeNull();
   });
 });
 

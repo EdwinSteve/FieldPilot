@@ -12,6 +12,13 @@ function walk(...routes: Route[]): Route[] {
   return routes.reduce<Route[]>((stack, route) => nextStack(stack, route), []);
 }
 
+describe("setup screens", () => {
+  it("start a new path, and Back never returns to them", () => {
+    expect(nextStack([{ screen: "today" }], { screen: "advice" })).toEqual([{ screen: "advice" }]);
+    expect(backOf([{ screen: "advice" }, { screen: "plan" }])).toEqual({ screen: "today" });
+  });
+});
+
 describe("nextStack", () => {
   it("starts a new path at every tab", () => {
     expect(walk(TODAY, PLAN, UPDATES)).toEqual([UPDATES]);
