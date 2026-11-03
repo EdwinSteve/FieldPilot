@@ -116,6 +116,29 @@ errors:
   site_build_failed: "No se pudo descargar los datos de la parcela (clima o suelo). Intenta de nuevo."
   site_build_off: "La descarga de datos de sitio está desactivada en este servidor."
   site_build_interrupted: "Se interrumpió por un reinicio del servidor. Intenta de nuevo."
+  # The market (D085).
+  farmer_account: "Inicia sesión con una cuenta de agricultor para vender."
+  customer_account: "Inicia sesión con una cuenta de cliente para comprar."
+  operator_only: "Solo un operador de bodega puede hacer esto."
+  crop_not_sellable: "{crop} no se vende como alimento en esta plataforma."
+  listing_quantity: "La cantidad debe ser en kilos enteros, mayor que 0 y como máximo la cosecha."
+  lot_already_listed: "Este lote ya está publicado."
+  listing_not_yours: "Esta publicación no es tuya."
+  listing_state: "La publicación está en estado {status}; esta acción no aplica."
+  shipment_received: "Este envío ya fue recibido."
+  invalid_receipt: "Los kilos recibidos deben ser mayores que 0 y como máximo los despachados."
+  price_too_low: >-
+    El agricultor recibiría el {share_pct} % del precio final, por debajo del
+    mínimo de {min_pct} %. Sube el precio.
+  offer_discount: "El descuento debe estar entre 1 y {max_pct} %."
+  offer_dates: "Una oferta empieza hoy o después y dura como máximo {max_days} días."
+  cart_quantity: "Una línea del carrito lleva entre 0 y {max_kg} kg."
+  out_of_stock: "Solo quedan {available_kg} kg de {crop}."
+  cart_changed: "Un producto del carrito ya no está disponible en esa cantidad. Revisa el carrito."
+  empty_cart: "El carrito está vacío."
+  delivery_address_missing: "Hace falta una dirección de entrega."
+  payment_declined: "El pago fue rechazado."
+  order_state: "El pedido está en estado {status}; esta acción no aplica."
 
 # 503 answers: one fixed, safe message per error (§7).
 unavailable:

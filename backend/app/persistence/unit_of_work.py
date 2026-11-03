@@ -6,6 +6,12 @@ from typing import Self
 from sqlalchemy import Engine
 from sqlmodel import Session
 
+from app.persistence.repositories.commerce import (
+    SqlCustomerRepository,
+    SqlListingRepository,
+    SqlOrderRepository,
+    SqlWarehouseRepository,
+)
 from app.persistence.repositories.crop import (
     SqlCropCycleRepository,
     SqlReportRepository,
@@ -72,6 +78,10 @@ class SqlUnitOfWork:
         self.plot_sites = SqlPlotSiteRepository(session)
         self.lots = SqlHarvestLotRepository(session)
         self.trace_events = SqlTraceEventRepository(session)
+        self.warehouses = SqlWarehouseRepository(session)
+        self.listings = SqlListingRepository(session)
+        self.customers = SqlCustomerRepository(session)
+        self.orders = SqlOrderRepository(session)
         return self
 
     def __exit__(

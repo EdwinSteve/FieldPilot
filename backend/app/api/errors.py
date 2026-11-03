@@ -37,6 +37,15 @@ from app.identity.errors import (
     StalePolicyError,
     WeakPasswordError,
 )
+from app.market.errors import (
+    EmptyCartError,
+    InvalidOfferError,
+    InvalidReceiptError,
+    ListingStateError,
+    OutOfStockError,
+    PaymentDeclinedError,
+    PriceTooLowError,
+)
 from app.services.revert import RevertRefusedError
 from app.voice.speech import NothingHeardError, SpeechUnavailableError, UnsupportedAudioError
 
@@ -59,6 +68,13 @@ _CLIENT_ERRORS: dict[type[Exception], HTTPStatus] = {
     WeakPasswordError: HTTPStatus.UNPROCESSABLE_ENTITY,
     ConsentRequiredError: HTTPStatus.UNPROCESSABLE_ENTITY,
     NotFoundError: HTTPStatus.NOT_FOUND,
+    ListingStateError: HTTPStatus.CONFLICT,
+    OutOfStockError: HTTPStatus.CONFLICT,
+    EmptyCartError: HTTPStatus.CONFLICT,
+    PriceTooLowError: HTTPStatus.UNPROCESSABLE_ENTITY,
+    InvalidOfferError: HTTPStatus.UNPROCESSABLE_ENTITY,
+    InvalidReceiptError: HTTPStatus.UNPROCESSABLE_ENTITY,
+    PaymentDeclinedError: HTTPStatus.PAYMENT_REQUIRED,
     ActiveCycleExistsError: HTTPStatus.CONFLICT,
     OpenTasksError: HTTPStatus.CONFLICT,
     SiteJobPendingError: HTTPStatus.CONFLICT,

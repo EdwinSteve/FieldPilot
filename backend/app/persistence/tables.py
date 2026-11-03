@@ -280,3 +280,141 @@ class TraceEventRow(SQLModel, table=True):
     data: dict[str, Any] = _json(dict)
     prev_hash: str
     hash: str
+
+
+# The market (§4.15, D085). Grams and minor units; customer data never in `event`.
+
+
+class WarehouseRow(SQLModel, table=True):
+    __tablename__ = "warehouse"
+
+    id: int | None = Field(default=None, primary_key=True)
+    code: str = Field(unique=True, index=True)
+    name: str
+    municipality: str
+    department: str
+    cold_storage: bool
+
+
+class ListingRow(SQLModel, table=True):
+    __tablename__ = "listing"
+
+    id: int | None = Field(default=None, primary_key=True)
+    lot_code: str = Field(foreign_key="harvest_lot.code", unique=True)
+    farmer_id: int = Field(foreign_key="user.id", index=True)
+    warehouse_id: int = Field(foreign_key="warehouse.id", index=True)
+    crop: str = Field(index=True)
+    quantity_g: int
+    farmer_price_minor: int
+    currency: str
+    status: str = Field(index=True)
+    created_at: datetime = _utc()
+
+
+class ShipmentRow(SQLModel, table=True):
+    __tablename__ = "shipment"
+
+    id: int | None = Field(default=None, primary_key=True)
+    listing_id: int = Field(foreign_key="listing.id", unique=True)
+    warehouse_id: int = Field(foreign_key="warehouse.id")
+    dispatched_g: int
+    dispatched_at: datetime = _utc()
+    received_g: int | None = None
+    temperature_c: float | None = None
+    received_at: datetime | None = _utc(nullable=True)
+    received_by: str | None = None
+
+
+class StockMovementRow(SQLModel, table=True):
+    __tablename__ = "stock_movement"
+
+    id: int | None = Field(default=None, primary_key=True)
+    listing_id: int = Field(foreign_key="listing.id", index=True)
+    delta_g: int
+    reason: str
+    ref: str
+    occurred_at: datetime = _utc()
+
+
+class OfferRow(SQLModel, table=True):
+    __tablename__ = "offer"
+
+    id: int | None = Field(default=None, primary_key=True)
+    listing_id: int = Field(foreign_key="listing.id", index=True)
+    discount_pct: int
+    starts_on: date
+    ends_on: date
+    created_at: datetime = _utc()
+
+
+class CustomerProfileRow(SQLModel, table=True):
+    __tablename__ = "customer_profile"
+
+    user_id: int = Field(foreign_key="user.id", primary_key=True)
+    delivery_address: str | None = None
+    consent_profiling_at: datetime | None = _utc(nullable=True)
+
+
+class CartItemRow(SQLModel, table=True):
+    __tablename__ = "cart_item"
+    __table_args__ = (UniqueConstraint("customer_id", "listing_id"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    customer_id: int = Field(foreign_key="user.id", index=True)
+    listing_id: int = Field(foreign_key="listing.id")
+    quantity_kg: int
+
+
+class CustomerOrderRow(SQLModel, table=True):
+    __tablename__ = "customer_order"
+
+    id: int | None = Field(default=None, primary_key=True)
+    customer_id: int = Field(foreign_key="user.id", index=True)
+    status: str = Field(index=True)
+    total_minor: int
+    currency: str
+    payment_ref: str
+    delivery_address: str
+    placed_at: datetime = _utc(index=True)
+    delivered_at: datetime | None = _utc(nullable=True)
+    cancelled_at: datetime | None = _utc(nullable=True)
+
+
+class OrderLineRow(SQLModel, table=True):
+    __tablename__ = "order_line"
+
+    id: int | None = Field(default=None, primary_key=True)
+    order_id: int = Field(foreign_key="customer_order.id", index=True)
+    listing_id: int = Field(foreign_key="listing.id", index=True)
+    lot_code: str = Field(foreign_key="harvest_lot.code")
+    farmer_id: int = Field(foreign_key="user.id", index=True)
+    crop: str
+    quantity_kg: int
+    farmer_minor: int  # per kg, frozen at checkout
+    logistics_minor: int
+    platform_minor: int
+    discount_pct: int
+    currency: str
+
+
+class PayoutRow(SQLModel, table=True):
+    __tablename__ = "payout"
+
+    id: int | None = Field(default=None, primary_key=True)
+    order_line_id: int = Field(foreign_key="order_line.id", unique=True)
+    farmer_id: int = Field(foreign_key="user.id", index=True)
+    amount_minor: int
+    currency: str
+    created_at: datetime = _utc()
+
+
+class CartProposalRow(SQLModel, table=True):
+    __tablename__ = "cart_proposal"
+
+    id: int | None = Field(default=None, primary_key=True)
+    customer_id: int = Field(foreign_key="user.id", index=True)
+    items: list[dict[str, Any]] = _json(list)
+    note: str
+    status: str
+    run_id: str
+    created_at: datetime = _utc()

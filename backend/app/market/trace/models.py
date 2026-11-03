@@ -17,9 +17,12 @@ class Grade(StrEnum):
 
 
 class BizStep(StrEnum):
-    """GS1 EPCIS 2.0 business steps; shipping, receiving and selling come later (D080)."""
+    """GS1 EPCIS 2.0 business steps (D080, D085)."""
 
-    COMMISSIONING = "commissioning"
+    COMMISSIONING = "commissioning"  # the harvest
+    SHIPPING = "shipping"  # the farmer took it to the warehouse
+    RECEIVING = "receiving"  # the warehouse received it
+    RETAIL_SELLING = "retail_selling"  # a customer received it
 
 
 @dataclass(frozen=True)

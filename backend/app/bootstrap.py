@@ -15,7 +15,7 @@ from pathlib import Path
 from app.actuation.config import ActuationConfig, load_actuation_config
 from app.actuation.emergency import StoredEmergencyStop
 from app.actuation.simulated import SimulatedActuator
-from app.agent.catalog import load_agent_catalog
+from app.agent.catalog import SHOPPER, load_agent_catalog
 from app.agent.loop import Subagent
 from app.autonomy.messages import MessageCatalog, load_message_catalog
 from app.autonomy.policy import AutonomyPolicy, load_autonomy_policy, validate_stage_overrides
@@ -24,6 +24,7 @@ from app.domain.errors import ConfigError
 from app.domain.models import Event
 from app.identity.config import IdentityConfig, load_identity_config
 from app.identity.tokens import MIN_SECRET_LENGTH
+from app.market.config import MarketConfig, load_market_config
 from app.persistence.db import create_db_engine, init_schema
 from app.persistence.ports import UnitOfWork
 from app.persistence.unit_of_work import SqlUnitOfWork
@@ -52,6 +53,8 @@ class RuntimeConfig:
     imaging: ImagingConfig
     subagents: tuple[Subagent, ...]
     identity: IdentityConfig
+    market: MarketConfig  # D085
+    shopper: Subagent  # the customer's shopping assistant (D085)
 
 
 def load_runtime_config(config_dir: Path, language: str = "en") -> RuntimeConfig:
@@ -83,6 +86,8 @@ def load_runtime_config(config_dir: Path, language: str = "en") -> RuntimeConfig
         imaging=load_imaging_config(config_dir / "imaging.yaml"),
         subagents=load_agent_catalog(config_dir / "agents", language=language),  # D053, D055, D084
         identity=load_identity_config(config_dir / "identity.yaml"),  # D082
+        market=load_market_config(config_dir / "market.yaml"),
+        shopper=load_agent_catalog(config_dir / "agents", (SHOPPER,), language=language)[0],
     )
 
 
