@@ -672,6 +672,13 @@ class IntegrityOut(BaseModel):
     trace_events: int
 
 
+class JourneyStepOut(BaseModel):
+    step: str
+    on: date
+    quantity_kg: float
+    place: str | None
+
+
 class PassportOut(BaseModel):
     """Public: never coordinates, names, phones, sensor readings or prices."""
 
@@ -690,6 +697,7 @@ class PassportOut(BaseModel):
     cultivation: dict[str, JsonValue]
     plan: dict[str, JsonValue]
     integrity: IntegrityOut
+    journey: list[JourneyStepOut]  # harvest, warehouse and sale (D085)
 
     @classmethod
     def of(cls, passport: Passport) -> "PassportOut":
@@ -709,4 +717,5 @@ class PassportOut(BaseModel):
             cultivation=dict(passport.cultivation),
             plan=dict(passport.plan),
             integrity=IntegrityOut(**asdict(passport.integrity)),
+            journey=[JourneyStepOut(**asdict(step)) for step in passport.journey],
         )

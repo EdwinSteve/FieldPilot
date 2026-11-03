@@ -17,9 +17,15 @@ from app.agent.llm.ports import LLMClient
 from app.autonomy.gate import AutonomyGate
 from app.bootstrap import AuthSetting, Runtime, RuntimeConfig
 from app.identity.access import AccessPolicy
+from app.identity.models import Principal
 from app.identity.passwords import Argon2Hasher
 from app.identity.service import AuthService
 from app.identity.tokens import JwtAccessTokens
+from app.market.listings import ListingService
+from app.market.orders import OrderService
+from app.market.payments import MockPaymentGateway
+from app.market.recommend.service import RecommendationService
+from app.market.store import StoreService
 from app.market.trace.passport import PassportService
 from app.planning.ports import CropRecommender
 from app.planning.setup import build_recommender
@@ -56,10 +62,11 @@ from app.services.queries import FarmQueries
 from app.services.rain_forecast import PlotRainForecast
 from app.services.revert import RevertService
 from app.services.scenarios import ScenarioService
+from app.services.shopper import ShopperService, StoreShopperPort
 from app.services.ticker import SimulationTicker
 from app.services.voice_chat import VoiceChatService
 from app.settings import Settings
-from app.simulator.clock import system_wall_clock
+from app.simulator.clock import SimClock, system_wall_clock
 from app.voice.muse import MuseVoiceTranscribe
 from app.weather.fixture import FixtureForecast
 
@@ -93,6 +100,11 @@ class Container:
     plots: PlotService  # plots and their site data (D083)
     cycles: CycleService  # the sowing and the harvest the farmer confirms (D083)
     passports: PassportService  # stage 3, first slice (D083)
+    listings: ListingService  # the farmer's and the warehouse's side (D085)
+    store: StoreService  # the customer's side (D085)
+    orders: OrderService
+    recommendations: RecommendationService
+    shopper: ShopperService | None  # None under MOCK_LLM=1, as the chat (D063, D085)
 
 
 def build_container(
@@ -162,6 +174,14 @@ def build_container(
     recommender = build_recommender(settings.planner_dir, settings.planner_bundle)
     sites = FileSiteSource([settings.data_dir / "fixtures" / "planner", _sites_dir(settings)])
     crop_names = _crop_names(recommender, config)
+    passports = PassportService(uow, config.messages, config.messages_es)
+    access = AccessPolicy(uow)
+    listings = ListingService(uow, clock, config.market, access)
+    listings.ensure_warehouses()  # the default warehouse in Bogotá, D.C. (D085)
+    payments = MockPaymentGateway()
+    store = StoreService(uow, clock, config.market, config.messages, payments)
+    orders = OrderService(uow, clock, payments)
+    recommendations = RecommendationService(uow, store, config.market)
     planning = PlanningService(uow, clock, sites, recommender, config.crops, crop_names)
     site_jobs = _site_jobs(settings, runtime)
     return Container(
@@ -183,11 +203,16 @@ def build_container(
         voice=voice,
         auth_required=auth.required,
         auth=_auth_service(runtime, config, auth),
-        access=AccessPolicy(uow),
+        access=access,
         planning=planning,
         plots=PlotService(uow, clock, sites, site_jobs, config.messages),
         cycles=CycleService(uow, clock, planning, config.crops, crop_names),
-        passports=PassportService(uow, config.messages, config.messages_es),
+        passports=passports,
+        listings=listings,
+        store=store,
+        orders=orders,
+        recommendations=recommendations,
+        shopper=_shopper(live, config, store, orders, recommendations, passports, clock),
     )
 
 
@@ -201,6 +226,27 @@ def _site_jobs(settings: Settings, runtime: Runtime) -> SiteJobs:
     jobs = SiteJobs(runtime.uow, system_wall_clock, builder, _sites_dir(settings))
     jobs.recover()
     return jobs
+
+
+def _shopper(
+    live: AgentDeps | None,
+    config: RuntimeConfig,
+    store: StoreService,
+    orders: OrderService,
+    recommendations: RecommendationService,
+    passports: PassportService,
+    clock: SimClock,
+) -> ShopperService | None:
+    """The shopping assistant runs on the farm agent's model, or not at all in mock mode."""
+    if live is None:
+        return None
+
+    def port_for(principal: Principal, run_id: str) -> StoreShopperPort:
+        return StoreShopperPort(principal, store, orders, recommendations, passports, clock, run_id)
+
+    return ShopperService(
+        live.llm, config.shopper, live.max_turns, port_for, lambda: uuid.uuid4().hex, store.proposal
+    )
 
 
 def _sites_dir(settings: Settings) -> Path:

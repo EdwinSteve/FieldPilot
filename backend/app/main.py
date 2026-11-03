@@ -4,7 +4,19 @@ from fastapi import Depends, FastAPI
 
 from app.api.auth import require_farm_access
 from app.api.errors import install_error_handlers
-from app.api.routes import agent, autonomy, control, farm, health, lifecycle, log, tasks, trace
+from app.api.routes import (
+    agent,
+    autonomy,
+    control,
+    farm,
+    health,
+    lifecycle,
+    log,
+    market,
+    store,
+    tasks,
+    trace,
+)
 from app.api.routes import auth as auth_routes
 from app.bootstrap import (
     load_runtime_config,
@@ -35,7 +47,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.config = runtime_config
     app.state.runtime = runtime
     app.state.container = build_container(resolved_settings, runtime_config, runtime, auth)
-    for module in (health, auth_routes, trace):  # trace: the public passport
+    # trace, market and store check their own roles: farmers, operators and customers (D085)
+    for module in (health, auth_routes, trace, market, store):
         app.include_router(module.router)
     for module in (farm, lifecycle, tasks, log, agent, autonomy, control):  # D082: farm roles only
         app.include_router(module.router, dependencies=[Depends(require_farm_access)])

@@ -2,15 +2,17 @@
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 
 from app.autonomy.messages import MessageCatalog
 from app.domain.models import JsonValue
 from app.market.trace.chain import verify_chain
+from app.market.trace.models import TraceEvent
 from app.market.trace.record import source_digest, source_events
 from app.persistence.ports import UnitOfWork
 
 UowFactory = Callable[[], UnitOfWork]
+COLOMBIA_OFFSET = timedelta(hours=-5)  # the public sees local dates
 
 
 @dataclass(frozen=True)
@@ -19,6 +21,16 @@ class Integrity:
     chain_head: str
     source_digest: str
     trace_events: int
+
+
+@dataclass(frozen=True)
+class JourneyStep:
+    """One step of the lot's chain, as the public may see it (D085)."""
+
+    step: str  # commissioning | shipping | receiving | retail_selling
+    on: date
+    quantity_kg: float
+    place: str | None  # the warehouse, when the step happened at one
 
 
 @dataclass(frozen=True)
@@ -40,6 +52,7 @@ class Passport:
     cultivation: Mapping[str, JsonValue]
     plan: Mapping[str, JsonValue]
     integrity: Integrity
+    journey: tuple[JourneyStep, ...] = ()
 
 
 class PassportService:
@@ -81,6 +94,7 @@ class PassportService:
             grade=lot.grade.value,
             cultivation=_mapping(sealed.get("cultivation")),
             plan=_mapping(sealed.get("plan")),
+            journey=tuple(_step(event) for event in chain),
             integrity=Integrity(
                 verified=verify_chain(chain) and sealed_digest == current,
                 chain_head=chain[-1].hash if chain else "",
@@ -92,3 +106,13 @@ class PassportService:
 
 def _mapping(value: JsonValue | None) -> Mapping[str, JsonValue]:
     return value if isinstance(value, dict) else {}
+
+
+def _step(event: TraceEvent) -> JourneyStep:
+    place = event.data.get("warehouse_name")
+    return JourneyStep(
+        step=event.biz_step.value,
+        on=(event.occurred_at + COLOMBIA_OFFSET).date(),
+        quantity_kg=event.quantity_g / 1000,
+        place=place if isinstance(place, str) else None,
+    )
