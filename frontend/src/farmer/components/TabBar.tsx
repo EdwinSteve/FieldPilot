@@ -33,20 +33,22 @@ function markOf(tab: Tab, current: boolean, { unread, decisionWaiting }: TabBarP
   return null;
 }
 
-function Badge({ mark }: { mark: Mark }) {
+/** The badge's ring matches what is under it, so it looks cut out of the tab. */
+function Badge({ mark, current }: { mark: Mark; current: boolean }) {
   if (mark === null) return null;
+  const ring = current ? "border-tint" : "border-surface";
   if (mark.kind === "dot") {
     return (
       <span
         aria-hidden="true"
-        className="absolute -top-0.5 left-5.5 size-4 rounded-full border-2 border-surface bg-needs"
+        className={`absolute -top-0.5 left-5.5 size-4 rounded-full border-2 bg-needs ${ring}`}
       />
     );
   }
   return (
     <span
       aria-hidden="true"
-      className="absolute -top-1.5 left-5 flex h-6 min-w-6 items-center justify-center rounded-pill border-2 border-surface bg-stop px-1 text-caption leading-none font-extrabold text-surface"
+      className={`absolute -top-1.5 left-5 flex h-6 min-w-6 items-center justify-center rounded-pill border-2 bg-stop px-1 text-caption leading-none font-extrabold text-surface ${ring}`}
     >
       {mark.text}
     </span>
@@ -57,7 +59,7 @@ export function TabBar(props: TabBarProps) {
   return (
     <nav
       aria-label={en.tabs.label}
-      className="grid h-[calc(5.5rem+env(safe-area-inset-bottom))] shrink-0 grid-cols-3 items-center border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]"
+      className="grid h-[calc(5.5rem+env(safe-area-inset-bottom))] shrink-0 grid-cols-3 gap-1.5 border-t border-border bg-surface px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
     >
       {TABS.map(({ tab, icon, label }) => {
         const current = tab === props.active;
@@ -67,13 +69,13 @@ export function TabBar(props: TabBarProps) {
             key={tab}
             href={hrefOf({ screen: tab })}
             aria-current={current ? "page" : undefined}
-            className={`press flex flex-col items-center gap-1 py-2 text-caption no-underline ${
-              current ? "font-extrabold text-primary" : "font-semibold text-ink-3"
+            className={`press flex flex-col items-center justify-center gap-1 rounded-tile text-caption no-underline ${
+              current ? "bg-tint font-extrabold text-primary" : "font-semibold text-ink-3"
             }`}
           >
             <span className="relative">
               <Icon name={icon} size={30} />
-              <Badge mark={mark} />
+              <Badge mark={mark} current={current} />
             </span>
             {label}
             {mark === null ? null : <span className="sr-only">, {mark.spoken}</span>}
