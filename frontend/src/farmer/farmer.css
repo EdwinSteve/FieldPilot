@@ -155,10 +155,16 @@
     outline-offset: 2px;
   }
 
+  /* A heading takes focus only so a screen reader announces the new screen: no ring. */
+  h1[tabindex="-1"]:focus {
+    outline: none;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
-    *::after {
+    *::after,
+    *::backdrop {
       animation: none !important;
       transition: none !important;
     }
