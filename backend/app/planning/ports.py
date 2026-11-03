@@ -8,6 +8,8 @@ from typing import Protocol
 from fieldpilot_planner.crops import CropCard
 from fieldpilot_planner.serving import PlanOutputs, SiteSnapshot, SowingContext
 
+from app.domain.models import Plot
+
 
 @dataclass(frozen=True)
 class SiteRecord:
@@ -16,7 +18,7 @@ class SiteRecord:
 
 
 class SiteSource(Protocol):
-    def site(self, plot_id: int) -> SiteRecord: ...  # MissingDataError when there is none
+    def site(self, plot: Plot) -> SiteRecord: ...  # MissingDataError when none matches the plot
 
 
 @dataclass(frozen=True)

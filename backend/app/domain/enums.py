@@ -87,6 +87,9 @@ class EventKind(StrEnum):
     SCENARIO_INJECTED = "scenario_injected"
     PHENOLOGY_GAP = "phenology_gap"
     PLANTING_PLAN_SERVED = "planting_plan_served"  # D079
+    CYCLE_STARTED = "cycle_started"  # D083
+    HARVEST_CONFIRMED = "harvest_confirmed"
+    LOT_COMMISSIONED = "lot_commissioned"
 
 
 # Event kinds that close an EXECUTION_REQUESTED with the same idempotency key.

@@ -5,7 +5,7 @@ can be tested with fakes and the storage can change without touching them.
 """
 
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import date, datetime
 from types import TracebackType
 from typing import Protocol, Self
 
@@ -26,6 +26,8 @@ from app.domain.models import (
     Zone,
 )
 from app.identity.models import AuthEvent, RefreshSession, User
+from app.market.trace.models import HarvestLot, TraceEvent
+from app.planning.models import SiteJob
 
 
 class PlotRepository(Protocol):
@@ -144,6 +146,27 @@ class PlotMemberRepository(Protocol):
     def is_member(self, plot_id: int, user_id: int) -> bool: ...
 
 
+class PlotSiteRepository(Protocol):
+    def get(self, plot_id: int) -> SiteJob | None: ...
+    def save(self, job: SiteJob) -> None: ...
+    def pending(self) -> Sequence[SiteJob]: ...
+
+
+class HarvestLotRepository(Protocol):
+    def add(self, lot: HarvestLot) -> HarvestLot: ...
+    def get(self, code: str) -> HarvestLot: ...
+    def find_by_cycle(self, cycle_id: int) -> HarvestLot | None: ...
+    def list_by_plot(self, plot_id: int) -> Sequence[HarvestLot]: ...
+    def count_on(self, plot_id: int, harvested_on: date) -> int: ...
+
+
+class TraceEventRepository(Protocol):
+    """Append-only: there is deliberately no update or delete."""
+
+    def append(self, event: TraceEvent) -> TraceEvent: ...
+    def list(self, lot_code: str) -> Sequence[TraceEvent]: ...
+
+
 class UnitOfWork(Protocol):
     """One transaction. Nothing is persisted unless `commit()` is called.
 
@@ -184,6 +207,12 @@ class UnitOfWork(Protocol):
     def auth_events(self) -> AuthEventRepository: ...
     @property
     def plot_members(self) -> PlotMemberRepository: ...
+    @property
+    def plot_sites(self) -> PlotSiteRepository: ...
+    @property
+    def lots(self) -> HarvestLotRepository: ...
+    @property
+    def trace_events(self) -> TraceEventRepository: ...
 
     def __enter__(self) -> Self: ...
     def __exit__(

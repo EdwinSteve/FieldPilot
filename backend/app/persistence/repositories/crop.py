@@ -36,6 +36,7 @@ class SqlCropCycleRepository:
         row.accumulated_gdd = cycle.accumulated_gdd
         row.gdd_updated_through = cycle.gdd_updated_through
         row.status = cycle.status
+        row.harvested_on = cycle.harvested_on
         self._session.flush()
         return mappers.cycle_from_row(row)
 

@@ -342,7 +342,7 @@ The language model never actuates hardware. Only the Irrigation subagent can
 propose an action, and every proposal passes through the autonomy gate, which
 applies the autonomy level, then the safety rules. The chat answers from
 verified readings and never acts.
-Module contracts and the data model are in [`docs/architecture.md`](docs/architecture.md).
+Module contracts and the data model are in [`docs/architecture.md`](docs/architecture.md). Building a screen? Start with the API guide, [`docs/api.md`](docs/api.md): login, plots, the plan, sowing, harvest and the public passport, with examples.
 
 **Stack:** Python 3.12 · FastAPI · SQLite · React · Vite · pytest
 **Models:** Muse Spark (agent) · Muse Voice Transcribe (speech) · SAM 3.1 (segmentation)

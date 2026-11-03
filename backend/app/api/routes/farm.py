@@ -13,18 +13,12 @@ from app.api.schemas import (
     CycleOut,
     ImageryOut,
     PlantingPlanOut,
-    PlotOut,
     SensorReadingsOut,
     ZoneOut,
 )
 from app.services.planning import MAX_WEEKS, PlanRequest
 
 router = APIRouter(tags=["farm"])
-
-
-@router.get("/plots")
-def list_plots(container: ContainerDep) -> list[PlotOut]:
-    return [PlotOut.of(p) for p in container.queries.plots()]
 
 
 @router.get("/plots/{plot_id}/zones")

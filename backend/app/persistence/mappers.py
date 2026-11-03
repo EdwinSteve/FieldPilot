@@ -18,6 +18,7 @@ from app.domain.models import (
     Event,
     Money,
     Notification,
+    PlanAtSowing,
     Plot,
     Reading,
     Report,
@@ -57,6 +58,8 @@ def plot_to_row(plot: Plot) -> PlotRow:
         area_ha=plot.area_ha,
         created_at=plot.created_at,
         utc_offset_hours=plot.utc_offset_hours,
+        municipality=plot.municipality,
+        department=plot.department,
     )
 
 
@@ -69,6 +72,8 @@ def plot_from_row(row: PlotRow) -> Plot:
         area_ha=row.area_ha,
         created_at=row.created_at,
         utc_offset_hours=row.utc_offset_hours,
+        municipality=row.municipality,
+        department=row.department,
     )
 
 
@@ -124,6 +129,13 @@ def cycle_to_row(cycle: CropCycle) -> CropCycleRow:
         accumulated_gdd=cycle.accumulated_gdd,
         gdd_updated_through=cycle.gdd_updated_through,
         status=cycle.status,
+        automated=cycle.automated,
+        own_risk=cycle.own_risk,
+        plan_model=None if cycle.plan is None else cycle.plan.model,
+        plan_rank=None if cycle.plan is None else cycle.plan.rank,
+        plan_rel_yield_p50=None if cycle.plan is None else cycle.plan.rel_yield_p50,
+        plan_p_success=None if cycle.plan is None else cycle.plan.p_success,
+        harvested_on=cycle.harvested_on,
     )
 
 
@@ -136,7 +148,22 @@ def cycle_from_row(row: CropCycleRow) -> CropCycle:
         accumulated_gdd=row.accumulated_gdd,
         gdd_updated_through=row.gdd_updated_through,
         status=CycleStatus(row.status),
+        automated=row.automated,
+        own_risk=row.own_risk,
+        plan=_plan_from_row(row),
+        harvested_on=row.harvested_on,
     )
+
+
+def _plan_from_row(row: CropCycleRow) -> PlanAtSowing | None:
+    if (
+        row.plan_model is None
+        or row.plan_rank is None
+        or row.plan_rel_yield_p50 is None
+        or row.plan_p_success is None
+    ):
+        return None
+    return PlanAtSowing(row.plan_model, row.plan_rank, row.plan_rel_yield_p50, row.plan_p_success)
 
 
 def stage_to_row(stage: Stage) -> StageRow:

@@ -48,3 +48,27 @@ class ConfigError(ValueError):
 
 class ScenarioRejectedError(DomainError):
     """A scenario the simulator cannot apply, such as one starting in the simulated past."""
+
+
+class ActiveCycleExistsError(DomainError):
+    """A plot has one active cycle at a time (D083)."""
+
+
+class InvalidSowingDateError(DomainError):
+    """A sowing is confirmed after it happened: today or up to 60 days back (D083)."""
+
+
+class OwnRiskRequiredError(DomainError):
+    """The crop is outside the planner's top 3: the farmer must accept the risk (D083)."""
+
+
+class InvalidHarvestError(DomainError):
+    """A harvest date or quantity that cannot be true (D083)."""
+
+
+class OpenTasksError(DomainError):
+    """Tasks still pending or scheduled: nothing may act on a harvested field (D083)."""
+
+
+class SiteJobPendingError(DomainError):
+    """The plot's site data is already being built."""

@@ -20,6 +20,7 @@ from app.domain.models import (
     Task,
     Zone,
 )
+from app.market.trace.models import HarvestLot
 from app.persistence.ports import UnitOfWork
 from app.phenology.catalog import CropCatalog, CropSpec
 from app.services.gate_context import local_day
@@ -51,6 +52,7 @@ class SensorReadings:
 class CycleView:
     cycle: CropCycle
     stages: tuple[Stage, ...]
+    lot_code: str | None = None  # set once the harvest was confirmed (D083)
 
 
 class FarmQueries:
@@ -73,6 +75,11 @@ class FarmQueries:
     def plots(self) -> Sequence[Plot]:
         with self._uow() as u:
             return u.plots.list()
+
+    def lots(self, plot_id: int) -> Sequence[HarvestLot]:
+        with self._uow() as u:
+            u.plots.get(plot_id)  # 404 for an unknown plot, not an empty list
+            return u.lots.list_by_plot(plot_id)
 
     def zones(self, plot_id: int) -> Sequence[Zone]:
         with self._uow() as u:
@@ -176,5 +183,9 @@ class FarmQueries:
 
     @staticmethod
     def _cycle_view(u: UnitOfWork, cycle: CropCycle) -> CycleView:
-        stages = u.stages.list_by_cycle(cycle.id) if cycle.id is not None else []
-        return CycleView(cycle, tuple(stages))
+        if cycle.id is None:
+            return CycleView(cycle, ())
+        lot = u.lots.find_by_cycle(cycle.id)
+        return CycleView(
+            cycle, tuple(u.stages.list_by_cycle(cycle.id)), None if lot is None else lot.code
+        )
