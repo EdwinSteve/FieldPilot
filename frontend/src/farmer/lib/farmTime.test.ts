@@ -6,6 +6,7 @@ import {
   formatClockRange,
   formatDateLine,
   localHour,
+  dayHeading,
   plusDays,
   relativeDay,
   shortWeekday,
@@ -62,6 +63,17 @@ describe("relativeDay", () => {
 
   it("counts plot days", () => {
     expect(daysFromToday("2026-11-04T11:00:00Z", MONDAY_6AM, OFFSET)).toBe(2);
+  });
+});
+
+describe("dayHeading", () => {
+  it.each([
+    ["2026-11-02T11:00:00Z", "Today"],
+    ["2026-11-01T11:00:00Z", "Yesterday"],
+    ["2026-11-03T11:00:00Z", "Tomorrow"],
+    ["2026-10-30T11:00:00Z", "Fri 30 Oct"],
+  ])("heads %s as %s", (iso, label) => {
+    expect(dayHeading(iso, MONDAY_6AM, OFFSET)).toBe(label);
   });
 });
 

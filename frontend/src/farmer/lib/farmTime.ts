@@ -77,6 +77,13 @@ export function relativeDay(iso: string, nowIso: string, utcOffsetHours: number)
   return shortWeekday(iso, utcOffsetHours);
 }
 
+/** A heading for a list by day: "Today", "Yesterday", "Tomorrow" or "Mon 2 Nov". */
+export function dayHeading(iso: string, nowIso: string, utcOffsetHours: number): string {
+  const days = daysFromToday(iso, nowIso, utcOffsetHours);
+  if (days >= -1 && days <= 1) return relativeDay(iso, nowIso, utcOffsetHours);
+  return `${shortWeekday(iso, utcOffsetHours)} ${formatCalendarDate(plotDay(iso, utcOffsetHours))}`;
+}
+
 /** An instant `days` whole days after `iso`. */
 export function plusDays(iso: string, days: number): string {
   return new Date(Date.parse(iso) + days * DAY_MS).toISOString();
