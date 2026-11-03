@@ -1,0 +1,41 @@
+# CropPlannerNet training for an RTX 5060 Ti 16 GB (planner/README.md §8).
+
+model:
+  weather_channels: 64
+  dilations: [1, 2, 4, 8, 16, 32]
+  clim_channels: 32
+  static_hidden: 128
+  embedding: 256
+  head_hidden: 128
+  dropout: 0.1
+
+optim:
+  batch_size: 1024         # site-dates; every crop is scored for each
+  lr: 0.001
+  weight_decay: 0.01
+  warmup_fraction: 0.1
+  grad_clip: 1.0
+  max_epochs: 40
+  patience: 5
+
+loss_weights:
+  rel_yield: 1.0
+  success: 0.5
+  irrigation: 0.5
+  stress: 0.2
+
+runtime:
+  precision: bf16          # Blackwell runs bf16 natively
+  compile: auto            # torch.compile only where Triton is available (not on Windows)
+  seed: 7
+  deterministic_final: true
+
+tuning:
+  trials: 20
+  epochs: 15
+  space:
+    lr: [0.0003, 0.003]    # log-uniform
+    weather_channels: [32, 64, 96]
+    dilations: [[1, 2, 4, 8], [1, 2, 4, 8, 16, 32], [1, 2, 4, 8, 16, 32, 64, 128]]
+    dropout: [0.0, 0.2]    # uniform
+    batch_size: [512, 1024, 2048]
