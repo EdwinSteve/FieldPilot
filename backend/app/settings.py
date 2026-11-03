@@ -39,9 +39,17 @@ class Settings(BaseSettings):
     app_profile: Literal["dev", "demo", "prod"] = "dev"
     demo_revert_window_seconds: int | None = None
 
+    # D082: every route needs a token. AUTH_REQUIRED=0 is honoured only under
+    # APP_PROFILE=demo; AUTH_JWT_SECRET is required under APP_PROFILE=prod.
+    auth_required: bool = True
+    auth_jwt_secret: SecretStr | None = None
+
     database_url: str = f"sqlite:///{REPO_ROOT / 'backend' / 'fieldpilot.db'}"
     config_dir: Path = REPO_ROOT / "config"
     data_dir: Path = REPO_ROOT / "data"
+    # Stage 1 (D081): the planner's configs and models; PLANNER_BUNDLE pins one bundle.
+    planner_dir: Path = REPO_ROOT / "planner"
+    planner_bundle: Path | None = None
 
     @model_validator(mode="after")
     def _require_credentials_outside_mock_mode(self) -> Self:

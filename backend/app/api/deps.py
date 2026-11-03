@@ -1,13 +1,10 @@
-"""FastAPI dependencies: the container built at startup, and the acting person."""
+"""FastAPI dependency: the container built at startup. The caller is in app/api/auth.py."""
 
 from typing import Annotated
 
 from fastapi import Depends, Request
 
 from app.container import Container
-
-# No authentication yet: every request comes from the farmer's dashboard.
-FARMER = "farmer:dashboard"
 
 
 def get_container(request: Request) -> Container:

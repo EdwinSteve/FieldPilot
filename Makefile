@@ -9,10 +9,10 @@ RUFF_ARGS ?=
 BACKEND_PORT ?= 8000
 
 .PHONY: help install install-backend install-frontend dev dev-backend dev-frontend \
-	seed record-demo test lint lint-backend lint-rules-backend format-check-backend format \
+	seed user record-demo test lint lint-backend lint-rules-backend format-check-backend format \
 	typecheck typecheck-backend typecheck-frontend build-frontend lint-frontend test-frontend \
 	check check-backend check-frontend check-repo preflight clean \
-	install-planner check-planner planner
+	install-planner check-planner planner planner-site
 
 help: ## List available targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-22s %s\n", $$1, $$2}'
@@ -36,6 +36,10 @@ dev-frontend:
 
 seed: ## Rebuild the demo farm (fresh DB, maize cycle; stop `make dev` first)
 	$(UV) run python scripts/seed_demo.py --force
+
+user: ## Create an account of any role on this server (PHONE= NAME= ROLE= [PLOTS="1 2"]; D082)
+	$(UV) run python scripts/create_user.py --phone "$(PHONE)" --name "$(NAME)" --role "$(ROLE)" \
+		$(foreach p,$(PLOTS),--plot $(p))
 
 record-demo: ## Record the two-day demo against the real model (network, key quota; not in CI, D076)
 	MOCK_LLM=0 $(UV) run python scripts/record_demo.py
@@ -95,6 +99,10 @@ check-planner: ## Planner checks, as run by CI: ruff, mypy, pytest (no network, 
 planner: ## Run planner stages here (STAGES="clean labels"); Windows uses planner/train_windows.ps1
 	$(UVP) sync --locked --extra data --extra train
 	$(UVP) run python -m fieldpilot_planner $(or $(STAGES),all)
+
+planner-site: ## Snapshot a plot's soil, climate and ONI for the planner (PLOT= LAT= LON= [ELEV=]; network, D081)
+	$(UVP) run --extra data python -m fieldpilot_planner.site --lat $(LAT) --lon $(LON) \
+		$(if $(ELEV),--elevation $(ELEV)) --out ../data/fixtures/planner/site_$(PLOT).json
 
 check: check-repo check-backend check-frontend check-planner ## Everything CI runs
 

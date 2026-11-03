@@ -175,3 +175,55 @@ class SimClockStateRow(SQLModel, table=True):
     wall_anchor: datetime = _utc()
     speed_factor: float
     paused: bool
+
+
+# Identity (§4.12, D082). Wall-clock datetimes, never the simulated clock.
+
+
+class UserRow(SQLModel, table=True):
+    __tablename__ = "user"
+
+    id: int | None = Field(default=None, primary_key=True)
+    phone: str = Field(unique=True, index=True)
+    full_name: str
+    role: str
+    password_hash: str
+    active: bool = True
+    failed_logins: int = 0
+    locked_until: datetime | None = _utc(nullable=True)
+    last_login_at: datetime | None = _utc(nullable=True)
+    consent_version: str
+    consent_at: datetime = _utc()
+    created_at: datetime = _utc()
+
+
+class RefreshSessionRow(SQLModel, table=True):
+    __tablename__ = "refresh_session"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    token_hash: str = Field(unique=True, index=True)
+    family_id: str = Field(index=True)
+    expires_at: datetime = _utc()
+    created_at: datetime = _utc()
+    used_at: datetime | None = _utc(nullable=True)
+    revoked_at: datetime | None = _utc(nullable=True)
+
+
+class AuthEventRow(SQLModel, table=True):
+    __tablename__ = "auth_event"
+
+    id: int | None = Field(default=None, primary_key=True)
+    occurred_at: datetime = _utc(index=True)
+    kind: str = Field(index=True)
+    user_id: int | None = Field(default=None, foreign_key="user.id", index=True)
+    detail: dict[str, Any] = _json(dict)
+
+
+class PlotMemberRow(SQLModel, table=True):
+    __tablename__ = "plot_member"
+    __table_args__ = (UniqueConstraint("plot_id", "user_id"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    plot_id: int = Field(foreign_key="plot.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
