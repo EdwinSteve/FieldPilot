@@ -2,6 +2,7 @@ import { useState } from "react";
 import appIcon from "../assets/icon-180.png";
 import { BigButton } from "../components/BigButton";
 import { Chip } from "../components/Chip";
+import { HarvestSheet, type HarvestNote } from "../components/HarvestSheet";
 import { Icon, PlantIcon, StopSign } from "../components/Icon";
 import { LEVEL_CHIP, LEVEL_ICON } from "../components/levelStyle";
 import { MoistureDrop } from "../components/MoistureDrop";
@@ -15,7 +16,7 @@ import { WeekStrip } from "../components/WeekStrip";
 import { Wordmark } from "../components/Wordmark";
 import { en } from "../i18n/en";
 import { hrefOf } from "../lib/route";
-import type { TodayView } from "../view-models/types";
+import type { PlantedNote, TodayHarvest, TodayView } from "../view-models/types";
 
 /** The app's own bar: whose app this is on the left, the two ways out of the day on the right. */
 function TopBar() {
@@ -175,21 +176,105 @@ function WordsSheet({ view, onClose }: { view: TodayView; onClose: () => void })
   );
 }
 
+/** Right after sowing: what FieldPilot does from now on, so the farmer knows it worked. */
+function PlantedCard({ note, onOk }: { note: PlantedNote; onOk: () => void }) {
+  return (
+    <output className="flex animate-card-in flex-col gap-3 rounded-card bg-tint p-4.5">
+      <div className="flex gap-3">
+        <span className="mt-0.5 shrink-0">
+          <PlantIcon size={30} />
+        </span>
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lead font-extrabold text-primary-hover">{en.planted.title(note.crop)}</h2>
+          <p className="text-body leading-snug">{note.automated ? en.planted.automated : en.planted.manual}</p>
+        </div>
+      </div>
+      <BigButton variant="outline" size="compact" onClick={onOk}>
+        {en.planted.ok}
+      </BigButton>
+    </output>
+  );
+}
+
+/** A decision answered without signal: no question to ask again, only that it waits. */
+function SavedAnswerCard() {
+  return (
+    <output className="flex animate-card-in gap-3 rounded-card bg-undo-tint p-4.5 text-undo-text">
+      <Icon name="cloudOff" size={28} className="mt-0.5 shrink-0" />
+      <div className="flex flex-col gap-1">
+        <h2 className="text-lead font-extrabold">{en.outbox.waitingTitle}</h2>
+        <p className="text-body leading-snug">{en.outbox.waitingDetail}</p>
+      </div>
+    </output>
+  );
+}
+
+/** Near harvest time a card with the form one tap away; for a manual crop, a quiet row. */
+function HarvestCard({ harvest, onOpen }: { harvest: TodayHarvest; onOpen: () => void }) {
+  if (harvest.kind === "record") {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className="press flex min-h-16 items-center gap-3 rounded-card border-0 bg-surface px-4.5 py-3 text-left"
+      >
+        <PlantIcon size={28} />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="text-body font-extrabold">{harvest.title}</span>
+          <span className="text-small text-ink-2">{harvest.detail}</span>
+        </span>
+        <Icon name="forward" size={22} className="shrink-0 text-ink-3" />
+      </button>
+    );
+  }
+  const ready = harvest.kind === "ready";
+  return (
+    <section className={`flex animate-card-in flex-col gap-3 rounded-card p-4.5 ${ready ? "bg-tint" : "bg-surface"}`}>
+      <div className="flex gap-3">
+        <span className="mt-0.5 shrink-0">
+          <PlantIcon size={30} />
+        </span>
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lead font-extrabold">{harvest.title}</h2>
+          <p className="text-body leading-snug text-ink-2">{harvest.detail}</p>
+        </div>
+      </div>
+      <BigButton variant={ready ? "primary" : "outline"} size="compact" onClick={onOpen}>
+        {en.harvest.open}
+      </BigButton>
+    </section>
+  );
+}
+
 interface TodayScreenProps {
   view: TodayView;
   /** How old the farm on screen is; null when unknown. */
   age: string | null;
+  /** Just planted: said once, until the farmer taps OK. */
+  planted: PlantedNote | null;
+  onPlantedSeen: () => void;
+  /** Decisions answered without signal, waiting to be sent. */
+  savedAnswers: readonly number[];
+  onHarvested: (note: HarvestNote) => void;
 }
 
-export function TodayScreen({ view, age }: TodayScreenProps) {
+export function TodayScreen({ view, age, planted, onPlantedSeen, savedAnswers, onHarvested }: TodayScreenProps) {
   const [wordsOpen, setWordsOpen] = useState(false);
+  const [harvesting, setHarvesting] = useState(false);
+  const harvest = view.harvest;
+  const decisionSaved = view.decision !== null && savedAnswers.includes(view.decision.taskId);
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-4.5 pt-4 pb-4.5">
       <Header view={view} age={age} />
       {view.stoppedBanner === null ? null : <StoppedBanner text={view.stoppedBanner} />}
-      {view.decision ? <NeedsYouCard decision={view.decision} /> : null}
+      {planted === null ? null : <PlantedCard note={planted} onOk={onPlantedSeen} />}
+      {view.decision === null ? null : decisionSaved ? <SavedAnswerCard /> : <NeedsYouCard decision={view.decision} />}
+      {harvest !== null && harvest.kind !== "record" ? (
+        <HarvestCard harvest={harvest} onOpen={() => setHarvesting(true)} />
+      ) : null}
       <StatusCard view={view} />
       <WeekStrip week={view.week} />
+      {harvest?.kind === "record" ? <HarvestCard harvest={harvest} onOpen={() => setHarvesting(true)} /> : null}
       <RecentUpdates items={view.recent} />
       <button
         type="button"
@@ -200,6 +285,9 @@ export function TodayScreen({ view, age }: TodayScreenProps) {
         {en.today.wordsLink}
       </button>
       {wordsOpen ? <WordsSheet view={view} onClose={() => setWordsOpen(false)} /> : null}
+      {harvesting && harvest !== null ? (
+        <HarvestSheet info={harvest.info} onClose={() => setHarvesting(false)} onSaved={onHarvested} />
+      ) : null}
     </main>
   );
 }

@@ -106,6 +106,12 @@ export function PlanScreen({ view, onUndo, onHarvested }: PlanScreenProps) {
           <h1 className="text-title-md font-extrabold tracking-title">{en.plan.title}</h1>
         </div>
         <CropCard view={view} />
+        {view.promise === null ? null : (
+          <p className="flex items-start gap-2 px-1 text-small leading-snug text-ink-2">
+            <Icon name="shield" size={18} className="mt-0.5 shrink-0" />
+            {view.promise}
+          </p>
+        )}
         {view.harvest === null ? null : (
           <BigButton variant="outline" size="compact" onClick={() => setHarvesting(true)}>
             <PlantIcon size={24} />

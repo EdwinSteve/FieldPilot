@@ -7,6 +7,7 @@ import { decisionView } from "./decide";
 import { fieldView } from "./field";
 import { planView } from "./plan";
 import { reportView } from "./report";
+import type { FarmSnapshot } from "./snapshot";
 import { todayView } from "./today";
 import { updatesView } from "./updates";
 import { zoneView } from "./zone";
@@ -589,5 +590,65 @@ describe("talkView", () => {
   it("drops a source with no figure today", () => {
     const [view] = talkView(demo.day2Morning, [exchange]).exchanges;
     expect(view?.chips.map((chip) => chip.kind)).toEqual(["soil"]);
+  });
+});
+
+function cycleOf(snapshot: FarmSnapshot): NonNullable<FarmSnapshot["cycle"]> {
+  if (snapshot.cycle === null) throw new Error("The capture must hold a cycle");
+  return snapshot.cycle;
+}
+
+describe("the harvest nudge on Today", () => {
+  const cycle = cycleOf(demo.day1Held);
+
+  it("stays quiet while the crop is far from ready", () => {
+    expect(todayView(demo.day1Held).harvest).toBeNull();
+  });
+
+  it("says ready in the last stage, with what the form needs", () => {
+    const stages = [
+      ...cycle.stages.map((stage) => ({ ...stage, ended_at: stage.ended_at ?? "2026-11-01T11:00:00Z" })),
+      { name: "maturity_harvest", started_at: "2026-11-01T11:00:00Z", ended_at: null, gdd_at_start: 1472.2 },
+    ];
+    const view = todayView({ ...demo.day1Held, cycle: { ...cycle, stages } });
+    expect(view.harvest?.kind).toBe("ready");
+    expect(view.harvest?.title).toBe("Your Maize looks ready to harvest");
+    expect(view.harvest?.info.cycleId).toBe(cycle.id);
+  });
+
+  it("counts the days left when it is close", () => {
+    const view = todayView({ ...demo.day1Held, cycle: { ...cycle, accumulated_gdd: 1400 } });
+    expect(view.harvest?.kind).toBe("soon");
+    expect(view.harvest?.title).toBe("Your Maize is nearly ready");
+    expect(view.harvest?.detail).toMatch(/^About \d+ days? to go\. Get your bags ready\.$/);
+  });
+
+  it("only offers the form for a crop FieldPilot does not water", () => {
+    const view = todayView({ ...demo.day1Held, automated: false, maturityGdd: null, stageOrder: [] });
+    expect(view.harvest?.kind).toBe("record");
+    expect(view.harvest?.title).toBe("Harvested your Maize?");
+  });
+});
+
+describe("the planner's word on Plan", () => {
+  it("says the pick and the chance it was sown with", () => {
+    const planAtSowing = { model: "b1", rank: 2, p_success: 0.8 };
+    expect(planView({ ...demo.day1Held, planAtSowing }).promise).toBe(
+      "You planted pick #2 of that week. It does well about 8 years in 10.",
+    );
+  });
+
+  it("says when the farmer chose outside the top 3", () => {
+    const planAtSowing = { model: "b1", rank: 5, p_success: 0.42 };
+    expect(planView({ ...demo.day1Held, ownRisk: true, planAtSowing }).promise).toBe(
+      "You chose this crop yourself, outside my top 3. It does well about 4 years in 10.",
+    );
+    expect(planView({ ...demo.day1Held, ownRisk: true }).promise).toBe(
+      "You chose this crop yourself, outside my top 3.",
+    );
+  });
+
+  it("says nothing when the planner did not judge it", () => {
+    expect(planView(demo.day1Held).promise).toBeNull();
   });
 });

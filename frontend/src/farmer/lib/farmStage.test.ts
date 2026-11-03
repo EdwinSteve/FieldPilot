@@ -27,6 +27,7 @@ function cycle(plotId: number, status: string): StartedCycle {
     stages: [],
     automated: true,
     own_risk: false,
+    plan: null,
   };
 }
 

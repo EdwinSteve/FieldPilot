@@ -53,6 +53,22 @@ export interface TodayView {
   plants: { value: string; label: string; level: Level };
   recent: UpdateItem[];
   week: WeekDay[];
+  /** Nearly or already harvest time, or a manual crop to record; null otherwise. */
+  harvest: TodayHarvest | null;
+}
+
+/** Said once on Today after "I've already planted it": what happens next. */
+export interface PlantedNote {
+  crop: string;
+  automated: boolean;
+}
+
+/** Today's nudge towards the harvest form (D083 §6). */
+export interface TodayHarvest {
+  kind: "ready" | "soon" | "record";
+  title: string;
+  detail: string;
+  info: HarvestInfo;
 }
 
 export interface DecisionView {
@@ -274,6 +290,8 @@ export interface PlanView {
   crop: string;
   dayCount: string;
   harvest: HarvestInfo | null;
+  /** What the planner said when the crop was sown; null when it said nothing. */
+  promise: string | null;
   /** Null while the backend's stage contradicts the crop's age. */
   stage: PlanStage | null;
   days: PlanDay[];
@@ -288,6 +306,13 @@ export interface StopView {
   nextWatering: string | null;
 }
 
+/** What a yes led to; "saved" when there was no signal and it waits on the phone. */
+export interface Approval {
+  outcome: ApprovalOutcome | "saved";
+  /** "7:00 am" while the farmer can still undo it; null otherwise. */
+  undoUntil: string | null;
+}
+
 /** Everything the screens need, read fresh from the backend. */
 export interface Farm {
   today: TodayView;
@@ -300,9 +325,14 @@ export interface Farm {
   zone: (zoneId: number) => ZoneView | null;
   report: (reportId: number) => ReportView | null;
   /** Each action resolves true when the backend took it. */
-  /** What the yes led to, or null when the backend could not be reached. */
-  approve: (taskId: number) => Promise<ApprovalOutcome | null>;
-  reject: (taskId: number, reason?: string) => Promise<boolean>;
+  /** What the yes led to, or null when the backend refused it. */
+  approve: (taskId: number) => Promise<Approval | null>;
+  /** "saved" when there was no signal; null when the backend refused it. */
+  reject: (taskId: number, reason?: string) => Promise<"sent" | "saved" | null>;
+  /** Decisions answered without signal, still waiting on the phone to be sent. */
+  savedAnswers: number[];
+  /** What happened to the saved answers once there was signal, while the notice is up. */
+  outboxNotice: string | null;
   undo: (taskId: number) => Promise<boolean>;
   markAllRead: () => Promise<boolean>;
   setStopped: (stopped: boolean) => Promise<boolean>;

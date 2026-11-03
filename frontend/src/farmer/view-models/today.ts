@@ -9,14 +9,17 @@ import {
   shortWeekday,
 } from "../lib/farmTime";
 import { forecastOfDay } from "../lib/forecast";
+import { harvestTiming } from "../lib/harvestTime";
 import { activeRun } from "../lib/irrigationRun";
 import { cropLabel, farmLabel } from "../lib/names";
 import { hrefOf } from "../lib/route";
 import { rainLevel } from "../lib/rainLevel";
 import { soilTrend } from "../lib/soilTrend";
 import { plantsLevel, worstLevel, type Level } from "../lib/statusLevel";
+import type { TodayHarvest } from "./types";
 import {
   fieldCapacity,
+  harvestInfo,
   isWatering,
   pendingTasks,
   plotOffset,
@@ -145,6 +148,41 @@ function statusTitle(snapshot: FarmSnapshot, zone: string, statusLabel: string |
   return statusLabel === null ? en.soil.noReading : en.soil.zoneIs(zone, statusLabel);
 }
 
+/**
+ * Near harvest time, Today says so and opens the form. A manual crop has no stages
+ * to judge by, so from its first day it only offers the form, quietly.
+ */
+function harvestPrompt(snapshot: FarmSnapshot): TodayHarvest | null {
+  const info = harvestInfo(snapshot);
+  const cycle = snapshot.cycle;
+  if (info === null || cycle === null) return null;
+  const crop = cropLabel(info.crop);
+  const days = daysSinceSowing(cycle.sowing_date, snapshot.clock.now, plotOffset(snapshot));
+  if (!snapshot.automated) {
+    if (days < 1) return null;
+    return { kind: "record", title: en.harvestPrompt.recordTitle(crop), detail: en.harvestPrompt.recordDetail, info };
+  }
+  const timing = harvestTiming({
+    currentStage: cycle.stages.find((stage) => stage.ended_at === null)?.name ?? null,
+    stageOrder: snapshot.stageOrder,
+    accumulatedGdd: cycle.accumulated_gdd,
+    maturityGdd: snapshot.maturityGdd,
+    daysSinceSowing: days,
+  });
+  if (timing.kind === "ready") {
+    return { kind: "ready", title: en.harvestPrompt.readyTitle(crop), detail: en.harvestPrompt.readyDetail, info };
+  }
+  if (timing.kind === "soon") {
+    return {
+      kind: "soon",
+      title: en.harvestPrompt.soonTitle(crop),
+      detail: en.harvestPrompt.soonDetail(timing.days),
+      info,
+    };
+  }
+  return null;
+}
+
 export function todayView(snapshot: FarmSnapshot): TodayView {
   const offset = plotOffset(snapshot);
   const zone = zoneName(snapshot);
@@ -194,5 +232,6 @@ export function todayView(snapshot: FarmSnapshot): TodayView {
     },
     recent: recentUpdates(snapshot),
     week: week(snapshot, rainMm),
+    harvest: harvestPrompt(snapshot),
   };
 }

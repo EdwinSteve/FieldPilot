@@ -3,7 +3,7 @@ import { BackTarget } from "./components/backTarget";
 import { BigButton } from "./components/BigButton";
 import { StateView } from "./components/StateView";
 import { TabBar } from "./components/TabBar";
-import type { FarmPlot } from "./api/lifecycle";
+import type { FarmPlot, StartedCycle } from "./api/lifecycle";
 import type { HarvestNote } from "./components/HarvestSheet";
 import { phoneClock, useFarm } from "./hooks/useFarm";
 import { useFarmProgress, type FarmProgress } from "./hooks/useFarmProgress";
@@ -13,6 +13,7 @@ import { useOnline } from "./hooks/useOnline";
 import { useSession, type SessionControl } from "./hooks/useSession";
 import { en } from "./i18n/en";
 import { gatedRoute, startRoute } from "./lib/accountGate";
+import { cropLabel } from "./lib/names";
 import { hrefOf, tabOf, type Route } from "./lib/route";
 import { LogInScreen, SignUpScreen } from "./screens/AccountScreens";
 import { AdviceScreen } from "./screens/AdviceScreen";
@@ -28,15 +29,26 @@ import { TodayScreen } from "./screens/TodayScreen";
 import { UpdatesScreen } from "./screens/UpdatesScreen";
 import { WelcomeScreen } from "./screens/WelcomeScreen";
 import { ZoneScreen } from "./screens/ZoneScreen";
-import type { Farm, FarmState } from "./view-models/types";
+import type { Farm, FarmState, PlantedNote } from "./view-models/types";
 
-/** What the farm screens can ask of the shell: the harvest that ends the crop. */
+/** What the farm screens can ask of the shell: the harvest that ends the crop, and the note after sowing. */
 interface ShellActions {
   onHarvested: (note: HarvestNote) => void;
+  planted: PlantedNote | null;
+  onPlantedSeen: () => void;
 }
 
 function screenFor(route: Route, farm: Farm, age: string | null, shell: ShellActions): ReactNode {
-  const today = <TodayScreen view={farm.today} age={age} />;
+  const today = (
+    <TodayScreen
+      view={farm.today}
+      age={age}
+      planted={shell.planted}
+      onPlantedSeen={shell.onPlantedSeen}
+      savedAnswers={farm.savedAnswers}
+      onHarvested={shell.onHarvested}
+    />
+  );
   switch (route.screen) {
     // Entry and setup screens never wait for the farm: `FarmerApp` shows them first.
     case "welcome":
@@ -67,6 +79,7 @@ function screenFor(route: Route, farm: Farm, age: string | null, shell: ShellAct
           view={view}
           onApprove={farm.approve}
           onReject={farm.reject}
+          saved={farm.savedAnswers.includes(route.taskId)}
         />
       );
     }
@@ -99,7 +112,7 @@ function screenFor(route: Route, farm: Farm, age: string | null, shell: ShellAct
 
 /** The one line under the screen's top that says the farm may not be current. */
 function connectionNotice(online: boolean, stale: boolean, age: string | null): string | null {
-  if (!online) return en.state.offline;
+  if (!online) return en.state.offlineBrowsing;
   if (!stale) return null;
   return en.state.stale(age ?? en.freshness.justNow);
 }
@@ -127,6 +140,7 @@ function setupFor(
   session: SessionControl,
   farm: FarmProgress,
   harvested: HarvestNote | null,
+  onPlanted: (cycle: StartedCycle) => void,
 ): ReactNode {
   const stage = farm.stage;
   const farmer = session.farmer;
@@ -136,7 +150,7 @@ function setupFor(
   }
   if (shown.screen === "advice" && stage.stage === "no_cycle") {
     return (
-      <AdviceScreen key={stage.plot.id} plot={stage.plot} harvested={harvested} onPlanted={farm.reload} />
+      <AdviceScreen key={stage.plot.id} plot={stage.plot} harvested={harvested} onPlanted={onPlanted} />
     );
   }
   return null;
@@ -204,6 +218,7 @@ function farmContent(
         <>
           {notice === null ? null : <Notice text={notice} />}
           {failure === null ? null : <Notice text={en.state.failures[failure]} />}
+          {state.farm.outboxNotice === null ? null : <Notice text={state.farm.outboxNotice} />}
           {state.farm.busy ? <Saving /> : null}
           {/* `inert` stops every tap while an action runs, without greying the buttons. */}
           <div inert={state.farm.busy} className="contents">
@@ -224,7 +239,7 @@ function signedInContent(
   session: SessionControl,
   farm: FarmProgress,
   online: boolean,
-  harvest: { note: HarvestNote | null; onHarvested: (note: HarvestNote) => void },
+  shell: ShellActions & { harvested: HarvestNote | null; onPlanted: (cycle: StartedCycle) => void },
 ): ReactNode {
   if (farm.failed) {
     return (
@@ -254,7 +269,7 @@ function signedInContent(
       />
     );
   }
-  if (stage.stage !== "farming") return setupFor(shown, session, farm, harvest.note);
+  if (stage.stage !== "farming") return setupFor(shown, session, farm, shell.harvested, shell.onPlanted);
   return (
     <FarmArea
       key={stage.plot.id}
@@ -262,7 +277,7 @@ function signedInContent(
       route={route}
       shown={shown}
       online={online}
-      shell={{ onHarvested: harvest.onHarvested }}
+      shell={shell}
     />
   );
 }
@@ -303,6 +318,20 @@ export function FarmerApp() {
     setHarvested(note);
     farm.reload();
   };
+  // Said once on Today after sowing, until the farmer taps OK.
+  const [planted, setPlanted] = useState<PlantedNote | null>(null);
+  const onPlanted = (cycle: StartedCycle) => {
+    setPlanted({ crop: cropLabel(cycle.crop), automated: cycle.automated });
+    setHarvested(null);
+    farm.reload();
+  };
+  const shellActions = {
+    onHarvested,
+    planted,
+    onPlantedSeen: () => setPlanted(null),
+    harvested,
+    onPlanted,
+  };
 
   useEffect(() => {
     const name = en.titles.screens[shown.screen];
@@ -325,7 +354,7 @@ export function FarmerApp() {
       <BackTarget value={back}>
         {!signedIn || shown.screen === "welcome"
           ? entryFor(shown, session, online)
-          : signedInContent(route, shown, session, farm, online, { note: harvested, onHarvested })}
+          : signedInContent(route, shown, session, farm, online, shellActions)}
       </BackTarget>
     </div>
   );

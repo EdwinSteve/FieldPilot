@@ -89,10 +89,19 @@ export interface NewCycle {
   accept_own_risk: boolean;
 }
 
-/** A cycle as POST /plots/{id}/cycles answers, with how it runs (D083). */
+/** The planner's view of the crop when it was sown; null when it could not judge (D083). */
+export interface PlanAtSowing {
+  model: string;
+  /** 1 is the best of that sowing week. */
+  rank: number;
+  p_success: number;
+}
+
+/** A cycle as POST /plots/{id}/cycles and GET /cycles answer, with how it runs (D083). */
 export interface StartedCycle extends Cycle {
   automated: boolean;
   own_risk: boolean;
+  plan: PlanAtSowing | null;
 }
 
 export interface Harvest {

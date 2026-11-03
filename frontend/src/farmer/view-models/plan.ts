@@ -17,10 +17,17 @@ import { irrigationRun } from "../lib/irrigationRun";
 import { cropLabel } from "../lib/names";
 import { hrefOf } from "../lib/route";
 import { roundReading } from "../lib/soilStatus";
-import { plotToday } from "../lib/sowingDate";
 import { visibleStage } from "../lib/visibleStage";
-import { eventOfTask, isWatering, plotOffset, volumeOf, zoneName, type FarmSnapshot } from "./snapshot";
-import type { HarvestInfo, PlanDay, PlanStage, PlanTask, PlanView, TaskState } from "./types";
+import {
+  eventOfTask,
+  harvestInfo,
+  isWatering,
+  plotOffset,
+  volumeOf,
+  zoneName,
+  type FarmSnapshot,
+} from "./snapshot";
+import type { PlanDay, PlanStage, PlanTask, PlanView, TaskState } from "./types";
 
 const DAYS_AHEAD = 2;
 
@@ -202,20 +209,12 @@ function stage(snapshot: FarmSnapshot, dayCount: number): PlanStage | null {
   };
 }
 
-function harvestInfo(snapshot: FarmSnapshot): HarvestInfo | null {
-  const cycle = snapshot.cycle;
-  if (cycle === null || cycle.status !== "active") return null;
-  const open = snapshot.tasks.find(
-    (task) => task.status === "pending_approval" || task.status === "scheduled",
-  );
-  return {
-    cycleId: cycle.id,
-    crop: cycle.crop,
-    sowingDate: cycle.sowing_date,
-    today: plotToday(snapshot.clock.now, plotOffset(snapshot)),
-    areaHa: snapshot.plot.area_ha,
-    openTask: open === undefined ? null : { id: open.id, decision: open.status === "pending_approval" },
-  };
+/** The planner's word at sowing, so the farmer remembers why this crop. */
+function promise(snapshot: FarmSnapshot): string | null {
+  const plan = snapshot.planAtSowing;
+  const inTen = plan === null ? null : Math.round(plan.p_success * 10);
+  if (snapshot.ownRisk) return en.promise.ownRisk(inTen);
+  return plan === null || inTen === null ? null : en.promise.picked(plan.rank, inTen);
 }
 
 export function planView(snapshot: FarmSnapshot): PlanView {
@@ -226,6 +225,7 @@ export function planView(snapshot: FarmSnapshot): PlanView {
     crop: cycle === null ? "" : cropLabel(cycle.crop),
     dayCount: en.plan.dayCount(dayCount),
     harvest: harvestInfo(snapshot),
+    promise: promise(snapshot),
     stage: stage(snapshot, dayCount),
     days: days(snapshot),
   };

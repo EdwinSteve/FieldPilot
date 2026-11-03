@@ -1,7 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../api/endpoints";
 import { useResource } from "../../hooks/useResource";
-import { lifecycle, type CropOutlook, type FarmPlot, type Lot, type PlantingPlan } from "../api/lifecycle";
+import {
+  lifecycle,
+  type CropOutlook,
+  type FarmPlot,
+  type Lot,
+  type PlantingPlan,
+  type StartedCycle,
+} from "../api/lifecycle";
 import { BigButton } from "../components/BigButton";
 import { CropCard } from "../components/CropCard";
 import { SettingsLink } from "../components/SettingsLink";
@@ -19,7 +26,8 @@ import { orderForGoals, RECOMMENDED } from "../lib/goals";
 import { cropLabel, farmLabel } from "../lib/names";
 import { nothingGrowsWell, weekOf } from "../lib/plantingPlan";
 import { earliestSowing, plotToday, sowingDateProblem } from "../lib/sowingDate";
-import { kgText } from "../lib/harvest";
+import { kgText, latestLotOf } from "../lib/harvest";
+import { SITE_STEPS, siteStep } from "../lib/siteSteps";
 import { startFailure, type StartFailure } from "../lib/startFailure";
 
 /** The planner's "no network" model id (D079). */
@@ -46,7 +54,7 @@ interface PlantSheetProps {
   crop: CropOutlook;
   today: string;
   onClose: () => void;
-  onStarted: () => void;
+  onStarted: (cycle: StartedCycle) => void;
 }
 
 /** "I've already planted it": the day, then the backend's own-risk check, then stage 2. */
@@ -77,7 +85,7 @@ function PlantSheet({ plot, plan, crop, today, onClose, onStarted }: PlantSheetP
       // Stage 2 takes over now, not tomorrow morning, but only on a farm with sensors:
       // without a zone the check has nothing to read and stops with a failure notice.
       if (cycle.automated) void firstCheck(plot.id);
-      onStarted();
+      onStarted(cycle);
     } catch (caught) {
       const reason = startFailure(caught);
       if (reason === "own_risk") setOwnRisk(true);
@@ -212,10 +220,25 @@ interface AdviceProps {
   plot: FarmPlot;
   plan: PlantingPlan;
   harvested: HarvestNote | null;
-  onPlanted: () => void;
+  /** The farm's data just finished building while the farmer waited. */
+  justReady: boolean;
+  onPlanted: (cycle: StartedCycle) => void;
 }
 
-function Advice({ plot, plan, harvested, onPlanted }: AdviceProps) {
+/** The moment the wait ends, so the farmer sees it is done and what comes next. */
+function ReadyNote() {
+  return (
+    <output className="flex animate-card-in gap-3 rounded-card bg-tint px-4.5 py-4 text-primary-hover">
+      <Icon name="check" size={24} strokeWidth={2.8} className="mt-0.5 shrink-0" />
+      <div className="flex flex-col gap-0.5">
+        <p className="text-lead font-extrabold">{en.site.readyTitle}</p>
+        <p className="text-body">{en.site.readyDetail}</p>
+      </div>
+    </output>
+  );
+}
+
+function Advice({ plot, plan, harvested, justReady, onPlanted }: AdviceProps) {
   const [draft] = useState(readDraft);
   const [weekIndex, setWeekIndex] = useState(0);
   const [planting, setPlanting] = useState<Planting | null>(null);
@@ -244,6 +267,7 @@ function Advice({ plot, plan, harvested, onPlanted }: AdviceProps) {
         </div>
         <SettingsLink />
       </header>
+      {justReady ? <ReadyNote /> : null}
       {harvested === null ? null : <SavedNote note={harvested} />}
       <WeekPicker plan={plan} chosen={weekIndex} onChoose={setWeekIndex} />
       {poor ? (
@@ -265,6 +289,7 @@ function Advice({ plot, plan, harvested, onPlanted }: AdviceProps) {
           recommended={!poor}
           bestFor={index === 0 && !poor ? firstGoal : null}
           grown={draft.crops.includes(outlook.crop)}
+          lastHarvest={latestLotOf(lots, outlook.crop)}
           onPlanted={() => plant(outlook)}
         />
       ))}
@@ -279,6 +304,7 @@ function Advice({ plot, plan, harvested, onPlanted }: AdviceProps) {
               recommended={false}
               bestFor={null}
               grown={draft.crops.includes(outlook.crop)}
+              lastHarvest={latestLotOf(lots, outlook.crop)}
               onPlanted={() => plant(outlook)}
             />
           ))}
@@ -310,23 +336,71 @@ interface AdviceScreenProps {
   /** The harvest just saved, said once at the top. */
   harvested: HarvestNote | null;
   /** A crop was started: read the farmer's progress again, which opens the farm. */
-  onPlanted: () => void;
+  onPlanted: (cycle: StartedCycle) => void;
+}
+
+const phoneMs = () => Date.now();
+/** Often enough for a step that lasts half a minute. */
+const STEP_TICK_MS = 5_000;
+
+/** While the farm's data builds: the steps, ticked off as the wait goes on. */
+function Preparing() {
+  const [since] = useState(phoneMs);
+  const [now, setNow] = useState(since);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), STEP_TICK_MS);
+    return () => window.clearInterval(timer);
+  }, []);
+  const current = siteStep(now - since);
+  return (
+    <main className="flex flex-1 flex-col items-center justify-center gap-5 px-6 text-center">
+      <Icon name="satellite" size={56} className="text-primary" />
+      <div className="flex flex-col gap-1.5">
+        <h1 className="text-title-sm font-extrabold tracking-title">{en.advice.preparingTitle}</h1>
+        <p className="text-body leading-snug text-ink-2">{en.advice.preparingDetail}</p>
+      </div>
+      <ol className="flex w-full max-w-80 flex-col gap-2 text-left">
+        {SITE_STEPS.map((step, index) => {
+          const state = index < current ? "done" : index === current ? "working" : "waiting";
+          return (
+            <li
+              key={step}
+              aria-current={state === "working" ? "step" : undefined}
+              className={`flex min-h-12 items-center gap-3 rounded-control px-4 ${
+                state === "working" ? "bg-surface font-extrabold" : "font-semibold"
+              } ${state === "waiting" ? "text-ink-3" : "text-ink"}`}
+            >
+              {state === "done" ? (
+                <Icon name="check" size={22} strokeWidth={2.8} className="shrink-0 animate-pop-in text-primary" />
+              ) : (
+                <Icon
+                  name="hourglass"
+                  size={22}
+                  className={`shrink-0 ${state === "working" ? "animate-pulse text-primary" : ""}`}
+                />
+              )}
+              <span className="flex-1 text-body">{en.site.steps[step]}</span>
+              <span className="sr-only">{en.site[state]}</span>
+            </li>
+          );
+        })}
+      </ol>
+      <p className="text-small text-ink-3">{en.advice.preparingAgain}</p>
+    </main>
+  );
 }
 
 /** What to sow on the farmer's own plot, from the planner (D079, D081), and the sowing confirmation (D083). */
 export function AdviceScreen({ plot, harvested, onPlanted }: AdviceScreenProps) {
   const advice = useAdvice(plot.id);
+  // Seen waiting once: when the plan arrives, say the farm is ready.
+  const [waited, setWaited] = useState(false);
+  if (advice.status === "preparing" && !waited) setWaited(true);
   switch (advice.status) {
     case "loading":
       return <StateView icon="hourglass" title={en.advice.loadingPlan} />;
     case "preparing":
-      return (
-        <StateView
-          icon="satellite"
-          title={en.advice.preparingTitle}
-          detail={`${en.advice.preparingDetail} ${en.advice.preparingAgain}`}
-        />
-      );
+      return <Preparing />;
     case "site_failed":
       return (
         <StateView icon="warning" title={en.advice.failedTitle} detail={en.advice.failedDetail}>
@@ -348,6 +422,8 @@ export function AdviceScreen({ plot, harvested, onPlanted }: AdviceScreenProps) 
         </StateView>
       );
     case "ready":
-      return <Advice plot={plot} plan={advice.plan} harvested={harvested} onPlanted={onPlanted} />;
+      return (
+        <Advice plot={plot} plan={advice.plan} harvested={harvested} justReady={waited} onPlanted={onPlanted} />
+      );
   }
 }

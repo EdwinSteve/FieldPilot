@@ -12,11 +12,13 @@ import type {
   Task,
   Zone,
 } from "../../types/api";
+import type { PlanAtSowing } from "../api/lifecycle";
 import { en } from "../i18n/en";
 import { zoneLabel } from "../lib/names";
 import { roundReading, soilStatus } from "../lib/soilStatus";
+import { plotToday } from "../lib/sowingDate";
 import { soilLevel, type Level } from "../lib/statusLevel";
-import type { SoilReading } from "./types";
+import type { HarvestInfo, SoilReading } from "./types";
 
 export interface FarmSnapshot {
   chatLive: boolean;
@@ -29,6 +31,14 @@ export interface FarmSnapshot {
   cycle: Cycle | null;
   /** The cycle's crop stages in order, from its catalogue entry (D077); empty without a cycle. */
   stageOrder: string[];
+  /** The heat the crop needs to be ready; null without a catalogue entry. */
+  maturityGdd: number | null;
+  /** Stage 2 waters it; false for a manual record (D083). */
+  automated: boolean;
+  /** Sown outside the planner's top 3, by the farmer's choice. */
+  ownRisk: boolean;
+  /** What the planner said when it was sown. */
+  planAtSowing: PlanAtSowing | null;
   tasks: Task[];
   notifications: Notification[];
   reports: Report[];
@@ -100,4 +110,21 @@ export function questionOf(task: Task, zone: string): string {
 
 export function plotOffset(snapshot: FarmSnapshot): number {
   return snapshot.plot.utc_offset_hours;
+}
+
+/** What the harvest form needs, while a crop grows. */
+export function harvestInfo(snapshot: FarmSnapshot): HarvestInfo | null {
+  const cycle = snapshot.cycle;
+  if (cycle === null || cycle.status !== "active") return null;
+  const open = snapshot.tasks.find(
+    (task) => task.status === "pending_approval" || task.status === "scheduled",
+  );
+  return {
+    cycleId: cycle.id,
+    crop: cycle.crop,
+    sowingDate: cycle.sowing_date,
+    today: plotToday(snapshot.clock.now, plotOffset(snapshot)),
+    areaHa: snapshot.plot.area_ha,
+    openTask: open === undefined ? null : { id: open.id, decision: open.status === "pending_approval" },
+  };
 }

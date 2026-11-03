@@ -11,6 +11,7 @@ import type { UnitDefault } from "../lib/harvestDefaults";
 import type { YieldLevel } from "../lib/plantingPlan";
 import type { SowingDateProblem } from "../lib/sowingDate";
 import type { RainLevel } from "../lib/rainLevel";
+import type { SiteStep } from "../lib/siteSteps";
 import type { Route } from "../lib/route";
 import type { TrendDirection } from "../lib/soilTrend";
 import type { Level } from "../lib/statusLevel";
@@ -77,6 +78,8 @@ export const en = {
     } satisfies Record<ActionFailure, string>,
     working: "Saving…",
     offline: "No signal. You can look, but nothing can be sent.",
+    /** Over a farm on screen: answers to questions wait on the phone (the outbox). */
+    offlineBrowsing: "No signal. Your answers to questions are saved and sent later.",
     stale: (age: string) => `I can’t reach the farm. Last update ${age}.`,
   },
   freshness: {
@@ -350,6 +353,7 @@ export const en = {
     saved: (kg: string, crop: string) => `Harvest saved: ${kg} kg of ${crop}.`,
     savedNext: "Now choose what to plant next.",
     pastTitle: "Past harvests",
+    lastTime: (kg: string, grade: string, date: string) => `Last time here: ${kg} kg, ${grade} quality (${date})`,
     pastRow: (date: string, kg: string, grade: string) => `${date} · ${kg} kg · ${grade}`,
   },
   advice: {
@@ -527,6 +531,7 @@ export const en = {
     noWaterSaved: "Saved with your reason. I will check the soil again tomorrow morning.",
     noWaterSkipped: "I will check the soil again tomorrow morning.",
     backToToday: "Back to Today",
+    undoUntil: (time: string) => `Changed your mind? You can undo it in Updates until ${time}.`,
     closedTitle: "Already answered",
     closedDetail: "This decision is no longer waiting for you.",
     stoppedNote: "Watering is stopped. Start again to say yes.",
@@ -776,6 +781,50 @@ export const en = {
         ? `Next watering: ${day} ${time}, after your OK`
         : `Next watering: ${day} ${time}`,
     nothingNext: "Nothing is planned. The next morning check decides.",
+  },
+  harvestPrompt: {
+    readyTitle: (crop: string) => `Your ${crop} looks ready to harvest`,
+    readyDetail: "When it’s in, save how much you got.",
+    soonTitle: (crop: string) => `Your ${crop} is nearly ready`,
+    soonDetail: (days: number) =>
+      days === 1 ? "About 1 day to go. Get your bags ready." : `About ${days} days to go. Get your bags ready.`,
+    recordTitle: (crop: string) => `Harvested your ${crop}?`,
+    recordDetail: "Save it here when it’s in.",
+  },
+  planted: {
+    title: (crop: string) => `${crop} is planted`,
+    automated: "Every morning I check the soil and the weather. I’ll ask you before any big watering.",
+    manual: "I can’t water this crop, but I keep its plan and the weather here. When it’s harvested, save it on Today.",
+    ok: "OK",
+  },
+  outbox: {
+    savedTitle: "Answer saved",
+    savedDetail: "There’s no signal now. I’ll send your answer as soon as there is.",
+    waitingTitle: "Your answer is saved",
+    waitingDetail: "It goes as soon as there’s signal.",
+    sent: "Your saved answer was sent.",
+    closed: "A saved answer wasn’t sent: that question had already closed.",
+  },
+  promise: {
+    picked: (rank: number, inTen: number) =>
+      `You planted pick #${rank} of that week. It does well about ${inTen} years in 10.`,
+    ownRisk: (inTen: number | null) =>
+      inTen === null
+        ? "You chose this crop yourself, outside my top 3."
+        : `You chose this crop yourself, outside my top 3. It does well about ${inTen} years in 10.`,
+  },
+  site: {
+    steps: {
+      weather: "Weather since 1991",
+      soil: "The soil of your farm",
+      climate: "El Niño and the season ahead",
+      plan: "What grows best",
+    } satisfies Record<SiteStep, string>,
+    done: "done",
+    working: "working on it",
+    waiting: "next",
+    readyTitle: "Your farm is ready",
+    readyDetail: "Here is what grows best on it.",
   },
   settings: {
     open: "Settings",

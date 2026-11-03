@@ -3,6 +3,7 @@ import { api } from "../../api/endpoints";
 import { fetchHealth } from "../../api/health";
 import { useCallback } from "react";
 import { useResource, type Resource } from "../../hooks/useResource";
+import { lifecycle } from "../api/lifecycle";
 import type { Imagery, SensorReadings } from "../../types/api";
 import type { FarmSnapshot } from "../view-models/snapshot";
 
@@ -67,7 +68,8 @@ async function loadFarm(plotId: number): Promise<FarmSnapshot | null> {
     fetchHealth(),
     api.clock(),
     api.zones(plot.id),
-    api.cycles(),
+    // The farmer's own route: it also says how each cycle runs and what the planner said.
+    lifecycle.cycles(),
     api.tasks(),
     api.notifications(),
     api.reports(),
@@ -105,6 +107,10 @@ async function loadFarm(plotId: number): Promise<FarmSnapshot | null> {
     readings: soilReadings(sensors),
     cycle,
     stageOrder: crop?.stages.map((stage) => stage.name) ?? [],
+    maturityGdd: crop?.maturity_gdd ?? null,
+    automated: cycle?.automated ?? false,
+    ownRisk: cycle?.own_risk ?? false,
+    planAtSowing: cycle?.plan ?? null,
     tasks: ourTasks,
     notifications: onOurs(notifications),
     reports: reports.filter((report) => ours.has(report.cycle_id)),

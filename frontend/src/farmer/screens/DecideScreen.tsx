@@ -13,16 +13,26 @@ import type { ApprovalOutcome } from "../lib/approvalOutcome";
 import { hrefOf } from "../lib/route";
 import { soilStatus } from "../lib/soilStatus";
 import { soilLevel } from "../lib/statusLevel";
-import type { DecisionView } from "../view-models/types";
+import type { Approval, DecisionView } from "../view-models/types";
 
 type Step =
   | { name: "ask" }
   | { name: "reason" }
   | { name: "other" }
-  | { name: "done"; answer: "yes"; outcome: ApprovalOutcome }
-  | { name: "done"; answer: "no"; withReason: boolean };
+  | { name: "done"; answer: "yes"; outcome: ApprovalOutcome; undoUntil: string | null }
+  | { name: "done"; answer: "no"; withReason: boolean }
+  /** No signal: the answer waits on the phone. */
+  | { name: "done"; answer: "saved" };
 
 function doneCopy(step: Extract<Step, { name: "done" }>, view: DecisionView) {
+  if (step.answer === "saved") {
+    return {
+      title: en.outbox.savedTitle,
+      detail: en.outbox.savedDetail,
+      icon: "cloudOff" as const,
+      tone: "undo" as const,
+    };
+  }
   if (step.answer === "no") {
     return {
       title: en.decide.noWater,
@@ -258,6 +268,12 @@ function Done({ step, view }: { step: Extract<Step, { name: "done" }>; view: Dec
       </span>
       <h1 className="text-title font-extrabold">{title}</h1>
       <span className="text-lead leading-normal text-ink-2">{detail}</span>
+      {step.answer === "yes" && step.undoUntil !== null ? (
+        <span className="flex items-start gap-2 rounded-control bg-undo-tint px-4 py-3 text-left text-body font-bold text-undo-text">
+          <Icon name="undo" size={22} className="mt-0.5 shrink-0" />
+          {en.decide.undoUntil(step.undoUntil)}
+        </span>
+      ) : null}
       <BigLink variant="outline" href={hrefOf({ screen: "today" })}>
         <span className="px-5 text-body font-bold">{en.decide.backToToday}</span>
       </BigLink>
@@ -267,24 +283,29 @@ function Done({ step, view }: { step: Extract<Step, { name: "done" }>; view: Dec
 
 interface DecideScreenProps {
   view: DecisionView;
-  onApprove: (taskId: number) => Promise<ApprovalOutcome | null>;
-  onReject: (taskId: number, reason?: string) => Promise<boolean>;
+  onApprove: (taskId: number) => Promise<Approval | null>;
+  onReject: (taskId: number, reason?: string) => Promise<"sent" | "saved" | null>;
+  /** Answered without signal: the answer waits on the phone. */
+  saved: boolean;
 }
 
-export function DecideScreen({ view, onApprove, onReject }: DecideScreenProps) {
-  const [step, setStep] = useState<Step>({ name: "ask" });
+export function DecideScreen({ view, onApprove, onReject, saved }: DecideScreenProps) {
+  const [step, setStep] = useState<Step>(saved ? { name: "done", answer: "saved" } : { name: "ask" });
   const steps = useRef<HTMLDivElement>(null);
   // Each step is a new question or answer: a screen reader hears its heading.
   useFocusHeading(step.name, steps);
 
   const approve = () => {
-    void onApprove(view.taskId).then((outcome) => {
-      if (outcome !== null) setStep({ name: "done", answer: "yes", outcome });
+    void onApprove(view.taskId).then((approval) => {
+      if (approval === null) return;
+      if (approval.outcome === "saved") setStep({ name: "done", answer: "saved" });
+      else setStep({ name: "done", answer: "yes", outcome: approval.outcome, undoUntil: approval.undoUntil });
     });
   };
   const reject = (reason?: string) => {
-    void onReject(view.taskId, reason).then((done) => {
-      if (done) setStep({ name: "done", answer: "no", withReason: reason !== undefined });
+    void onReject(view.taskId, reason).then((result) => {
+      if (result === "saved") setStep({ name: "done", answer: "saved" });
+      else if (result === "sent") setStep({ name: "done", answer: "no", withReason: reason !== undefined });
     });
   };
 

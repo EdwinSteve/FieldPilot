@@ -62,6 +62,11 @@ function toSnapshot(raw: unknown): FarmSnapshot {
     cycle: capture.cycles[0] ?? null,
     // The captures predate GET /crops (D077); maize is the crop they hold.
     stageOrder: MAIZE_STAGES,
+    // Maize is run by stage 2; it is ready at 1472.2 GDD (config/crops/maize.yaml).
+    maturityGdd: 1472.2,
+    automated: true,
+    ownRisk: false,
+    planAtSowing: null,
     tasks: capture.tasks,
     notifications: capture.notifications,
     reports: capture.reports,

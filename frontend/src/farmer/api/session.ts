@@ -15,7 +15,7 @@ import { lifecycle, type Registration, type TokenPair, type User } from "./lifec
 const SESSION_KEY = "fieldpilot.session";
 const KNOWN_KEY = "fieldpilot.known";
 /** What one farmer's visit leaves behind; the next person on this phone must not see it. */
-const PRIVATE_KEYS = ["fieldpilot.farm", "fieldpilot.setup", "fieldpilot.harvest"];
+const PRIVATE_KEYS = ["fieldpilot.farm", "fieldpilot.setup", "fieldpilot.harvest", "fieldpilot.outbox"];
 const PRIVATE_SESSION_KEYS = ["fieldpilot.chat"];
 
 function read(key: string): string | null {

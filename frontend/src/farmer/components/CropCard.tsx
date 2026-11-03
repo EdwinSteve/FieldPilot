@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { CropOutlook } from "../api/lifecycle";
+import type { CropOutlook, Lot } from "../api/lifecycle";
 import { en } from "../i18n/en";
 import {
   cause,
@@ -14,6 +14,7 @@ import {
 } from "../lib/cropAdvice";
 import { formatCalendarDate } from "../lib/farmTime";
 import type { Goal } from "../lib/goals";
+import { kgText } from "../lib/harvest";
 import { cropLabel } from "../lib/names";
 import { percent } from "../lib/plantingPlan";
 import { BigButton } from "./BigButton";
@@ -84,11 +85,13 @@ interface CropCardProps {
   recommended: boolean;
   bestFor: Goal | null;
   grown: boolean;
+  /** The farm's own last harvest of this crop: its result beside the forecast. */
+  lastHarvest: Lot | null;
   onPlanted: () => void;
 }
 
 /** A crop for this sowing week: its picture and verdict first, the two facts that decide, then the rest. */
-export function CropCard({ outlook, recommended, bestFor, grown, onPlanted }: CropCardProps) {
+export function CropCard({ outlook, recommended, bestFor, grown, lastHarvest, onPlanted }: CropCardProps) {
   const name = cropLabel(outlook.crop);
   const judged = verdict(outlook);
   const tone = VERDICT_TONE[judged];
@@ -146,6 +149,15 @@ export function CropCard({ outlook, recommended, bestFor, grown, onPlanted }: Cr
           <Line icon="calendar" tone={null}>
             {en.advice.readyLabel} <b className="font-extrabold">{formatCalendarDate(outlook.harvest_date)}</b>
           </Line>
+          {lastHarvest === null ? null : (
+            <Line icon="bag" tone={null}>
+              {en.harvest.lastTime(
+                kgText(lastHarvest.quantity_kg),
+                en.harvest.grades[lastHarvest.grade],
+                formatCalendarDate(lastHarvest.harvested_on),
+              )}
+            </Line>
+          )}
         </div>
         <div className="flex flex-wrap gap-1.5">
           {bestFor === null ? null : (
