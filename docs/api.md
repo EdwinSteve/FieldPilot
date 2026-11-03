@@ -14,8 +14,10 @@ an interactive reference at `http://localhost:8000/docs` while
 - [5. Confirming the sowing](#5-confirming-the-sowing)
 - [6. Confirming the harvest](#6-confirming-the-harvest)
 - [7. The public passport](#7-the-public-passport)
-- [8. Errors](#8-errors)
-- [9. Values and enums](#9-values-and-enums)
+- [8. Selling the harvest (farmer and warehouse)](#8-selling-the-harvest-farmer-and-warehouse)
+- [9. The store (customers)](#9-the-store-customers)
+- [10. Errors](#10-errors)
+- [11. Values and enums](#11-values-and-enums)
 
 ---
 
@@ -29,9 +31,9 @@ an interactive reference at `http://localhost:8000/docs` while
 | Auth | `Authorization: Bearer <access_token>` on every route except those marked **public** |
 
 **Roles.**
-- `farmer`: farm screens.
-- `customer`: the future store.
-- `operator`: the future warehouse.
+- `farmer`: farm screens and their listings.
+- `customer`: the store.
+- `operator`: the warehouse (receipts and deliveries).
 - `admin`: everything.
 
 A screen should hide what the role cannot use, but the backend always
@@ -425,8 +427,14 @@ GET /trace/FP-2-20270302-1
     "verified": true,
     "chain_head": "9f2c…",
     "source_digest": "41ab…",
-    "trace_events": 1
-  }
+    "trace_events": 4
+  },
+  "journey": [
+    { "step": "commissioning", "on": "2027-03-02", "quantity_kg": 5200.5, "place": null },
+    { "step": "shipping", "on": "2027-03-03", "quantity_kg": 5000.0, "place": "FieldPilot Bogotá D.C. warehouse" },
+    { "step": "receiving", "on": "2027-03-04", "quantity_kg": 4980.0, "place": "FieldPilot Bogotá D.C. warehouse" },
+    { "step": "retail_selling", "on": "2027-03-06", "quantity_kg": 3.0, "place": null }
+  ]
 }
 ```
 
@@ -449,6 +457,9 @@ GET /trace/FP-2-20270302-1
   - `true`: show a "Verified" badge.
   - `false`: someone changed the records after the harvest. Show a warning;
     never hide it.
+- **`journey`** is the lot's chain in order: harvest, the trip to the
+  warehouse, the receipt, and every sale handed to a customer (D085). Draw
+  it as a timeline.
 - **Never shown, by design:** coordinates, people's names, phone numbers,
   sensor readings and prices.
 
@@ -456,7 +467,235 @@ GET /trace/FP-2-20270302-1
 
 ---
 
-## 8. Errors
+## 8. Selling the harvest (farmer and warehouse)
+
+A lot is born at the harvest (§6). The farmer lists it, takes it to a
+warehouse, and an operator confirms the receipt; only then can customers buy
+it. Money is in Colombian pesos (`*_cop`), quantities in kilograms (D085).
+
+### 8.1 Warehouses
+
+```http
+GET /warehouses
+```
+```json
+[ { "id": 1, "code": "BOG-01", "name": "FieldPilot Bogotá D.C. warehouse",
+    "municipality": "Bogotá, D.C.", "department": "Bogotá, D.C.", "cold_storage": true } ]
+```
+
+### 8.2 List a lot (farmer)
+
+```http
+POST /lots/FP-2-20270302-1/listings
+{ "farmer_price_per_kg_cop": 3000, "quantity_kg": 5000, "warehouse_id": 1 }
+```
+
+**Response: 201.**
+```json
+{
+  "id": 4, "lot_code": "FP-2-20270302-1", "crop": "soybean", "crop_name": "Soybean",
+  "status": "awaiting_delivery", "quantity_kg": 5000,
+  "farmer_price_per_kg_cop": 3000.0, "shelf_price_per_kg_cop": 3450.0, "farmer_share_pct": 87.0,
+  "warehouse": { "id": 1, "code": "BOG-01", "name": "FieldPilot Bogotá D.C. warehouse" },
+  "stock_kg": 0.0, "sold_kg": 0.0, "payouts_cop": 0.0, "shipment": null
+}
+```
+
+**The fields.**
+- **`warehouse_id`** is optional; the default is the Bogotá warehouse.
+- **`quantity_kg`** is a whole number and at most the harvested kg.
+- **The price:** the shelf price adds COP 300/kg of logistics and 5 % of
+  the farmer's price for the platform. Show `farmer_share_pct`: the farmer
+  never gets less than 80 %.
+
+**Errors.**
+
+| Code | Error | Meaning |
+|---|---|---|
+| 403 | `ForbiddenError` | Not a member of the lot's plot |
+| 409 | `ListingStateError` | The lot already has a listing |
+| 422 | `PriceTooLowError` | The farmer's share would fall under 80 %; raise the price |
+
+### 8.3 Take it to the warehouse (farmer), receive it (operator)
+
+```http
+POST /listings/4/dispatch          → 201 { "id": 9, "listing_id": 4, "warehouse": {...}, "status": "dispatched",
+                                            "dispatched_kg": 5000.0, "received_kg": null, "temperature_c": null }
+POST /shipments/9/receive          { "received_kg": 4980, "temperature_c": 8.5 }   (operator or admin)
+                                   → 200 the listing, now "active", with "stock_kg": 4980.0
+```
+
+**The rules.**
+- **What the operator records.** `received_kg` is at most what was
+  dispatched; the difference is recorded as shrinkage.
+- **Each step adds a trace event to the lot's passport:** `shipping` at
+  dispatch, then `receiving` at the receipt.
+- **Withdrawing.** `POST /listings/4/withdraw` cancels a listing that has
+  not been dispatched yet.
+
+### 8.4 Offers of the day (farmer)
+
+```http
+POST /listings/4/offers
+{ "discount_pct": 15, "starts_on": "2027-03-05", "ends_on": "2027-03-07" }
+```
+
+- **The discount** is 1 to 30 % off the farmer's price, for at most 7 days,
+  on an active listing.
+- **The guard still holds:** if the discount would drop the farmer's share
+  under 80 %, it is 422 `PriceTooLowError`.
+- **`GET /listings`** shows the farmer each listing with its stock, the kg
+  sold and the payouts earned.
+
+---
+
+## 9. The store (customers)
+
+Customers register with `"role": "customer"` (§2.1) and use the same
+login and refresh flow. **Every store route needs a customer token**, even
+in demo mode, except those marked **public**.
+
+### 9.1 Catalogue and offers (public)
+
+```http
+GET /store/products?q=tomato
+```
+```json
+[
+  {
+    "id": 4, "crop": "soybean", "crop_name": "Soybean", "unit": "kg",
+    "price": { "farmer_cop": 2550.0, "logistics_cop": 300.0, "platform_cop": 127.5,
+               "total_cop": 2977.5, "farmer_share_pct": 85.6, "discount_pct": 15 },
+    "offer": { "discount_pct": 15, "ends_on": "2027-03-07" },
+    "available_kg": 4980.0,
+    "harvested_on": "2027-03-02", "best_before": "2027-08-29",
+    "producer": "Producer from La Plata, Huila",
+    "warehouse": "FieldPilot Bogotá D.C. warehouse",
+    "lot_code": "FP-2-20270302-1", "passport_path": "/trace/FP-2-20270302-1"
+  }
+]
+```
+
+**How to show it.**
+- **The price** is per kg, with the farmer's share visible, which is the
+  story of the product.
+- **`passport_path`** opens the lot's traceability: harvest, warehouse and
+  sale.
+- **`GET /store/offers/today`** lists today's validated offers, each with
+  its product.
+
+### 9.2 Profile
+
+```http
+PUT /store/profile
+{ "delivery_address": "Calle 80 # 10-20, Bogotá", "consent_profiling": true }
+```
+
+`consent_profiling` turns on the recommendations based on the customer's
+own history (Ley 1581 de 2012). Without it, they use only fresh harvests,
+offers and popularity.
+
+### 9.3 Cart
+
+```http
+PUT /store/cart/items/4      { "quantity_kg": 3 }     (0 removes the line)
+GET /store/cart
+```
+```json
+{
+  "lines": [ { "listing_id": 4, "crop_name": "Soybean", "quantity_kg": 3,
+               "unit_price_cop": 2977.5, "line_total_cop": 8932.5,
+               "available_kg": 4980.0, "problem": null } ],
+  "total_cop": 8932.5,
+  "can_checkout": true
+}
+```
+
+**How it behaves.**
+- **The cart is repriced on every read.** `problem` is `out_of_stock`
+  (less stock than asked) or `not_available` (the listing is no longer
+  sold).
+- **`can_checkout`** is false while a line has a problem.
+
+### 9.4 Checkout and the purchase record
+
+```http
+POST /store/checkout
+{ "delivery_address": "Calle 80 # 10-20, Bogotá" }
+```
+
+**Response: 201**, the order:
+```json
+{
+  "id": 12, "status": "paid", "total_cop": 8932.5, "payment_ref": "MOCK-…",
+  "delivery_address": "Calle 80 # 10-20, Bogotá",
+  "placed_at": "…", "delivered_at": null,
+  "lines": [ { "listing_id": 4, "lot_code": "FP-2-20270302-1", "crop": "soybean",
+               "crop_name": "Soybean", "quantity_kg": 3, "unit_price_cop": 2977.5,
+               "line_total_cop": 8932.5, "producer": "Producer from La Plata, Huila",
+               "passport_path": "/trace/FP-2-20270302-1" } ]
+}
+```
+
+**The rules.**
+- **The delivery address** is optional when the profile has one.
+- **Errors:**
+  - 409 `EmptyCartError`;
+  - 409 `OutOfStockError`: read the cart again;
+  - 402 `PaymentDeclinedError`: never with the mock gateway.
+- **The purchase record:** `GET /store/orders` lists the customer's orders,
+  newest first; `GET /store/orders/{id}` returns one.
+- **Cancelling.** `POST /store/orders/{id}/cancel` cancels a `paid` order
+  and returns its stock.
+- **Delivery.** The operator hands the order over with
+  `POST /orders/{id}/deliver`. The order becomes `delivered`, and the
+  passport gains a `retail_selling` event.
+
+### 9.5 Recommendations and the shopping assistant
+
+```http
+GET /store/recommendations?k=5
+```
+```json
+[ { "product": { "id": 4, "crop_name": "Soybean", "...": "..." }, "score": 1.42,
+    "reasons": ["REPURCHASE_DUE", "ON_OFFER"],
+    "evidence": { "last_bought": "2027-02-20", "median_interval_days": 7, "discount_pct": 15 } } ]
+```
+
+**Reason codes**, to show as short tags:
+
+| Code | Tag |
+|---|---|
+| `REPURCHASE_DUE` | "time to buy again" |
+| `BOUGHT_TOGETHER` | "goes with what you buy" |
+| `FRESH_HARVEST` | "just harvested" |
+| `ON_OFFER` | "offer of the day" |
+| `POPULAR` | "popular" |
+
+```http
+POST /store/assistant
+{ "question": "I'm cooking for six on Sunday, what do I need?" }
+```
+```json
+{ "answer": "…", "proposal": { "id": 3, "items": [ { "listing_id": 4, "quantity_kg": 2 } ],
+                               "note": "…", "status": "open" },
+  "run_id": "…" }
+```
+
+**How it works.**
+- **What the assistant does.** It reads the customer's history,
+  recommendations and today's offers. It may **propose** a cart; it never
+  buys.
+- **Accepting a proposal.** Show the proposal with an "Add to cart" button,
+  which calls `POST /store/cart-proposals/{id}/accept` and returns the
+  cart.
+- **Without a model.** Under `MOCK_LLM=1` the assistant answers 503
+  (`ChatUnavailableError`). Everything else in the store works without a
+  model.
+
+---
+
+## 10. Errors
 
 Errors raised by the backend's own code share one shape:
 
@@ -478,14 +717,15 @@ Both are 422. Tell them apart by the key: `error` or `detail`.
 | 401 | No token, an expired or forged token, or a wrong login. Comes with `WWW-Authenticate: Bearer` |
 | 403 | The role or the plot membership does not allow it |
 | 404 | The plot, cycle, lot or crop does not exist |
-| 409 | The state does not allow it now: an active cycle, open tasks, a site not ready, a phone already taken |
+| 402 | The payment was declined |
+| 409 | The state does not allow it now: an active cycle, open tasks, a site not ready, a phone already taken, out of stock, an empty cart |
 | 422 | The data breaks a rule |
 | 423 | The account is locked |
 | 503 | The language model is unavailable (chat), with a fixed message |
 
 ---
 
-## 9. Values and enums
+## 11. Values and enums
 
 | Field | Values |
 |---|---|
@@ -495,7 +735,10 @@ Both are 422. Tell them apart by the key: `error` or `detail`.
 | `grade` | `extra`, `first`, `second` |
 | Planner crops | `maize`, `common_bean`, `sorghum`, `soybean`, `groundnut`, `cotton`, `tomato`, `potato` |
 | Automated crops (stage 2) | `maize` (one YAML per crop in `config/crops/`) |
-| Trace `biz_step` | `commissioning` (shipping, receiving and selling come with the rest of stage 3, D080) |
+| Trace `biz_step` | `commissioning`, `shipping`, `receiving`, `retail_selling` (D085) |
+| Listing `status` | `awaiting_delivery`, `in_transit`, `active`, `sold_out`, `withdrawn` |
+| Order `status` | `paid`, `delivered`, `cancelled` |
+| Recommendation reasons | `REPURCHASE_DUE`, `BOUGHT_TOGETHER`, `FRESH_HARVEST`, `ON_OFFER`, `POPULAR` |
 
 Crop names come with each outlook (`name`) and with the passport
 (`crop_name`) in `APP_LANGUAGE`; `name_es` and `crop_name_es` always carry the

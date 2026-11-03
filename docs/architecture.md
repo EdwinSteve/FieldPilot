@@ -1294,6 +1294,141 @@ class PassportService:
 - **A cycle that predates D083** (the demo seed) has no `cycle_started`
   event, so its plan is shown as unknown, never guessed.
 
+### 4.15 The market (`app/market`): listing, warehouse, store and orders (D080, D085)
+
+The harvest is sold through one path. A lot exists only after a confirmed
+harvest (§4.14). The farmer lists it and takes it to a warehouse. Once an
+operator confirms the receipt, customers can buy it. Every movement of
+quantity is a trace event in the lot's hash chain.
+
+```mermaid
+flowchart LR
+    L["Lot (harvest confirmed)"] --> LI["Listing<br/>awaiting_delivery"]
+    LI -->|farmer dispatches| SH["Shipment<br/>dispatched"]
+    SH -->|operator receives kg| ST["Stock at the warehouse<br/>listing active"]
+    ST --> C["Customer: cart"]
+    C -->|checkout + mock payment| O["Order paid"]
+    O -->|operator hands it over| D["Order delivered<br/>retail_selling event + farmer payout"]
+```
+
+```python
+@dataclass(frozen=True)
+class Warehouse:                         # config/market.yaml; the default is in Bogotá, D.C.
+    id: int; code: str; name: str; municipality: str; department: str; cold_storage: bool
+
+class ListingStatus(StrEnum):
+    AWAITING_DELIVERY = "awaiting_delivery"   # listed, not yet at the warehouse
+    IN_TRANSIT = "in_transit"                 # the farmer dispatched it
+    ACTIVE = "active"                         # received: customers can buy it
+    SOLD_OUT = "sold_out"
+    WITHDRAWN = "withdrawn"                   # by the farmer, before delivery
+
+@dataclass(frozen=True)
+class Listing:
+    lot_code: str; farmer_id: int; warehouse_id: int; crop: str
+    quantity_g: int                      # offered; at most the lot's harvest
+    farmer_price_per_kg: Money           # what the farmer receives per kg
+    status: ListingStatus; created_at: datetime; id: int | None = None
+
+@dataclass(frozen=True)
+class PriceBreakdown:                    # per kg, pure: shelf_price(farmer, fees, discount)
+    farmer: Money; logistics: Money; platform: Money; total: Money
+    farmer_share_pct: float; discount_pct: int
+
+class OrderStatus(StrEnum):
+    PAID = "paid"; DELIVERED = "delivered"; CANCELLED = "cancelled"
+
+class ListingService: ...    # create, withdraw, dispatch (farmer); receive (operator); offers
+class StoreService: ...      # catalogue, offers of the day, cart, checkout (customer)
+class OrderService: ...      # history (customer); deliver (operator); cancel (customer)
+class PaymentGateway(Protocol):   # MockPaymentGateway: always approves, idempotent by key
+    def charge(self, order_ref: str, amount: Money, idempotency_key: str) -> PaymentResult: ...
+```
+
+**Rules.**
+1. **Who lists.** Only a member of the lot's plot lists it, and a lot has at
+   most one listing. The farmer's own listing is the farmer's decision, so
+   it needs no approval. The agent-proposed `product_listing` through the
+   gate comes with the sales subagent (D080).
+2. **Price.** `farmer_price_per_kg` is above 0. The shelf price adds:
+   - logistics, `logistics_per_kg`, fixed per kg;
+   - the platform's share, `platform_pct` of the farmer's price.
+
+   A listing, or an offer, that would leave the farmer under
+   `min_farmer_share_pct` is refused (`PriceTooLowError`, 422).
+3. **Delivery.**
+   - **Dispatch** (farmer): the listing goes from `awaiting_delivery` to
+     `in_transit`, with a `shipping` trace event.
+   - **Receipt** (operator or admin): it records the kg received, at most
+     the kg dispatched, and the temperature if measured. It writes a
+     `receiving` trace event, puts the received grams in stock and makes
+     the listing `active`. The gap is shrinkage.
+4. **Stock** is an append-only ledger in grams, with the reasons `receipt`,
+   `sale`, `release` and `shrinkage`. Stock is the sum of the movements.
+   Nothing sells beyond it (`OutOfStockError`, 409).
+5. **Offers of the day.** The farmer gives a 1 to 30 % discount on their own
+   active listing, for at most 7 days. Today's offers are the ones whose
+   dates contain the warehouse's local day, whose listing is active with
+   stock, and whose discounted price still respects rule 2. The discount
+   comes off the farmer's price.
+6. **Cart.** A customer has one cart of whole kilograms per listing.
+   Reading it reprices every line, so a stale price or missing stock shows
+   up before checkout.
+7. **Checkout.** One transaction does all of this:
+   - it reprices every line;
+   - it checks the stock;
+   - it charges the `PaymentGateway`;
+   - it writes a `sale` movement per line;
+   - it stores the order and its lines, each with its listing, lot and
+     farmer, and the price breakdown frozen;
+   - it empties the cart.
+
+   An empty cart is a 409. The order is `paid`.
+8. **Delivery to the customer** (operator or admin):
+   - the order becomes `delivered`;
+   - each line writes a `retail_selling` trace event on its lot;
+   - a `PayoutRow` credits the farmer's share;
+   - a listing whose stock reaches zero becomes `sold_out`.
+9. **Cancellation** (the customer, while `paid`): the payment is refunded,
+   each line gets a `release` movement, and the order becomes `cancelled`.
+10. **Privacy.** Orders, carts and the assistant's turns live in market
+    tables, never in the farm's event log (market.md §7.4).
+
+### 4.16 Recommendations and the shopping assistant (`app/market/recommend`, `shopper`) (D085)
+
+```python
+class Recommender:                       # pure scorers, weights in config/market.yaml
+    def recommend(self, history: PurchaseProfile, catalogue: Sequence[ProductView],
+                  offers: Mapping[int, Offer], today: date, k: int) -> tuple[Recommendation, ...]: ...
+# ReasonCode: REPURCHASE_DUE · BOUGHT_TOGETHER · FRESH_HARVEST · ON_OFFER · POPULAR
+```
+
+- **The scores are deterministic and explainable.** Each recommendation
+  carries its reason codes and evidence (market.md §7.1).
+- **Personal scores need consent.** Repurchase and co-purchase use the
+  customer's history only after `consent_profiling` is on in their profile;
+  without it, only fresh harvest, offers and popularity rank.
+- **The `shopper` subagent** runs on the same `AgentLoop` and model as the
+  farm agent (`MUSE_AGENT_MODEL`, Muse Spark on the Meta Model API).
+  - **Its tools:**
+    - `get_purchase_history`
+    - `get_recommendations`
+    - `search_products`
+    - `get_offers_today` (re-validates every offer)
+    - `get_passport`
+    - `propose_cart` (writes a `CartProposal`)
+    - `answer_customer` (closing)
+  - **Every tool is bound to the session's customer.** No tool takes a
+    customer id.
+  - **It proposes, the customer buys.** `propose_cart` never adds to the
+    cart or pays; `POST /store/cart-proposals/{id}/accept` does, after the
+    customer sees it.
+  - **Prices come from the tools.** `answer_customer` refuses a price that
+    no cited product or offer returned.
+  - **Without a model** (`MOCK_LLM=1`), the assistant answers 503, as the
+    farm chat does. The recommendations, offers and the whole purchase flow
+    need no model.
+
 ### 4.10 Persistence (`app/persistence`)
 
 The domain uses frozen dataclasses (`app/domain/models.py`) and knows
@@ -1383,6 +1518,17 @@ erDiagram
 | **PlotSite** | plot_id (key), status (`pending`, `ready`, `failed`), requested_at, finished_at?, message? (D083; the API says `ready` only when a matching snapshot file exists) |
 | **HarvestLot** | code (key), cycle_id (unique), plot_id, crop, harvested_on, quantity_g, grade, created_at (D083) |
 | **TraceEventRow** | id, lot_code, seq, biz_step, occurred_at, actor, quantity_g, data (JSON), prev_hash, hash · unique (lot_code, seq) |
+| **Warehouse** | id, code (unique), name, municipality, department, cold_storage (D085) |
+| **Listing** | id, lot_code (unique), farmer_id, warehouse_id, crop, quantity_g, farmer_price_minor, currency, status, created_at |
+| **Shipment** | id, listing_id, warehouse_id, dispatched_g, received_g?, temperature_c?, dispatched_at, received_at?, received_by? |
+| **StockMovement** | id, listing_id, delta_g, reason (`receipt`, `sale`, `release`, `shrinkage`), ref, occurred_at |
+| **Offer** | id, listing_id, discount_pct, starts_on, ends_on, created_at |
+| **CustomerProfile** | user_id (key), delivery_address?, consent_profiling_at? |
+| **CartItem** | id, customer_id, listing_id, quantity_kg · unique (customer_id, listing_id) |
+| **CustomerOrder** | id, customer_id, status, total_minor, currency, payment_ref, delivery_address, placed_at, delivered_at?, cancelled_at? |
+| **OrderLine** | id, order_id, listing_id, lot_code, farmer_id, crop, quantity_kg, unit_total_minor, farmer_minor, logistics_minor, platform_minor, discount_pct |
+| **PayoutRow** | id, order_line_id (unique), farmer_id, amount_minor, currency, created_at |
+| **CartProposal** | id, customer_id, items (JSON), note, status (`open`, `accepted`, `dismissed`), created_at |
 
 Money is stored in minor units (`Money(amount_minor, currency)`) to avoid
 float rounding. Every datetime column is aware UTC (§4.10).
@@ -1393,7 +1539,8 @@ float rounding. Every datetime column is aware UTC (§4.10).
 `emergency_stop`, `stage_transition`, `agent_tool_call`, `config_override`,
 `clock_changed`, `scenario_injected`, `phenology_gap`,
 `planting_plan_served` (D079), `cycle_started`, `harvest_confirmed`,
-`lot_commissioned` (D083).
+`lot_commissioned` (D083). Trace events add `shipping`, `receiving` and
+`retail_selling` to each lot's chain (D085).
 
 Task lifecycle (`domain/task_transitions.py`). A task is created as
 `pending_approval` or `scheduled`, and these are the allowed transitions:
@@ -1492,6 +1639,23 @@ startup writes a `config_override` event with both values.
 | POST | `/cycles/{id}/harvest` | `CycleService.harvest`: the harvest confirmation; creates the lot (D083) |
 | GET | `/plots/{id}/lots` | The plot's lots, with their passport links |
 | GET | `/trace/{code}` | **Public**: the lot's passport, with `verified` (D083) |
+| GET | `/warehouses` | The warehouses (D085) |
+| POST | `/lots/{code}/listings` | Farmer: list a harvested lot at a price per kg, at a warehouse |
+| GET | `/listings` | Farmer: their listings with stock, sold kg and payouts |
+| POST | `/listings/{id}/dispatch`, `/listings/{id}/withdraw` | Farmer: take it to the warehouse, or withdraw it before |
+| POST | `/listings/{id}/offers` | Farmer: a discount of 1 to 30 % for up to 7 days |
+| POST | `/shipments/{id}/receive` | Operator: kg received and temperature; the listing becomes active |
+| GET | `/store/products`, `/store/products/{id}` | **Public**: the catalogue, with price breakdown, producer and passport link |
+| GET | `/store/offers/today` | **Public**: today's validated offers |
+| GET, PUT | `/store/profile` | Customer: delivery address and consent to personalised recommendations |
+| GET | `/store/cart`, PUT `/store/cart/items/{listing_id}` | Customer: the cart, repriced on every read; 0 kg removes a line |
+| POST | `/store/checkout` | Customer: pay (mock gateway) and place the order |
+| GET | `/store/orders`, `/store/orders/{id}` | Customer: the purchase record |
+| POST | `/store/orders/{id}/cancel` | Customer: cancel while paid |
+| POST | `/orders/{id}/deliver` | Operator: hand the order over; trace and payouts |
+| GET | `/store/recommendations` | Customer: ranked products with reasons |
+| POST | `/store/assistant` | Customer: the shopping assistant (503 under `MOCK_LLM=1`) |
+| POST | `/store/cart-proposals/{id}/accept` | Customer: put an assistant's proposal into the cart |
 | GET | `/plots/{id}/imagery` | NDVI, low-NDVI %, bare soil and low vigour per zone (D067), SAM boxes and zone areas (D073) |
 | GET | `/plots/{id}/imagery/image` | The scene's RGB PNG; 404 without a scene (D073) |
 | GET | `/plots/{id}/planting-plan?from=&weeks=` | `PlanningService.plan`: crops ranked per sowing week, with the model id (D079) |
@@ -1527,9 +1691,9 @@ Errors map to HTTP codes in one place (`app/api/errors.py`):
 | `InvalidCredentialsError`, `InvalidSessionError` | 401 |
 | `ForbiddenError` | 403 |
 | `NotFoundError` | 404 |
-| `PhoneTakenError`, `StalePolicyError`, `ActiveCycleExistsError`, `OpenTasksError`, `SiteJobPendingError` | 409 |
+| `PhoneTakenError`, `StalePolicyError`, `ActiveCycleExistsError`, `OpenTasksError`, `SiteJobPendingError`, `OutOfStockError`, `EmptyCartError`, `ListingStateError` | 409 |
 | `AccountLockedError` | 423 |
-| `InvalidPhoneError`, `WeakPasswordError`, `ConsentRequiredError`, `InvalidSowingDateError`, `OwnRiskRequiredError`, `InvalidHarvestError` | 422 |
+| `InvalidPhoneError`, `WeakPasswordError`, `ConsentRequiredError`, `InvalidSowingDateError`, `OwnRiskRequiredError`, `InvalidHarvestError`, `PriceTooLowError`, `InvalidOfferError`, `InvalidReceiptError` | 422 |
 | `InvalidTransitionError`, `RevertRefusedError`, `MissingDataError` | 409 |
 | `UnsupportedActionError`, `UnsupportedAudioError`, `NothingHeardError` | 422 |
 | `LLMUnavailableError` (or a `PAUSED` chat run), `SpeechUnavailableError`, chat under `MOCK_LLM=1`, `FixtureExhaustedError` (a replay that does not match the farm) | 503 |
