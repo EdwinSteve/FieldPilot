@@ -1,0 +1,42 @@
+# The market (D080, D085). Every value here is a demo_value (D038): set real
+# ones from real costs before a deployment.
+
+currency: COP
+fees:
+  logistics_per_kg: 300        # COP per kg, fixed
+  platform_pct: 5              # of the farmer's price
+  min_farmer_share_pct: 80     # a listing or offer below it is refused
+
+offers:
+  max_discount_pct: 30
+  max_days: 7
+
+# Created at startup when missing; the first is the default for listings.
+warehouses:
+  - code: BOG-01
+    name: FieldPilot Bogotá D.C. warehouse
+    municipality: Bogotá, D.C.
+    department: Bogotá, D.C.
+    cold_storage: true
+
+# Days a harvested lot stays sellable; a crop not listed here cannot be sold
+# as food (cotton). demo_value: typical storage at the right temperature.
+shelf_life_days:
+  maize: 90
+  common_bean: 180
+  sorghum: 180
+  soybean: 180
+  groundnut: 120
+  tomato: 14
+  potato: 60
+
+# Deterministic recommender (market.md §7.1).
+recommender:
+  weights:
+    repurchase_due: 1.0
+    bought_together: 0.6
+    fresh_harvest: 0.5
+    on_offer: 0.7
+    popular: 0.3
+  due_ratio: 0.8               # REPURCHASE_DUE from 80 % of the usual interval
+  fresh_days: 7

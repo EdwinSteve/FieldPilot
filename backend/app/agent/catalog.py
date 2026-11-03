@@ -32,6 +32,20 @@ SUBAGENTS: tuple[SubagentSpec, ...] = (
     ),
 )
 
+# The customer's shopping assistant (D085): its own catalogue, never the farm's tools.
+SHOPPER_TOOLS = frozenset(
+    {
+        "get_purchase_history",
+        "get_recommendations",
+        "search_products",
+        "get_offers_today",
+        "get_passport",
+        "propose_cart",
+        "answer_customer",
+    }
+)
+SHOPPER = SubagentSpec("shopper", SHOPPER_TOOLS, "answer_customer", may_write=True)
+
 
 def load_agent_catalog(
     prompts_dir: Path, specs: Sequence[SubagentSpec] = SUBAGENTS, *, language: str = "en"
