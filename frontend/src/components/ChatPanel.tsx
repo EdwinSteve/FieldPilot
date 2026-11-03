@@ -68,7 +68,7 @@ export function ChatPanel({ plot, version, refresh }: ChatPanelProps) {
         setRecording(true);
         setError(null);
       } catch {
-        setError("No se pudo usar el micrófono. Revisa el permiso del navegador.");
+        setError("The microphone could not be used. Check the browser permission.");
       }
       return;
     }
@@ -83,15 +83,15 @@ export function ChatPanel({ plot, version, refresh }: ChatPanelProps) {
   }
 
   return (
-    <Panel title="Pregúntale al agente" error={error} icon="mic">
+    <Panel title="Ask the agent" error={error} icon="mic">
       {exchanges.length === 0 && !busy ? (
-        <p className="muted">Haz una pregunta para empezar.</p>
+        <p className="muted">Ask a question to start.</p>
       ) : null}
       <ul className="chat">
         {exchanges.map((exchange) => (
           <li key={exchange.id}>
             <p className="chat__question">
-              {exchange.heard ? "Entendí: " : ""}«{exchange.question}»
+              {exchange.heard ? "I heard: " : ""}«{exchange.question}»
             </p>
             <p className="chat__answer">{exchange.answer}</p>
           </li>
@@ -99,9 +99,8 @@ export function ChatPanel({ plot, version, refresh }: ChatPanelProps) {
       </ul>
       {unavailable ? (
         <p className="notice">
-          El chat está desactivado en el modo de demostración (MOCK_LLM=1). El ciclo diario, las
-          aprobaciones y el calendario siguen funcionando. Para preguntar al agente, reinicia con
-          MOCK_LLM=0 y una clave de API.
+          The chat is off in demo mode (MOCK_LLM=1). The daily cycle, the approvals and the
+          calendar keep working. To ask the agent, restart with MOCK_LLM=0 and an API key.
         </p>
       ) : null}
       <form
@@ -112,8 +111,8 @@ export function ChatPanel({ plot, version, refresh }: ChatPanelProps) {
         }}
       >
         <input
-          aria-label="Tu pregunta"
-          placeholder="¿Necesita agua la zona 2?"
+          aria-label="Your question"
+          placeholder="Does zone 2 need water?"
           value={question}
           disabled={busy || recording || unavailable}
           onChange={(event) => setQuestion(event.target.value)}
@@ -123,7 +122,7 @@ export function ChatPanel({ plot, version, refresh }: ChatPanelProps) {
           className="button--primary"
           disabled={busy || recording || unavailable || !question.trim()}
         >
-          Preguntar
+          Ask
         </button>
         <button
           type="button"
@@ -131,15 +130,15 @@ export function ChatPanel({ plot, version, refresh }: ChatPanelProps) {
           disabled={busy || unavailable}
           onClick={() => void toggleRecording()}
         >
-          {recording ? "Detener y enviar" : "Hablar"}
+          {recording ? "Stop and send" : "Speak"}
         </button>
       </form>
-      {busy ? <p className="chat__thinking">El agente está pensando…</p> : null}
+      {busy ? <p className="chat__thinking">The agent is thinking…</p> : null}
     </Panel>
   );
 }
 
 function describeReply(reply: ChatAnswer): string {
   if (reply.answer) return reply.answer;
-  return "El agente no terminó su respuesta. Revisa «Lo que hizo el agente».";
+  return "The agent did not finish its answer. Check the «Event log».";
 }

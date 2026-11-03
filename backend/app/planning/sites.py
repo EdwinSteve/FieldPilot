@@ -31,8 +31,10 @@ class FileSiteSource:
             if _matches(snapshot, plot):
                 return SiteRecord(snapshot, file_digest(path))  # the same on any platform
         raise MissingDataError(
-            f"La parcela {plot.id} todavía no tiene datos de clima y suelo para el planificador "
-            f"(GET /plots/{plot.id}/site)."
+            f"Plot {plot.id} has no climate and soil data for the planner yet "
+            f"(GET /plots/{plot.id}/site).",
+            key="site_missing",
+            params={"plot_id": plot.id or 0},
         )
 
 

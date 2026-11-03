@@ -21,12 +21,18 @@ _UPCOMING = frozenset({TaskStatus.SCHEDULED, TaskStatus.PENDING_APPROVAL})
 
 class StoredFieldReader:
     def __init__(
-        self, uow: UowFactory, forecast: RainForecast, crops: CropCatalog, clock: Clock
+        self,
+        uow: UowFactory,
+        forecast: RainForecast,
+        crops: CropCatalog,
+        clock: Clock,
+        language: str = "en",
     ) -> None:
         self._uow = uow
         self._forecast = forecast
         self._crops = crops
         self._clock = clock
+        self._language = language  # crop and stage names as the farmer reads them (D084)
 
     def zones(self, plot_id: int) -> Sequence[ZoneView]:
         with self._uow() as u:
@@ -49,10 +55,10 @@ class StoredFieldReader:
         return StageView(
             cycle_id=_stored(cycle.id, "cycle"),
             crop=crop.name,
-            crop_display_es=crop.display_name.get("es", crop.name),
+            crop_display=crop.display_name.get(self._language, crop.name),
             root_depth_mm=crop.root_depth_mm,
             stage=stage.name,
-            stage_display_es=stage.display_name.get("es", stage.name),
+            stage_display=stage.display_name.get(self._language, stage.name),
             accumulated_gdd=cycle.accumulated_gdd,
             kc=crop_coefficient_at(cycle.accumulated_gdd, crop),
         )

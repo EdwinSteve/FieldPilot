@@ -117,7 +117,7 @@ def test_read_crop_stage_records_stage_gdd_and_kc(ledger: ObservationLedger) -> 
         "value": "v6",
         "unit": "",
         "at": None,
-        "display_es": "V6 (seis hojas)",
+        "display": "V6 (seis hojas)",
     }
     gdd = result["accumulated_gdd"]
     assert isinstance(gdd, dict) and (gdd["value"], gdd["unit"]) == (412.5, "GDD")
@@ -139,7 +139,7 @@ def test_read_crop_stage_names_the_crop_and_its_root_depth(ledger: ObservationLe
         "value": "maize",
         "unit": "",
         "at": None,
-        "display_es": "Maíz",
+        "display": "Maíz",
     }
     root = result["root_depth"]
     assert isinstance(root, dict) and (root["value"], root["unit"]) == (300.0, "mm")

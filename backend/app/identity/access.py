@@ -16,17 +16,17 @@ class AccessPolicy:
     def require_farm(self, principal: Principal, plot_id: int | None = None) -> None:
         """Farm routes: the farmer or admin role, and membership of the plot they name."""
         if principal.role not in FARM_ROLES:
-            raise ForbiddenError("Esta sección es solo para agricultores.")
+            raise ForbiddenError("This section is for farmers only.", key="farm_role")
         if plot_id is None or principal.sees_every_plot or principal.user_id is None:
             return
         with self._uow() as uow:
             uow.plots.get(plot_id)  # an unknown plot stays a 404
             if not uow.plot_members.is_member(plot_id, principal.user_id):
-                raise ForbiddenError("No tienes acceso a esta parcela.")
+                raise ForbiddenError("You do not have access to this plot.", key="plot_member")
 
     def require_admin(self, principal: Principal) -> None:
         if principal.role is not Role.ADMIN:
-            raise ForbiddenError("Solo un administrador puede hacer esto.")
+            raise ForbiddenError("Only an administrator can do this.", key="admin_only")
 
     def add_member(self, principal: Principal, plot_id: int, user_id: int) -> None:
         self.require_admin(principal)

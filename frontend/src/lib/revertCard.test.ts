@@ -8,20 +8,20 @@ describe("revertCard (D011)", () => {
     const card = revertCard(OPEN);
 
     expect(card?.label).toBe(WINDOW_LABEL);
-    expect(card?.label).toBe("Ventana en reloj simulado");
-    expect(card?.status).toBe("Quedan 5 h 12 min de reloj simulado");
+    expect(card?.label).toBe("Window on the simulated clock");
+    expect(card?.status).toBe("5 h 12 min of simulated clock left");
     expect(card?.buttonEnabled).toBe(true);
   });
 
   it("marks the real-time figure as an estimate", () => {
-    expect(revertCard(OPEN)?.estimate).toBe("≈ 52 s reales a ×360 (estimación)");
+    expect(revertCard(OPEN)?.estimate).toBe("≈ 52 s real at ×360 (estimate)");
   });
 
   it("says the window does not advance while the clock is paused, and shows no estimate", () => {
     const card = revertCard({ ...OPEN, clockPaused: true });
 
-    expect(card?.status).toBe(`Quedan 5 h 12 min de reloj simulado. ${PAUSED_TEXT}`);
-    expect(PAUSED_TEXT).toBe("Reloj simulado en pausa: la ventana no avanza");
+    expect(card?.status).toBe(`5 h 12 min of simulated clock left. ${PAUSED_TEXT}`);
+    expect(PAUSED_TEXT).toBe("Simulated clock paused: the window does not move");
     expect(card?.estimate).toBeNull();
     expect(card?.buttonEnabled).toBe(true);
   });
@@ -31,7 +31,7 @@ describe("revertCard (D011)", () => {
 
     expect(card?.status).toBe(CLOSED_TEXT);
     expect(card?.buttonEnabled).toBe(false);
-    expect(card?.disabledReason).toBe("Ventana cerrada");
+    expect(card?.disabledReason).toBe("Window closed");
     expect(card?.estimate).toBeNull();
   });
 
@@ -58,6 +58,6 @@ describe("realEstimate", () => {
   });
 
   it("divides by the speed factor", () => {
-    expect(realEstimate(3_600, 60)).toBe("≈ 1 min reales a ×60 (estimación)");
+    expect(realEstimate(3_600, 60)).toBe("≈ 1 min real at ×60 (estimate)");
   });
 });

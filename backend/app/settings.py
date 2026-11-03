@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     auth_required: bool = True
     auth_jwt_secret: SecretStr | None = None
 
+    # D084: the language of every farmer-facing text. English by default; the
+    # Spanish catalogue, prompts and recorded answers are kept for APP_LANGUAGE=es.
+    app_language: Literal["en", "es"] = "en"
+
     database_url: str = f"sqlite:///{REPO_ROOT / 'backend' / 'fieldpilot.db'}"
     config_dir: Path = REPO_ROOT / "config"
     data_dir: Path = REPO_ROOT / "data"

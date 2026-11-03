@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from app.actuation.ports import Actuator
-from app.autonomy.messages import MessageCatalog, format_number
+from app.autonomy.messages import MessageCatalog
 from app.domain.enums import EventKind, TaskStatus
 from app.domain.models import Event, Notification
 from app.persistence.ports import UnitOfWork
@@ -131,7 +131,7 @@ def _report_interrupted(
             )
             message = messages.label(
                 "irrigation_interrupted",
-                requested_mm=format_number(requested),
+                requested_mm=messages.number(requested),
                 zone=str(task.zone_id),
             )
             u.notifications.add(Notification(message, now, task_id=task.id))

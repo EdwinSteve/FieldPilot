@@ -4,7 +4,7 @@ The plan is advice: it never creates, changes or proposes a task. Each plan
 served is logged as one planting_plan_served event.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date, timedelta
 
@@ -29,7 +29,7 @@ RECOMMENDED_TOP = 3  # the top 3 of a week are "recommended" (NDCG@3, D079; D083
 @dataclass(frozen=True)
 class SowingAdvice:
     plan: PlanAtSowing | None  # None: not a planner crop, or no site data
-    top: tuple[str, ...]  # the week's recommended crops, Spanish names
+    top: tuple[str, ...]  # the week's recommended crops, named in APP_LANGUAGE
 
     @property
     def recommended(self) -> bool:
@@ -52,12 +52,14 @@ class PlanningService:
         sites: SiteSource,
         recommender: CropRecommender,
         catalog: CropCatalog,
+        crop_names: Mapping[str, str],
     ) -> None:
         self._uow = uow
         self._clock = clock
         self._sites = sites
         self._recommender = recommender
         self._catalog = catalog
+        self._crop_names = crop_names  # in APP_LANGUAGE (D084)
 
     @property
     def model_id(self) -> str:
@@ -87,7 +89,7 @@ class PlanningService:
         except MissingDataError:
             return SowingAdvice(None, ())
         outlooks = weeks[0].outlooks
-        top = tuple(o.name_es for o in outlooks[:RECOMMENDED_TOP])
+        top = tuple(o.name for o in outlooks[:RECOMMENDED_TOP])
         for rank, outlook in enumerate(outlooks, start=1):
             if outlook.crop == crop:
                 plan = PlanAtSowing(self.model_id, rank, outlook.rel_yield_p50, outlook.p_success)
@@ -126,6 +128,7 @@ class PlanningService:
         p10, p50, p90 = (float(v) for v in p.rel_yield[row, column])
         return CropOutlook(
             crop=card.crop,
+            name=self._crop_names.get(card.crop, card.crop),
             name_es=card.name_es,
             sowing_date=sowing,
             harvest_date=sowing + timedelta(days=card.cycle_days),
@@ -151,8 +154,8 @@ class PlanningService:
         ]
         best = max(plan.weeks, key=lambda w: w.outlooks[0].rel_yield_p50)
         reason = (
-            f"Plan de siembra servido ({plan.model}): mejor opción {best.outlooks[0].name_es} "
-            f"sembrando el {best.sowing_date.isoformat()}."
+            f"Planting plan served ({plan.model}): best option {best.outlooks[0].crop} "
+            f"sown on {best.sowing_date.isoformat()}."
         )
         with self._uow() as uow:
             uow.events.append(

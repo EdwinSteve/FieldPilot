@@ -18,10 +18,10 @@ import { Panel } from "./Panel";
 const MAX_ENTRIES = 30;
 
 const FILTERS: { key: StoryFilter; label: string }[] = [
-  { key: "all", label: "Todo" },
-  { key: "agent", label: "Agente" },
-  { key: "gate", label: "Gate y tareas" },
-  { key: "system", label: "Sistema" },
+  { key: "all", label: "All" },
+  { key: "agent", label: "Agent" },
+  { key: "gate", label: "Gate and tasks" },
+  { key: "system", label: "System" },
 ];
 
 const KIND_ICONS: Record<string, IconName> = {
@@ -79,9 +79,9 @@ export function TimelinePanel({ plot, version }: TimelinePanelProps) {
   }, [events.data]);
 
   return (
-    <Panel title="Libro de eventos" error={events.error} icon="clock" loading={events.loading}>
+    <Panel title="Event log" error={events.error} icon="clock" loading={events.loading}>
       <fieldset className="filter-group">
-        <legend>Filtrar por tipo</legend>
+        <legend>Filter by type</legend>
         {FILTERS.map(({ key, label }) => (
           <button
             key={key}
@@ -93,7 +93,7 @@ export function TimelinePanel({ plot, version }: TimelinePanelProps) {
           </button>
         ))}
       </fieldset>
-      {entries.length === 0 ? <p className="muted">Todavía no hay nada registrado.</p> : null}
+      {entries.length === 0 ? <p className="muted">Nothing recorded yet.</p> : null}
       <ol className="story">
         {entries.map((entry) =>
           entry.run ? (
@@ -115,9 +115,9 @@ function RunEntry({ run, plot }: { run: TimelineRun; plot: Plot }) {
         <strong>{SUBAGENT_LABELS[run.subagent] ?? run.subagent}</strong>
         <span className="muted">· {run.turns.length} turnos</span>
         {run.refusals ? (
-          <span className="badge badge--warn">{run.refusals} reintentos</span>
+          <span className="badge badge--warn">{run.refusals} retries</span>
         ) : null}
-        {run.paused ? <span className="badge badge--warn">en pausa</span> : null}
+        {run.paused ? <span className="badge badge--warn">paused</span> : null}
         {run.turns[0] ? (
           <span className="muted">· {formatPlotTime(run.turns[0].occurredAt, plot.utc_offset_hours)}</span>
         ) : null}
@@ -133,18 +133,18 @@ function RunEntry({ run, plot }: { run: TimelineRun; plot: Plot }) {
 
 function TurnRow({ turn }: { turn: TimelineTurn }) {
   if (turn.paused) {
-    return <li className="turn turn--paused">Turno {turn.turn}: en pausa ({turn.error})</li>;
+    return <li className="turn turn--paused">Turn {turn.turn}: paused ({turn.error})</li>;
   }
   return (
     <li className={turn.error ? "turn turn--refused" : "turn"}>
       <span className="turn__plan">
-        Turno {turn.turn}: {turn.tool ?? "respuesta de texto"} <code>{compact(turn.arguments)}</code>
+        Turn {turn.turn}: {turn.tool ?? "text answer"} <code>{compact(turn.arguments)}</code>
       </span>
       <span className="turn__observe">
-        {turn.error ? `Rechazado: ${turn.error}` : compact(turn.result)}
+        {turn.error ? `Refused: ${turn.error}` : compact(turn.result)}
       </span>
       <details>
-        <summary>ver detalle</summary>
+        <summary>see details</summary>
         <code className="turn__detail">{JSON.stringify({ args: turn.arguments, result: turn.result }, null, 2)}</code>
       </details>
       <span className="muted">{turn.durationMs} ms</span>
@@ -161,7 +161,7 @@ function SingleEntry({ event, plot }: { event: LogEvent; plot: Plot }) {
           <strong>{EVENT_KIND_LABELS[event.kind] ?? event.kind}</strong>{" "}
           <span className="muted">
             · {formatPlotTime(event.occurred_at, plot.utc_offset_hours)}
-            {event.task_id === null ? "" : ` · tarea ${event.task_id}`}
+            {event.task_id === null ? "" : ` · task ${event.task_id}`}
           </span>
         </div>
         {event.reason ? <p className="story-event__reason">{event.reason}</p> : null}
@@ -170,7 +170,7 @@ function SingleEntry({ event, plot }: { event: LogEvent; plot: Plot }) {
   );
 }
 
-/** Short JSON for one line; the full value hides behind "ver detalle". */
+/** Short JSON for one line; the full value hides behind "see details". */
 function compact(value: Json): string {
   if (value === null) return "";
   const text = JSON.stringify(value);

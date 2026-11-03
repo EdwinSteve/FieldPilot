@@ -34,7 +34,9 @@ class ProposeInput(BaseModel):
     scheduled_for: Literal["now"] | AwareDatetime = Field(
         description='"now", or an ISO 8601 time with offset, not in the past.'
     )
-    rationale: str = Field(min_length=1, description="Why, in Spanish, for the farmer.")
+    rationale: str = Field(
+        min_length=1, description="Why, in the farmer's language, for the farmer."
+    )
     cited: list[str] = Field(min_length=1, description="observation_ids this proposal relies on")
 
 
@@ -165,6 +167,6 @@ def _result(view: ProposalView) -> JsonObject:
         "status": view.status,
         "outcome": view.outcome,
         "effective_level": view.effective_level,
-        "reason_es": view.reason_es,
+        "reason": view.reason,
         "already_decided": view.already_decided,
     }

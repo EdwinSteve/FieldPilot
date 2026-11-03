@@ -17,7 +17,7 @@ from app.domain.enums import ActionType, AutonomyLevel, EventKind, SensorKind, T
 from app.domain.errors import MissingDataError
 from app.domain.models import Event, Reading, Sensor, Task
 from app.persistence.unit_of_work import SqlUnitOfWork
-from app.planning.site_jobs import SiteBuildError, SiteJobs
+from app.planning.site_jobs import SITE_MESSAGES, SiteBuildError, SiteJobs
 from app.planning.sites import FileSiteSource
 from app.services.gate_context import active_cycle
 from app.services.plots import PlotService
@@ -42,7 +42,7 @@ class CopyingBuilder:
 
     def build(self, lat: float, lon: float, out: Path) -> None:
         if self.fail:
-            raise SiteBuildError("Sin conexión con NASA POWER.")
+            raise SiteBuildError()
         snapshot = SiteSnapshot.from_json(DEMO_SITE.read_text(encoding="utf-8"))
         out.write_text(replace(snapshot, lat=lat, lon=lon).to_json(), encoding="utf-8")
 
@@ -62,7 +62,9 @@ def _with_builder(
     jobs = SiteJobs(container.runtime.uow, system_wall_clock, builder, sites_dir,
                     runner or (lambda task: task()))  # fmt: skip
     sites = FileSiteSource([DEMO_SITE.parent, sites_dir])  # the same places the planner reads
-    plots = PlotService(container.runtime.uow, container.runtime.clock, sites, jobs)
+    plots = PlotService(
+        container.runtime.uow, container.runtime.clock, sites, jobs, container.config.messages
+    )
     app.state.container = replace(container, plots=plots)
 
 
@@ -120,7 +122,7 @@ def test_a_failed_build_says_why_and_can_be_retried(
     plot_id = client.post("/plots", json=LA_PLATA).json()["id"]
 
     failed = client.get(f"/plots/{plot_id}/site").json()
-    assert (failed["status"], failed["message"]) == ("failed", "Sin conexión con NASA POWER.")
+    assert (failed["status"], failed["message"]) == ("failed", SITE_MESSAGES["site_build_failed"])
     plan = client.get(f"/plots/{plot_id}/planting-plan")
     assert plan.status_code == 409
 
@@ -200,7 +202,7 @@ def test_a_crop_outside_the_top_three_needs_the_farmers_own_risk(
 
     refused = _sow(client, farm.plot_id, worst["crop"], TODAY)
     assert (refused.status_code, refused.json()["error"]) == (422, "OwnRiskRequiredError")
-    assert week[0]["name_es"] in refused.json()["message"]
+    assert week[0]["name"] in refused.json()["message"]  # English by default (D084)
 
     accepted = _sow(client, farm.plot_id, worst["crop"], TODAY, risk=True)
     assert accepted.status_code == 201

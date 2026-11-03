@@ -67,11 +67,15 @@ class AuthService:
 
     def register(self, form: Registration) -> AuthResult:
         if form.role not in SELF_REGISTERED_ROLES:
-            raise ForbiddenError("Solo agricultores y clientes pueden registrarse.")
+            raise ForbiddenError("Only farmers and customers can register.", key="register_role")
         if not form.accept_privacy_policy:
-            raise ConsentRequiredError("Debes aceptar la política de tratamiento de datos.")
+            raise ConsentRequiredError(
+                "You must accept the data processing policy.", key="consent_required"
+            )
         if form.privacy_policy_version != self._config.privacy_policy_version:
-            raise StalePolicyError("La política de datos cambió. Vuelve a leerla y acéptala.")
+            raise StalePolicyError(
+                "The data policy changed. Read it again and accept it.", key="stale_policy"
+            )
         now = self._wall()
         with self._uow() as uow:
             user = self._add_user(uow, form.phone, form.full_name, form.role, form.password, now)
@@ -197,7 +201,7 @@ class AuthService:
         phone = Phone.parse(raw_phone)
         check_password(password, phone, self._config.password_min_length)
         if uow.users.find_by_phone(phone.e164) is not None:
-            raise PhoneTakenError("Ya existe una cuenta con ese celular.")
+            raise PhoneTakenError("An account with that phone already exists.", key="phone_taken")
         user = uow.users.add(
             User(
                 phone=phone,

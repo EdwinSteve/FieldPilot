@@ -25,7 +25,8 @@ class StoredOutbox:
             cycle = active_cycle(u, plot_id)
             if cycle.id is None:
                 raise RuntimeError("active cycle without an id")
-            report = u.reports.add(Report(cycle.id, "es", text_es, self._clock.now()))
+            language = self._messages.language  # the report is in APP_LANGUAGE (D084)
+            report = u.reports.add(Report(cycle.id, language, text_es, self._clock.now()))
             u.commit()
         if report.id is None:
             raise RuntimeError("database did not assign a report id")

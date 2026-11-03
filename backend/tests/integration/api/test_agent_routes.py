@@ -25,7 +25,7 @@ def test_mock_mode_chat_is_503_and_says_why(client: TestClient, farm: Farm) -> N
 
     for response in (text, voice):
         assert response.status_code == 503
-        assert response.json()["message"] == "El chat necesita MOCK_LLM=0 y una clave de API."
+        assert response.json()["message"] == "The chat needs MOCK_LLM=0 and an API key."
 
 
 def test_the_chat_returns_the_verified_answer(app: FastAPI, client: TestClient, farm: Farm) -> None:
@@ -73,7 +73,7 @@ def test_voice_returns_what_was_understood(app: FastAPI, client: TestClient, far
     assert response.status_code == 200
     assert response.json()["transcript"] == "¿Necesita agua la zona dos?"
     assert response.json()["answer"] == "Lo decide el ciclo diario."
-    assert speech.calls == [(audio, "es")]
+    assert speech.calls == [(audio, "en")]  # APP_LANGUAGE, English by default (D084)
 
 
 def test_unsupported_audio_or_silence_is_422(app: FastAPI, client: TestClient, farm: Farm) -> None:
@@ -97,7 +97,7 @@ def test_a_mock_cycle_that_does_not_match_the_farm_is_503(
     assert response.status_code == 503
     assert response.json() == {
         "error": "FixtureExhaustedError",
-        "message": "La respuesta grabada no corresponde a esta granja (MOCK_LLM=1).",
+        "message": "The recorded answer does not match this farm (MOCK_LLM=1).",
     }
 
 

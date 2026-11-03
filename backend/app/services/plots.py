@@ -3,13 +3,14 @@
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
+from app.autonomy.messages import MessageCatalog
 from app.domain.errors import MissingDataError
 from app.domain.models import Plot
 from app.identity.models import Principal
 from app.persistence.ports import UnitOfWork
 from app.planning.models import SiteState, SiteStatus
 from app.planning.ports import SiteSource
-from app.planning.site_jobs import SiteJobs
+from app.planning.site_jobs import SITE_MESSAGES, SiteJobs
 from app.simulator.clock import Clock
 
 UowFactory = Callable[[], UnitOfWork]
@@ -27,11 +28,19 @@ class NewPlot:
 
 
 class PlotService:
-    def __init__(self, uow: UowFactory, clock: Clock, sites: SiteSource, jobs: SiteJobs) -> None:
+    def __init__(
+        self,
+        uow: UowFactory,
+        clock: Clock,
+        sites: SiteSource,
+        jobs: SiteJobs,
+        messages: MessageCatalog,
+    ) -> None:
         self._uow = uow
         self._clock = clock
         self._sites = sites
         self._jobs = jobs
+        self._messages = messages
 
     def create(self, principal: Principal, form: NewPlot) -> Plot:
         """Store the plot; its farmer becomes a member; its site data starts building."""
@@ -86,7 +95,15 @@ class PlotService:
             )
         if job is None or job.status is SiteStatus.READY:  # no job, or its file is gone
             return SiteState(SiteStatus.MISSING, None, None, None, None, None)
-        return SiteState(job.status, job.requested_at, job.finished_at, job.message, None, None)
+        return SiteState(
+            job.status, job.requested_at, job.finished_at, self._text(job.message), None, None
+        )
+
+    def _text(self, key: str | None) -> str | None:
+        """A stored job message, in APP_LANGUAGE (D084)."""
+        if key is None:
+            return None
+        return self._messages.error(key, {}, SITE_MESSAGES.get(key, key))
 
     def refresh_site(self, plot_id: int) -> SiteState:
         with self._uow() as uow:

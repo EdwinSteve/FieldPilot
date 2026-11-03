@@ -18,8 +18,8 @@ export function ZonesPanel({ plot, version }: ZonesPanelProps) {
   const imagery = useResource(useCallback(() => api.imagery(plot.id), [plot.id]), version);
 
   return (
-    <Panel title="Zonas" error={zones.error ?? imagery.error} icon="drop" loading={zones.loading}>
-      {zones.data?.length === 0 ? <p className="muted">Todavía no hay zonas.</p> : null}
+    <Panel title="Zones" error={zones.error ?? imagery.error} icon="drop" loading={zones.loading}>
+      {zones.data?.length === 0 ? <p className="muted">No zones yet.</p> : null}
       <div className="zone-grid">
         {zones.data?.map((zone) => (
           <ZoneCard
@@ -50,13 +50,13 @@ function ZoneCard({ zone, version, lowVigor }: ZoneCardProps) {
     <article className={`zone-card ${lowVigor ? "zone-card--low" : ""}`}>
       <div className="zone-card__head">
         <h3>{zone.name}</h3>
-        {lowVigor ? <span className="badge badge--warn">Vigor bajo</span> : null}
+        {lowVigor ? <span className="badge badge--warn">Low vigour</span> : null}
       </div>
       <div className="zone-card__gauge-row">
         <MoistureGauge latest={latest} fieldCapacity={zone.field_capacity_pct} />
         <p>
           Humedad del suelo:{" "}
-          <strong>{latest === undefined ? "sin lectura" : `${formatNumber(latest)} %`}</strong> de{" "}
+          <strong>{latest === undefined ? "no reading" : `${formatNumber(latest)} %`}</strong> of{" "}
           {formatNumber(zone.field_capacity_pct)} % de capacidad de campo
         </p>
       </div>
@@ -64,15 +64,15 @@ function ZoneCard({ zone, version, lowVigor }: ZoneCardProps) {
         <LineChart
           readings={moisture.readings}
           lineClass="chart__line"
-          title={`Humedad del suelo en ${zone.name}, con la capacidad de campo`}
-          reference={{ value: zone.field_capacity_pct, label: "capacidad de campo" }}
+          title={`Soil moisture in ${zone.name}, with the field capacity`}
+          reference={{ value: zone.field_capacity_pct, label: "field capacity" }}
         />
       ) : null}
       {temperature && temperature.readings.length > 0 ? (
         <LineChart
           readings={temperature.readings}
           lineClass="chart__line--sky"
-          title={`Temperatura en ${zone.name}`}
+          title={`Temperature in ${zone.name}`}
         />
       ) : null}
     </article>
@@ -102,8 +102,8 @@ function MoistureGauge({
     <svg className="gauge" viewBox="0 0 120 120">
       <title>
         {latest === undefined
-          ? "Sin lectura de humedad"
-          : `${formatNumber(latest)} % de ${formatNumber(fieldCapacity)} % de capacidad de campo`}
+          ? "No moisture reading"
+          : `${formatNumber(latest)} % of ${formatNumber(fieldCapacity)} % field capacity`}
       </title>
       <path
         d={arcPath(60, 60, 45, GAUGE_START, GAUGE_START + GAUGE_SWEEP)}
@@ -113,7 +113,7 @@ function MoistureGauge({
         <path d={arcPath(60, 60, 45, GAUGE_START, end)} className="gauge__fill" />
       ) : null}
       <line x1={tickFrom.x} y1={tickFrom.y} x2={tickTo.x} y2={tickTo.y} className="gauge__limit">
-        <title>Límite de seguridad: 85 % de la capacidad de campo</title>
+        <title>Safety limit: 85 % of the field capacity</title>
       </line>
       <text x="60" y="62" textAnchor="middle" className="gauge__value">
         {latest === undefined ? "—" : `${formatNumber(latest)} %`}

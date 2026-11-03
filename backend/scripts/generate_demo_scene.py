@@ -78,7 +78,13 @@ def write_scene(directory: Path) -> None:
         "latitude": 2.95,
         "longitude": -75.3,
         "synthetic": True,
-        "zones": {"Zona 1": [0.0, 0.0, 0.5, 1.0], "Zona 2": [0.5, 0.0, 1.0, 1.0]},
+        # Keyed by zone name: the Spanish and the English seed (D084) name them differently.
+        "zones": {
+            "Zona 1": [0.0, 0.0, 0.5, 1.0],
+            "Zona 2": [0.5, 0.0, 1.0, 1.0],
+            "Zone 1": [0.0, 0.0, 0.5, 1.0],
+            "Zone 2": [0.5, 0.0, 1.0, 1.0],
+        },
         "red": red,
         "nir": nir,
     }
