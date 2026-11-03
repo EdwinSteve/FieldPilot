@@ -2491,3 +2491,70 @@ because many farmers do not use email.
   reverse proxy limit is needed before going public.
 - Moving to OIDC later replaces `AccessTokens` and the register route; the
   roles and the `Principal` stay.
+
+---
+
+## D083 — From plan to passport: plots, a confirmed sowing and a confirmed harvest
+
+- **Date:** 2026-11-03
+- **Status:** Accepted (2026-11-03), chosen by Edwin.
+
+**Context.** Stage 1 recommends what to sow (D079, D081), stage 2
+automates a cycle, and stage 3 sells a lot with a passport (D080). Three
+links were missing:
+- the API could not create a plot or start a cycle (both came from the
+  seed);
+- each plot's site snapshot was built by hand;
+- nothing said when a lot may exist.
+
+Edwin's rule: a passport cannot exist for a crop that does not exist yet.
+A lot is born only after a cycle that was sown and harvested, and the
+farmer confirms both. He may grow a crop outside the recommendations, at
+his own risk.
+
+**Decision.** The contracts are architecture.md §4.13 and §4.14, and the
+front-end guide is [`docs/api.md`](api.md).
+- **Plots.** A farmer creates a plot with its coordinates (in Colombia)
+  and becomes its member.
+  - Its site snapshot is built in the background by the planner's own
+    environment, as a subprocess, so GDAL never enters the backend.
+  - The plan answers 409 until the snapshot is ready.
+  - A snapshot is used only if its coordinates match the plot's.
+- **Sowing is confirmed, never planned.** The date is today or up to 60
+  days back.
+  - A crop in the planner's top 3 for that week follows the
+    recommendation.
+  - Any other crop, a lower rank, or no site data needs
+    `accept_own_risk: true`. The choice is recorded, never blocked.
+- **Stage 2 sees only automated cycles**, whose crop has a YAML. A cycle of
+  any other crop is manual: it is recorded and can be harvested, but
+  nothing is irrigated or proposed for it.
+- **One active cycle per plot.**
+- **The harvest is the only birth of a lot.** It needs:
+  - an active cycle;
+  - a date after sowing and not in the future;
+  - a plausible quantity (0 to 100 t/ha × the area);
+  - no open task.
+
+  The cycle completes, and one lot is created in the same transaction.
+- **The passport.**
+  - **The seal:** it is sealed with the digest of the cycle's stage-2
+    events and verified on every read.
+  - **What it says:** whether the farmer followed the recommendation, and
+    what was predicted.
+  - **The producer** is shown as "Productor de <municipio>".
+
+**Consequences.**
+- The three stages join in the API: plan → sow → automate → harvest →
+  public passport.
+- A predicted and an actual yield now sit side by side in each passport.
+  That is the data the planner needs to be checked against reality later.
+- `Plot`, `CropCycle` and three new tables change the schema. Rebuild the
+  local database with `make seed` (D012).
+- Out of scope for now:
+  - several harvests per cycle;
+  - splitting lots;
+  - shipments and the store (D080 §12);
+  - the farmer's name on the passport.
+- D080 stays Proposed for the rest of stage 3. Its slice 1 is this
+  decision.
