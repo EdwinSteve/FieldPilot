@@ -5,9 +5,10 @@ FieldPilot is one product in three stages: **plan** what to sow (stage 1,
 steps 1–11), and **sell** the harvest directly to the people who eat it
 (stage 3, this document).
 
-The status is **Proposed**. Its first slice is built: a lot and its
-passport are created only from a confirmed harvest (D083, architecture.md
-§4.14). The other contracts move into [`architecture.md`](architecture.md)
+The status is **Proposed**. Its slices are built: a lot and its passport
+come only from a confirmed harvest (D083, architecture.md §4.14); the
+listing, the Bogotá warehouse, the store, orders, recommendations and the
+shopping assistant follow (D085, architecture.md §4.15 and §4.16). The other contracts move into [`architecture.md`](architecture.md)
 from §4.15 on when they are built, and the tables into §5. Users, roles and
 login are D082 (architecture.md §4.12).
 

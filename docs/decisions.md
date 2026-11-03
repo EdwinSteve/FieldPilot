@@ -2607,3 +2607,75 @@ without deleting the Spanish recordings.
 - A new error needs its English text in code and its Spanish text in
   `es.yaml`, or the test fails.
 - The dashboard is English only until the i18n step.
+
+---
+
+## D085 — The market: from a harvested lot to a customer's order, with a shopping assistant
+
+- **Date:** 2026-11-03
+- **Status:** Accepted (2026-11-03), chosen by Edwin. It builds the rest of
+  the D080 slice.
+
+**Context.** A lot and its passport exist only after a confirmed harvest
+(D083). Edwin wants:
+- the farmer to sell the harvest on the platform;
+- the farmer to take it to a warehouse, a default one in Bogotá, D.C.;
+- final customers, with their own login, to buy it with a cart and a
+  complete purchase flow;
+- every product related to its farmer and traceable;
+- a Meta agent that helps customers shop. It reads their history, finds
+  what they need, recommends products and validates the day's offers.
+
+**Decision.** The contracts are architecture.md §4.15 and §4.16. The
+front-end guide is docs/api.md §8 and §9.
+- **One path for a sale:**
+  1. a harvested lot;
+  2. the farmer's listing, at a price per kg and at a warehouse;
+  3. the dispatch, by the farmer;
+  4. the receipt, by an operator, with the kg received;
+  5. stock;
+  6. the cart;
+  7. checkout through a mock payment gateway;
+  8. delivery to the customer, by an operator.
+
+  Each movement of quantity is a trace event in the lot's hash chain
+  (`shipping`, `receiving`, `retail_selling`), so the passport shows the
+  whole path.
+- **The default warehouse is in Bogotá, D.C.**, declared in
+  `config/market.yaml` and created at startup. Its values are
+  `demo_value`.
+- **Fees (D080):** logistics is COP 300 per kg and the platform takes 5 %.
+  The farmer always keeps at least 80 % of the shelf price, also under an
+  offer.
+- **The farmer's own listing needs no gate approval**: it is the farmer's
+  decision. The agent-proposed `product_listing` through the gate comes
+  with the sales subagent.
+- **Customers use D082:** the phone number, the `customer` role and
+  rotating sessions. Store routes need that role, even under
+  `AUTH_REQUIRED=0`.
+- **Every order line records its listing, lot and farmer.** A payout row
+  credits the farmer at delivery.
+- **The recommender is deterministic.** It scores repurchase, co-purchase,
+  fresh harvest, offers and popularity, and gives the reasons for each
+  product. The personal scores need the customer's consent (Ley 1581 de
+  2012).
+- **The Meta agent is a `shopper` subagent on Muse Spark**
+  (`MUSE_AGENT_MODEL`), through the same `AgentLoop`. It is the model and
+  the client the farm agent already uses, so there is no new provider, key
+  or dependency.
+  - Its tools compute everything: history, recommendations, search,
+    today's validated offers and passports.
+  - The model explains and proposes a cart, which the customer accepts. It
+    never buys.
+  - In mock mode it answers 503; the rest of the store works without a
+    model.
+- **Customer data stays out of the farm's event log.** Orders, carts and
+  proposals have their own tables.
+
+**Consequences.**
+- The demo can show the three stages end to end: plan, automate, harvest,
+  list, deliver to Bogotá, buy, and scan the passport, which now includes
+  the sale.
+- Payments are mocked. A real gateway, delivery to the customer's address
+  and the assistant's private log come after the hackathon.
+- Integer kilograms only, and one listing per lot.
