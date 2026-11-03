@@ -277,3 +277,12 @@ record. Stage 1 is the crop planner. Its training route is
 3. The Plan tab. The plan is shown through the API only.
 
 The two-day demo of stage 2 is never changed for stage 1.
+
+## 10. Stage 3: the direct market (D080, proposed)
+
+The harvest becomes a lot with a passport. The farmer approves its listing
+through the gate. The lot moves to a warehouse, and customers buy it with
+the help of a shopping agent that reads their purchase record. The design
+is [`docs/market.md`](market.md), and its hackathon slice is §12. That
+slice starts after the stage 1 integration and never changes the two-day
+demo of stage 2.

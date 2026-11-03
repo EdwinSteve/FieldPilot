@@ -363,7 +363,7 @@ Module contracts and the data model are in [`docs/architecture.md`](docs/archite
 - [ ] Real sensor adapters (MQTT)
 - [ ] Live satellite retrieval
 - [ ] Stage 1: a crop planner that recommends what to sow and when, trained during the hackathon ([planner/](planner/README.md), D079)
-- [ ] Traceability records and harvest listings for buyers
+- [ ] Stage 3: a direct market with per-lot traceability, warehouses and a shopping agent ([docs/market.md](docs/market.md), D080)
 - [ ] Offline mode with Muse Spark Open or Glimmer
 - [ ] Approval actions from a mobile notification
 

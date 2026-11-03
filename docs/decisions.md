@@ -2358,6 +2358,62 @@ Two facts constrain the design:
 
 ---
 
+## D080 — Stage 3: a direct market with per-lot traceability and a shopping agent
+
+- **Date:** 2026-11-02
+- **Status:** Proposed
+
+**Context.** Stage 3 sells the harvest directly to the people who eat it,
+with no intermediaries (D079 names the three stages). Edwin wants:
+- each product's traceability, from the farm through the warehouses;
+- a store for final customers;
+- an AI agent that helps customers shop from their purchase history;
+- a purchase record for each customer.
+
+`product_listing` and `price_change` already exist as action types that
+always need approval (D005). The API has no authentication, and the
+deadline is 2026-11-04.
+
+**Decision.** The full design is [`docs/market.md`](market.md).
+- **A modular monolith.** A new package, `app/market/`, has its own domain,
+  ports and tables, and an import rule keeps the farm side from depending
+  on it. There are no microservices and no blockchain.
+- **One hash chain per lot** (SHA-256), named with the GS1 EPCIS 2.0
+  vocabulary. The commissioning event seals a digest of the stage-2 events
+  behind the passport. A split lot starts its chain from the parent's head
+  hash.
+- **Quantities are integer grams and are conserved per lot.** Stock is an
+  append-only ledger and is allocated FEFO.
+- **A listing and a price change go through the existing gate.** An
+  `ActuatorRouter` sends them to a `ListingActuator`. `Actuator` is split
+  from `ValveControl`, and `ExecutionResult` gains a `reference`.
+- **The recommender is a set of deterministic, explainable scorers:**
+  replenishment, co-purchase, fresh harvest and popularity. The `shopper`
+  subagent explains their results and proposes a cart. It never places an
+  order, and its tools are bound to the session's customer.
+- **Edwin's answers (2026-11-03):**
+  - **Buyers:** any customer, households or businesses, with one catalogue
+    and the same prices in the demo.
+  - **Warehouses:** one in the demo, in a multi-warehouse model.
+  - **The farmer's name on the passport:** opt-in, with revocable consent
+    (Ley 1581 de 2012).
+  - **Fees:** low example values (`demo_value`): COP 300 per kg for
+    logistics and 5 % for the platform, with a guard that keeps the
+    farmer's share at 80 % or more.
+- **Hackathon scope:** the thin slice of `market.md` §12, in mock mode,
+  after the stage 1 integration.
+
+**Consequences.**
+- The passport can be verified on its own, and the forward trace answers a
+  recall.
+- No new path to execution exists, and the farmer approves every sale.
+- Demo authentication is a persona switcher under `APP_PROFILE=demo`, not
+  real authentication.
+- PostgreSQL and OIDC are required before real users.
+- `architecture.md` gets §4.12 to §4.15 when this is accepted.
+
+---
+
 ## D081 — The planner serves from a site snapshot per plot
 
 - **Date:** 2026-11-03
