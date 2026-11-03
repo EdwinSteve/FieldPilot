@@ -2,7 +2,8 @@
 
 from fastapi import APIRouter
 
-from app.api.deps import FARMER, ContainerDep
+from app.api.auth import FarmerDep
+from app.api.deps import ContainerDep
 from app.api.schemas import RejectIn, RevertOut, TaskOut
 from app.domain.enums import TaskStatus
 
@@ -15,20 +16,22 @@ def list_tasks(container: ContainerDep, status: TaskStatus | None = None) -> lis
 
 
 @router.post("/{task_id}/approve")
-def approve(task_id: int, container: ContainerDep) -> TaskOut:
-    task = container.approvals.approve(task_id, FARMER)
+def approve(task_id: int, farmer: FarmerDep, container: ContainerDep) -> TaskOut:
+    task = container.approvals.approve(task_id, farmer.actor)
     return TaskOut.of(container.queries.task_view(task))
 
 
 @router.post("/{task_id}/reject")
-def reject(task_id: int, container: ContainerDep, body: RejectIn | None = None) -> TaskOut:
-    task = container.approvals.reject(task_id, FARMER, body.reason if body else None)
+def reject(
+    task_id: int, farmer: FarmerDep, container: ContainerDep, body: RejectIn | None = None
+) -> TaskOut:
+    task = container.approvals.reject(task_id, farmer.actor, body.reason if body else None)
     return TaskOut.of(container.queries.task_view(task))
 
 
 @router.post("/{task_id}/revert")
-def revert(task_id: int, container: ContainerDep) -> RevertOut:
-    result = container.revert.revert(task_id, FARMER)
+def revert(task_id: int, farmer: FarmerDep, container: ContainerDep) -> RevertOut:
+    result = container.revert.revert(task_id, farmer.actor)
     return RevertOut(
         task=TaskOut.of(container.queries.task_view(result.task)),
         requested_mm=result.requested_mm,

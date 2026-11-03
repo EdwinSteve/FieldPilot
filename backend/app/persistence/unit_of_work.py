@@ -18,6 +18,12 @@ from app.persistence.repositories.field import (
     SqlSensorRepository,
     SqlZoneRepository,
 )
+from app.persistence.repositories.identity import (
+    SqlAuthEventRepository,
+    SqlPlotMemberRepository,
+    SqlRefreshSessionRepository,
+    SqlUserRepository,
+)
 from app.persistence.repositories.system import (
     SqlControlStateRepository,
     SqlNotificationRepository,
@@ -54,6 +60,10 @@ class SqlUnitOfWork:
         self.reports = SqlReportRepository(session)
         self.control = SqlControlStateRepository(session, self.events)
         self.sim_clock = SqlSimClockStateRepository(session)
+        self.users = SqlUserRepository(session)
+        self.refresh_sessions = SqlRefreshSessionRepository(session)
+        self.auth_events = SqlAuthEventRepository(session)
+        self.plot_members = SqlPlotMemberRepository(session)
         return self
 
     def __exit__(

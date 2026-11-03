@@ -86,6 +86,7 @@ class EventKind(StrEnum):
     CLOCK_CHANGED = "clock_changed"
     SCENARIO_INJECTED = "scenario_injected"
     PHENOLOGY_GAP = "phenology_gap"
+    PLANTING_PLAN_SERVED = "planting_plan_served"  # D079
 
 
 # Event kinds that close an EXECUTION_REQUESTED with the same idempotency key.

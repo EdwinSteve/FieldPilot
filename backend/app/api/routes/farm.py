@@ -1,12 +1,23 @@
-"""Plots, zones, readings and crop cycles: read-only."""
+"""Plots, zones, readings, crop cycles and the planting plan: read-only."""
 
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Query
 from fastapi.responses import Response
 
+from app.api.auth import FarmerDep
 from app.api.deps import ContainerDep
-from app.api.schemas import CropOut, CycleOut, ImageryOut, PlotOut, SensorReadingsOut, ZoneOut
+from app.api.schemas import (
+    CropOut,
+    CycleOut,
+    ImageryOut,
+    PlantingPlanOut,
+    PlotOut,
+    SensorReadingsOut,
+    ZoneOut,
+)
+from app.services.planning import MAX_WEEKS, PlanRequest
 
 router = APIRouter(tags=["farm"])
 
@@ -39,6 +50,19 @@ def list_readings(
     limit: Annotated[int, Query(ge=1, le=5000)] = 500,
 ) -> list[SensorReadingsOut]:
     return [SensorReadingsOut.of(s) for s in container.queries.readings(zone_id, limit)]
+
+
+@router.get("/plots/{plot_id}/planting-plan")
+def planting_plan(
+    plot_id: int,
+    farmer: FarmerDep,
+    container: ContainerDep,
+    first_sowing: Annotated[date | None, Query(alias="from")] = None,
+    weeks: Annotated[int, Query(ge=1, le=MAX_WEEKS)] = 4,
+) -> PlantingPlanOut:
+    """What to sow and when (D079): advice only; it never creates a task."""
+    request = PlanRequest(plot_id, first_sowing, weeks, farmer.actor)
+    return PlantingPlanOut.of(container.planning.plan(request))
 
 
 @router.get("/crops/{crop}")

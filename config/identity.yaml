@@ -1,0 +1,7 @@
+# Login, sessions and the privacy policy (architecture §4.12, D082).
+access_token_minutes: 15     # JWT lifetime; the client refreshes it
+refresh_token_days: 30       # rotating refresh token
+max_failed_logins: 5         # in a row, then the account locks
+lockout_minutes: 15
+password_min_length: 10
+privacy_policy_version: "2026-11-03"   # bump when the text changes; users accept it on register

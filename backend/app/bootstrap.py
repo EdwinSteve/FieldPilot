@@ -6,8 +6,9 @@ so the application never runs on an unsafe configuration (D005, D006, D025).
 executions before any request is served (D013).
 """
 
+import secrets
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
 
@@ -21,6 +22,8 @@ from app.autonomy.policy import AutonomyPolicy, load_autonomy_policy, validate_s
 from app.domain.enums import EventKind
 from app.domain.errors import ConfigError
 from app.domain.models import Event
+from app.identity.config import IdentityConfig, load_identity_config
+from app.identity.tokens import MIN_SECRET_LENGTH
 from app.persistence.db import create_db_engine, init_schema
 from app.persistence.ports import UnitOfWork
 from app.persistence.unit_of_work import SqlUnitOfWork
@@ -47,6 +50,7 @@ class RuntimeConfig:
     actuation: ActuationConfig
     imaging: ImagingConfig
     subagents: tuple[Subagent, ...]
+    identity: IdentityConfig
 
 
 def load_runtime_config(config_dir: Path) -> RuntimeConfig:
@@ -69,6 +73,7 @@ def load_runtime_config(config_dir: Path) -> RuntimeConfig:
         actuation=actuation,
         imaging=load_imaging_config(config_dir / "imaging.yaml"),
         subagents=load_agent_catalog(config_dir / "agents"),  # D053, D055
+        identity=load_identity_config(config_dir / "identity.yaml"),  # D082
     )
 
 
@@ -104,6 +109,33 @@ def resolve_revert_window(settings: Settings, policy: AutonomyPolicy) -> RevertW
             f"{configured}; the override can only shorten the window (D036)"
         )
     return RevertWindowSetting(override, configured, overridden=True)
+
+
+@dataclass(frozen=True)
+class AuthSetting:
+    """Whether requests need a token, and the key that signs access tokens (D082)."""
+
+    required: bool
+    signing_key: str = field(repr=False)
+
+
+def resolve_auth(settings: Settings) -> AuthSetting:
+    """AUTH_REQUIRED=0 only under the demo profile; a configured key under prod."""
+    if not settings.auth_required and settings.app_profile != "demo":
+        raise ConfigError(
+            f"AUTH_REQUIRED=0 is set but APP_PROFILE is {settings.app_profile!r}; "
+            "it is honoured only when APP_PROFILE=demo (D082)"
+        )
+    configured = settings.auth_jwt_secret
+    if configured is None:
+        if settings.app_profile == "prod":
+            raise ConfigError("APP_PROFILE=prod requires AUTH_JWT_SECRET (D082)")
+        # Sessions then end when the process stops, which dev and demo accept.
+        return AuthSetting(settings.auth_required, secrets.token_urlsafe(48))
+    key = configured.get_secret_value()
+    if len(key) < MIN_SECRET_LENGTH:
+        raise ConfigError(f"AUTH_JWT_SECRET needs at least {MIN_SECRET_LENGTH} characters")
+    return AuthSetting(settings.auth_required, key)
 
 
 @dataclass(frozen=True)
