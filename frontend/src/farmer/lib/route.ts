@@ -2,6 +2,8 @@
 
 export type Route =
   | { screen: "welcome" }
+  | { screen: "login" }
+  | { screen: "signup" }
   | { screen: "today" }
   | { screen: "talk" }
   | { screen: "updates" }
@@ -15,6 +17,8 @@ export type Route =
 export type Tab = "today" | "talk" | "updates";
 
 const PLAIN: Record<string, Route> = {
+  login: { screen: "login" },
+  signup: { screen: "signup" },
   today: { screen: "today" },
   talk: { screen: "talk" },
   updates: { screen: "updates" },
@@ -52,11 +56,15 @@ export function hrefOf(route: Route): string {
   }
 }
 
-/** The tab a screen belongs to, as the design marks it. Welcome has no tab bar. */
+/** Welcome and the account screens come before the farm: no tab bar, no sign-in needed. */
+export function isEntryScreen(route: Route): boolean {
+  return route.screen === "welcome" || route.screen === "login" || route.screen === "signup";
+}
+
+/** The tab a screen belongs to, as the design marks it. Entry screens have no tab bar. */
 export function tabOf(route: Route): Tab | null {
+  if (isEntryScreen(route)) return null;
   switch (route.screen) {
-    case "welcome":
-      return null;
     case "talk":
       return "talk";
     case "updates":

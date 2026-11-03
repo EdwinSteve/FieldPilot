@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hrefOf, parseRoute, tabOf, type Route } from "./route";
+import { hrefOf, isEntryScreen, parseRoute, tabOf, type Route } from "./route";
 
 describe("parseRoute", () => {
   it("opens on Welcome with no hash", () => {
@@ -9,6 +9,8 @@ describe("parseRoute", () => {
 
   it("reads plain screens and screens with an id", () => {
     expect(parseRoute("#/plan")).toEqual({ screen: "plan" });
+    expect(parseRoute("#/login")).toEqual({ screen: "login" });
+    expect(parseRoute("#/signup")).toEqual({ screen: "signup" });
     expect(parseRoute("#/decide/3")).toEqual({ screen: "decide", taskId: 3 });
     expect(parseRoute("#/zone/1")).toEqual({ screen: "zone", zoneId: 1 });
     expect(parseRoute("#/report/2")).toEqual({ screen: "report", reportId: 2 });
@@ -34,9 +36,19 @@ describe("hrefOf", () => {
   });
 });
 
+describe("isEntryScreen", () => {
+  it("lets Welcome and the account screens open signed out", () => {
+    expect(isEntryScreen({ screen: "welcome" })).toBe(true);
+    expect(isEntryScreen({ screen: "login" })).toBe(true);
+    expect(isEntryScreen({ screen: "signup" })).toBe(true);
+    expect(isEntryScreen({ screen: "today" })).toBe(false);
+  });
+});
+
 describe("tabOf", () => {
   it("marks the tab the design marks", () => {
     expect(tabOf({ screen: "welcome" })).toBeNull();
+    expect(tabOf({ screen: "login" })).toBeNull();
     expect(tabOf({ screen: "decide", taskId: 1 })).toBe("today");
     expect(tabOf({ screen: "report", reportId: 1 })).toBe("updates");
     expect(tabOf({ screen: "talk" })).toBe("talk");

@@ -53,7 +53,8 @@ describe("backOf", () => {
     expect(backOf(walk(PLAN))).toEqual(TODAY);
   });
 
-  it("never goes back to Welcome", () => {
+  it("never goes back to Welcome or the log-in", () => {
     expect(backOf(walk({ screen: "welcome" }, PLAN))).toEqual(TODAY);
+    expect(backOf(walk({ screen: "login" }, PLAN))).toEqual(TODAY);
   });
 });
