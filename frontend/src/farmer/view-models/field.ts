@@ -29,6 +29,7 @@ export function fieldView(snapshot: FarmSnapshot): FieldView | null {
     zoneLabel: zone,
     zoneArea: imaging.area,
     spots,
+    question: imaging.low_vigor ? en.field.questionWeak(zone) : en.field.questionGood(zone),
   };
 }
 

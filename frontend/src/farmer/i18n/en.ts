@@ -1,4 +1,5 @@
 // Every farmer-facing string. Spanish comes later: keep this file the only source.
+import type { FieldProblem } from "../lib/account";
 import type { ActionFailure } from "../lib/actionFailure";
 import type { RainLevel } from "../lib/rainLevel";
 import type { Route } from "../lib/route";
@@ -70,6 +71,8 @@ export const en = {
     app: "FieldPilot",
     screens: {
       welcome: "FieldPilot",
+      login: "Log in",
+      signup: "Create account",
       today: "Today",
       talk: "Talk",
       updates: "Updates",
@@ -91,6 +94,8 @@ export const en = {
   },
   back: {
     welcome: "Back",
+    login: "Back to log in",
+    signup: "Back to create account",
     today: "Back to Today",
     talk: "Back to Talk",
     updates: "Back to Updates",
@@ -153,6 +158,34 @@ export const en = {
     ok: "OK",
     unknown: "—",
   },
+  auth: {
+    demoNote: "Demo sign-in. It stays on this phone and does not protect the farm.",
+    signUpTitle: "Create your account",
+    signUpLead: "So FieldPilot knows who is answering.",
+    logInTitle: "Log in",
+    logInLead: (name: string) => `Welcome back, ${name}.`,
+    logInLeadNew: "Log in with your phone number and PIN.",
+    name: "Your name",
+    phone: "Phone number",
+    pin: "PIN (4 numbers)",
+    pinAgain: "PIN again",
+    create: "Create account",
+    logIn: "Log in",
+    haveAccount: "I already have an account",
+    forgotPin: "Forgot your PIN? Create a new account",
+    newHere: "New here? Create an account",
+    replaces: (name: string) => `This replaces the account for ${name} on this phone.`,
+    signOut: "Sign out",
+    problems: {
+      name_missing: "Please write your name.",
+      phone_short: "This phone number is too short.",
+      phone_long: "This phone number is too long.",
+      pin_length: "The PIN must be 4 numbers.",
+      pin_mismatch: "The two PINs are not the same.",
+    } satisfies Record<FieldProblem, string>,
+    wrong: "That phone number or PIN doesn’t match.",
+    noAccount: "There is no account on this phone yet.",
+  },
   welcome: {
     logoAlt: "FieldPilot",
     tagline: ["Looks after your field.", "Asks you before big decisions."],
@@ -165,6 +198,12 @@ export const en = {
     seePlan: "See plan",
     weekDayWater: "water",
     weekDayRain: "rain",
+    weekDaySaidNo: "you said no",
+    keyWater: "Watering",
+    keyRain: "Rain",
+    keySaidNo: "You said no",
+    noWaterPlanned: "No watering planned. I will look again tomorrow morning.",
+    checkNotRun: "Today’s check hasn’t run yet, so no watering is planned.",
     farmLine: (farm: string, crop: string, day: number) => `${farm} · ${crop}, day ${day}`,
     stoppedDetail: "Tap to see or start again",
     recentUpdates: "Recent updates",
@@ -329,6 +368,8 @@ export const en = {
       synthetic ? `Satellite photo · ${date} · demo image` : `Satellite photo · ${date}`,
     spotsLegend: "Circles show the bare spots",
     askAboutThis: "Ask about this",
+    questionWeak: (zone: string) => `Why do the plants in ${zone} look weak, and what can I do?`,
+    questionGood: (zone: string) => `How are the plants in ${zone} doing?`,
     weak: (zone: string) => `Plants in ${zone} look weak`,
     good: (zone: string) => `Plants in ${zone} look good`,
     spots: (count: number) => (count === 1 ? "I found 1 bare spot." : `I found ${count} bare spots.`),

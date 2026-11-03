@@ -22,6 +22,8 @@ export interface WeekDay {
   today: boolean;
   water: boolean;
   rain: boolean;
+  /** The farmer said no to that day's watering, and nothing else ran. */
+  saidNo: boolean;
 }
 
 export interface TodayView {
@@ -177,6 +179,8 @@ export interface FieldView {
   zoneLabel: string;
   zoneArea: NormBox;
   spots: NormBox[];
+  /** Put in the Talk box by Ask about this, for the farmer to send or change. */
+  question: string;
 }
 
 export interface ZoneView {

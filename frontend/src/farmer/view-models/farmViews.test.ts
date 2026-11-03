@@ -23,7 +23,8 @@ describe("todayView", () => {
     expect(view.soil.ofFull).toBe("of 32%");
     expect(view.rain.display).toBe("—");
     expect(view.rain.known).toBe(false);
-    expect(view.statusDetail).toBe("Today’s check has not run yet");
+    // Dry soil and no plan yet: the line says why nothing is watering.
+    expect(view.statusDetail).toBe("Today’s check hasn’t run yet, so no watering is planned.");
   });
 
   it("day 1: asks first, with the demo's numbers", () => {
@@ -37,7 +38,13 @@ describe("todayView", () => {
     expect(view.soil.label).toBe("Soil · dry");
     expect(view.rain).toEqual({ mm: 12, known: true, display: "12 mm", label: "Rain · some" });
     expect(view.plants.value).toBe("Weak");
-    expect(view.week[0]).toEqual({ day: "Mon", today: true, water: true, rain: true });
+    expect(view.week[0]).toEqual({
+      day: "Mon",
+      today: true,
+      water: true,
+      rain: true,
+      saidNo: false,
+    });
     expect(view.stoppedBanner).toBeNull();
     expect(view.status).toBe("watch");
     expect(view.statusLabel).toBe("Keep an eye on this");
@@ -71,8 +78,26 @@ describe("todayView", () => {
     expect(todayView(demo.seed).recent).toEqual([]);
   });
 
-  it("a rejected task leaves the week strip", () => {
-    expect(todayView(demo.day1Rejected).week[0]?.water).toBe(false);
+  it("a rejected task leaves the week strip, marked as a no", () => {
+    const monday = todayView(demo.day1Rejected).week[0];
+    expect(monday?.water).toBe(false);
+    expect(monday?.saidNo).toBe(true);
+  });
+
+  it("a day with a watering is not marked as a no", () => {
+    const tuesday = todayView(demo.day2Cycle).week[1];
+    expect(tuesday?.water).toBe(true);
+    expect(tuesday?.saidNo).toBe(false);
+  });
+
+  it("dry soil after today's check, with nothing planned, says when it looks again", () => {
+    expect(todayView(demo.day1Rejected).statusDetail).toBe(
+      "No watering planned. I will look again tomorrow morning.",
+    );
+  });
+
+  it("keeps the rain line while a watering waits for the farmer", () => {
+    expect(todayView(demo.day1Held).statusDetail).toBe("Rain expected in the next 24 h");
   });
 
   it("day 2 before the cycle: yesterday's forecast is not shown", () => {
@@ -342,6 +367,12 @@ describe("fieldView", () => {
     expect(view?.barePct).toBe("25%");
     expect(view?.caption).toBe("Satellite photo · 28 Oct · demo image");
     expect(view?.spots).toHaveLength(3);
+  });
+
+  it("prepares the question Ask about this puts in the Talk box", () => {
+    expect(fieldView(demo.day1Held)?.question).toBe(
+      "Why do the plants in Zone 2 look weak, and what can I do?",
+    );
   });
 
   it("is null without a scene", () => {

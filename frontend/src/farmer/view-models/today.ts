@@ -14,7 +14,7 @@ import { cropLabel, farmLabel } from "../lib/names";
 import { hrefOf } from "../lib/route";
 import { rainLevel } from "../lib/rainLevel";
 import { soilTrend } from "../lib/soilTrend";
-import { plantsLevel, worstLevel } from "../lib/statusLevel";
+import { plantsLevel, worstLevel, type Level } from "../lib/statusLevel";
 import {
   fieldCapacity,
   isWatering,
@@ -55,7 +55,34 @@ function farmLine(snapshot: FarmSnapshot): string {
   return en.today.farmLine(farm, cropLabel(snapshot.cycle.crop), day);
 }
 
-function statusDetail(rainMm: number | null): string {
+/** A watering waiting for the farmer, still ahead, or run today. */
+function wateringInHand(snapshot: FarmSnapshot): boolean {
+  const offset = plotOffset(snapshot);
+  const now = snapshot.clock.now;
+  return snapshot.tasks.some((task) => {
+    if (!isWatering(task)) return false;
+    if (task.status === "pending_approval") return true;
+    if (task.status === "scheduled") return Date.parse(task.scheduled_for) >= Date.parse(now);
+    return task.status === "executed" && daysFromToday(task.scheduled_for, now, offset) === 0;
+  });
+}
+
+function checkedToday(snapshot: FarmSnapshot): boolean {
+  const offset = plotOffset(snapshot);
+  return snapshot.reports.some(
+    (report) => daysFromToday(report.created_at, snapshot.clock.now, offset) === 0,
+  );
+}
+
+/**
+ * Dry soil with no watering in hand says why: the soil reading is live, but only
+ * the morning check plans water. Otherwise the line is about the rain.
+ */
+function statusDetail(snapshot: FarmSnapshot, soilLevel: Level, rainMm: number | null): string {
+  const needsWater = soilLevel === "bad" || soilLevel === "watch";
+  if (needsWater && !wateringInHand(snapshot)) {
+    return checkedToday(snapshot) ? en.today.noWaterPlanned : en.today.checkNotRun;
+  }
   if (rainMm === null) return en.rain.notChecked;
   return rainMm > 0 ? en.rain.expected : en.rain.none;
 }
@@ -76,15 +103,23 @@ function week(snapshot: FarmSnapshot, rainMm: number | null): WeekDay[] {
     const dayIso = plusDays(now, index - daysSinceMonday);
     const day = plotDay(dayIso, offset);
     const today = daysFromToday(dayIso, now, offset) === 0;
-    const water = snapshot.tasks.some(
-      (task) =>
-        isWatering(task) &&
-        (task.status === "pending_approval" ||
-          task.status === "scheduled" ||
-          task.status === "executed") &&
-        plotDay(task.scheduled_for, offset) === day,
+    const thatDay = snapshot.tasks.filter(
+      (task) => isWatering(task) && plotDay(task.scheduled_for, offset) === day,
     );
-    return { day: shortWeekday(dayIso, offset), today, water, rain: today && (rainMm ?? 0) > 0 };
+    const water = thatDay.some(
+      (task) =>
+        task.status === "pending_approval" ||
+        task.status === "scheduled" ||
+        task.status === "executed",
+    );
+    const saidNo = !water && thatDay.some((task) => task.status === "rejected");
+    return {
+      day: shortWeekday(dayIso, offset),
+      today,
+      water,
+      rain: today && (rainMm ?? 0) > 0,
+      saidNo,
+    };
   });
 }
 
@@ -125,7 +160,7 @@ export function todayView(snapshot: FarmSnapshot): TodayView {
     status,
     statusLabel: en.levels[status],
     statusTitle: statusLabel === null ? en.soil.noReading : en.soil.zoneIs(zone, statusLabel),
-    statusDetail: statusDetail(rainMm),
+    statusDetail: statusDetail(snapshot, soilTileLevel, rainMm),
     soil: {
       value: soil?.value ?? 0,
       fieldCapacity: fieldCapacity(snapshot),
