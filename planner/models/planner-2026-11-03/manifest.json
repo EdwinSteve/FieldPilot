@@ -1,0 +1,74 @@
+{
+ "files": {
+  "crops.yaml": "c945b3102186f9917d5ae84dcc79b2792ca0ce077e6c9df60180e49701253ead",
+  "metrics.json": "31246b6340e44f34ea7d7aa61961e033ccde0e27853d5d3b3cf47cca9780b689",
+  "model.onnx": "434f172512d0637148d7532d052d4155239fb141f00e77b8ba6abe7fd4508cc7",
+  "MODEL_CARD.md": "2e8152412b9ff67f836997182cd57d660dd03b65057356436108e5c7f9b8854c",
+  "normalization.json": "fd11a5d30bf22e57094e1b29a8d1a995ae45ed6aca82cd301f7ec1c47f801b8e"
+ },
+ "inputs": {
+  "weather": [
+   "t2m",
+   "tmax",
+   "tmin",
+   "rain",
+   "rh",
+   "wind",
+   "radiation",
+   "et0",
+   "gwetroot",
+   "radiation_estimated"
+  ],
+  "clim": [
+   "t_mean",
+   "t_p10",
+   "t_p90",
+   "rain_mean",
+   "rain_p10",
+   "rain_p90"
+  ],
+  "static": [
+   "lat",
+   "lon",
+   "elevation_m",
+   "elevation_minus_cell_m",
+   "sand_0_30",
+   "clay_0_30",
+   "soc_0_30",
+   "phh2o_0_30",
+   "bdod_0_30",
+   "wv0033_0_30",
+   "wv1500_0_30",
+   "sand_30_60",
+   "clay_30_60",
+   "soc_30_60",
+   "phh2o_30_60",
+   "bdod_30_60",
+   "wv0033_30_60",
+   "wv1500_30_60",
+   "oni",
+   "oni_trend_3m",
+   "doy_sin",
+   "doy_cos"
+  ],
+  "crops": [
+   "maize",
+   "common_bean",
+   "sorghum",
+   "soybean",
+   "groundnut",
+   "cotton",
+   "tomato",
+   "potato"
+  ]
+ },
+ "data": {
+  "points.csv": "ce8500f4e9f0774e2ba5cc42d9f64ee4851c9226fdec2ed7369e6bd1d80402da",
+  "crops.yaml": "c945b3102186f9917d5ae84dcc79b2792ca0ce077e6c9df60180e49701253ead",
+  "pipeline.yaml": "905a72000644ace01680df68b8dffbc17d5cf9211b99caf22a81496141d7d74f",
+  "train.yaml": "238209ad9a01773f5c4ad5f25a26aff7bbb61d329a36cbcf88e19e0989b58394",
+  "dataset.npz": "d74bdff4d0ef2465b2c82f7e31b4b03d89351a3480b8d4e3ccc19f8c8f65c425",
+  "labels.npz": "08bb15ba60a0aabb6faf890789c279e51a6c8a4c6833fdc1322e843efeadb132"
+ },
+ "onnx_parity_max_abs": 1.33514404296875e-05
+}
