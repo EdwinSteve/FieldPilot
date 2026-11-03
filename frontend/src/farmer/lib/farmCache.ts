@@ -2,7 +2,7 @@
 import type { FarmSnapshot } from "../view-models/snapshot";
 
 /** Raise this whenever `FarmSnapshot` changes: an older save would miss fields. */
-const VERSION = 3;
+const VERSION = 4;
 
 export interface CachedFarm {
   snapshot: FarmSnapshot;

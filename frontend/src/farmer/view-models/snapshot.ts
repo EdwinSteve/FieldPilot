@@ -27,6 +27,8 @@ export interface FarmSnapshot {
   /** Soil moisture, oldest first. */
   readings: Reading[];
   cycle: Cycle | null;
+  /** The cycle's crop stages in order, from its catalogue entry (D077); empty without a cycle. */
+  stageOrder: string[];
   tasks: Task[];
   notifications: Notification[];
   reports: Report[];

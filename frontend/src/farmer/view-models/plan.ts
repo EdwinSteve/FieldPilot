@@ -186,12 +186,13 @@ function days(snapshot: FarmSnapshot): PlanDay[] {
 }
 
 function stageName(code: string): string {
-  return en.plan.stages[code] ?? code;
+  // A crop without English names yet still reads as words, not a code.
+  return en.plan.stages[code] ?? code.replaceAll("_", " ");
 }
 
 function stage(snapshot: FarmSnapshot, dayCount: number): PlanStage | null {
   if (snapshot.cycle === null) return null;
-  const visible = visibleStage(snapshot.cycle.stages, dayCount);
+  const visible = visibleStage(snapshot.stageOrder, snapshot.cycle.stages, dayCount);
   if (visible === null) return null;
   return {
     steps: visible.steps,

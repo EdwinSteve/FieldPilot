@@ -59,14 +59,19 @@ async function loadFarm(): Promise<FarmSnapshot | null> {
     events("revert"),
   ]);
   const zone = zones[0] ?? null;
-  const sensors = zone === null ? [] : await api.readings(zone.id, READINGS);
+  const cycle = cycles.find((candidate) => candidate.plot_id === plot.id) ?? null;
+  const [sensors, crop] = await Promise.all([
+    zone === null ? [] : api.readings(zone.id, READINGS),
+    cycle === null ? null : api.crop(cycle.crop),
+  ]);
   return {
     chatLive: !health.mock_llm,
     plot,
     clock,
     zone,
     readings: soilReadings(sensors),
-    cycle: cycles.find((cycle) => cycle.plot_id === plot.id) ?? null,
+    cycle,
+    stageOrder: crop?.stages.map((stage) => stage.name) ?? [],
     tasks,
     notifications,
     reports,

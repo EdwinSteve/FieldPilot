@@ -40,6 +40,15 @@ interface Capture {
   events_revert_refused: LogEvent[];
 }
 
+const MAIZE_STAGES = [
+  "sowing",
+  "germination_emergence",
+  "vegetative",
+  "flowering",
+  "grain_fill",
+  "maturity_harvest",
+];
+
 function toSnapshot(raw: unknown): FarmSnapshot {
   const capture = raw as Capture;
   const [plot] = capture.plots;
@@ -51,6 +60,8 @@ function toSnapshot(raw: unknown): FarmSnapshot {
     zone: capture.zones[0] ?? null,
     readings: capture.readings[0]?.readings ?? [],
     cycle: capture.cycles[0] ?? null,
+    // The captures predate GET /crops (D077); maize is the crop they hold.
+    stageOrder: MAIZE_STAGES,
     tasks: capture.tasks,
     notifications: capture.notifications,
     reports: capture.reports,

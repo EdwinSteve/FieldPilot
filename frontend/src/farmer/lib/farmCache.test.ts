@@ -18,7 +18,9 @@ describe("the farm cache", () => {
     expect(fromCache("not json")).toBeNull();
     expect(fromCache('{"version":1,"snapshot":{}}')).toBeNull();
     expect(fromCache('{"version":2,"snapshot":{}}')).toBeNull();
-    expect(fromCache('{"version":3}')).toBeNull();
-    expect(fromCache('{"version":3,"snapshot":{}}')).toBeNull();
+    // Version 3 has no crop stage order (D077).
+    expect(fromCache('{"version":3,"snapshot":{},"savedAt":1}')).toBeNull();
+    expect(fromCache('{"version":4}')).toBeNull();
+    expect(fromCache('{"version":4,"snapshot":{}}')).toBeNull();
   });
 });
