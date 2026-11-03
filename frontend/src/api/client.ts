@@ -41,16 +41,38 @@ export function postBytes<T>(path: string, body: Blob, contentType: string): Pro
   return request<T>("POST", path, body, { "Content-Type": contentType });
 }
 
+/** How an app that logs in joins its session to every call (D082). */
+export interface Session {
+  /** The Authorization header to send, or none when signed out. */
+  headers: () => Record<string, string>;
+  /** Renews an expired session after a 401; true when the call should be sent again. */
+  renew: () => Promise<boolean>;
+}
+
+let session: Session | null = null;
+
+/** Set once by an app that logs in; without it, calls go out as before. */
+export function setSession(next: Session | null): void {
+  session = next;
+}
+
 async function request<T>(
   method: string,
   path: string,
   body?: BodyInit,
   headers?: Record<string, string>,
 ): Promise<T> {
-  const response = await fetch(apiUrl(path), { method, body, headers });
+  const send = () =>
+    fetch(apiUrl(path), { method, body, headers: { ...headers, ...session?.headers() } });
+  let response = await send();
+  if (response.status === 401 && session !== null && (await session.renew())) {
+    response = await send();
+  }
   if (!response.ok) {
     throw await toApiError(response, `${method} ${path}`);
   }
+  // 204 No Content, as a logout answers.
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
 

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { ApiError, toApiError } from "./client";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ApiError, getJson, postJson, setSession, toApiError } from "./client";
 
 function response(status: number, body: string, contentType = "application/json"): Response {
   return new Response(body, { status, headers: { "Content-Type": contentType } });
@@ -33,5 +33,56 @@ describe("toApiError", () => {
     const error = await toApiError(response(422, body), "POST /agent/chat");
 
     expect(error.message).toBe("POST /agent/chat falló (HTTP 422)");
+  });
+});
+
+describe("a session", () => {
+  afterEach(() => {
+    setSession(null);
+    vi.unstubAllGlobals();
+  });
+
+  it("sends its header, renews once on a 401 and sends the call again", async () => {
+    const calls: (string | undefined)[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((_url, init) => {
+        const headers = (init?.headers ?? {}) as Record<string, string>;
+        const auth = headers.Authorization;
+        calls.push(auth);
+        const ok = auth === "Bearer new";
+        return Promise.resolve(response(ok ? 200 : 401, ok ? "[]" : "{}"));
+      }),
+    );
+    let token = "old";
+    setSession({
+      headers: () => ({ Authorization: `Bearer ${token}` }),
+      renew: () => {
+        token = "new";
+        return Promise.resolve(true);
+      },
+    });
+
+    await expect(getJson("/plots")).resolves.toEqual([]);
+    expect(calls).toEqual(["Bearer old", "Bearer new"]);
+  });
+
+  it("gives up when the session cannot be renewed", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() => Promise.resolve(response(401, "{}"))),
+    );
+    setSession({ headers: () => ({}), renew: () => Promise.resolve(false) });
+
+    await expect(getJson("/plots")).rejects.toMatchObject({ status: 401 });
+  });
+
+  it("reads a 204 as no content", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() => Promise.resolve(new Response(null, { status: 204 }))),
+    );
+
+    await expect(postJson("/auth/logout", {})).resolves.toBeUndefined();
   });
 });
