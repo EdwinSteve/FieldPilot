@@ -2391,3 +2391,47 @@ SoilGrids rasters, which take minutes, and network access in mock mode.
 - Refreshing a plot's data is one command.
 - A plan sowed weeks after the snapshot is less informed, and the event
   records the snapshot's SHA-256, so each plan can be traced to its data.
+
+---
+
+## D082 — Login and register: phone and password, short JWT, rotating refresh tokens
+
+- **Date:** 2026-11-03
+- **Status:** Accepted (2026-11-03), chosen by Edwin.
+
+**Context.** The API had no authentication: every request came from the
+farmer's dashboard. Stage 3 (D080) has farmers, customers, warehouse
+operators and admins. Edwin asked for login and register in the backend
+now, with every route protected, and chose the phone number as the login,
+because many farmers do not use email.
+
+**Decision.** The contract is architecture.md §4.12.
+- **Login with a Colombian mobile number and a password.** Passwords are
+  hashed with Argon2id.
+- **Short access tokens and long refresh tokens.** Access tokens are JWT
+  (HS256) for 15 minutes. Refresh tokens are opaque, stored as SHA-256,
+  rotated on every use, and a reused one revokes its family.
+- **The same 401** for an unknown phone and a wrong password, with a dummy
+  hash, and a 15-minute lockout after 5 failures.
+- **Consent.** Registration records the accepted privacy policy version
+  (Ley 1581 de 2012).
+- **Roles.** Farmers and customers register themselves. Operators and
+  admins are created on the server with `scripts/create_user.py`. Plot
+  access is a `PlotMember` row.
+- **Every route needs a token**, except `/health` and the public auth
+  routes. `AUTH_REQUIRED=0` is allowed only under `APP_PROFILE=demo`, so
+  the current dashboard keeps working for the demo until it has a login
+  screen.
+- **Auth uses the wall clock**, never the simulated one: an accelerated
+  clock must not expire sessions.
+- **Events carry the real actor.** Farm events record `farmer:<id>`
+  instead of the fixed `farmer:dashboard`.
+
+**Consequences.**
+- New dependencies: `argon2-cffi` and `pyjwt`.
+- Tasks, cycles and events stay global to the deployment (one farm) until
+  the multi-farm step. Plot routes already check membership.
+- There is no rate limit per IP yet, only the per-account lockout. A
+  reverse proxy limit is needed before going public.
+- Moving to OIDC later replaces `AccessTokens` and the register route; the
+  roles and the `Principal` stay.

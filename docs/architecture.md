@@ -1043,14 +1043,18 @@ class SiteSnapshot:
     weather_first_day: date
     weather; valid                       # cleaned daily channels, ≥ 365 + 30 days to the latest day
     oni                                  # {(year, end month): value}
-def plan_inputs(snapshot, sowing_dates, crops, norm, success_threshold) -> PlanInputs: ...
-# PlanInputs: weather, clim, static, crop matrix, prior (B0 on the network's scale), b0 (raw)
-def decode(outputs [N, C, 9], crops) -> PlanOutputs: ...
+def climatology_plan(snapshot, sowing_dates, crops, success, spinup) -> ClimatologyPlan: ...  # B0
+def plan_inputs(snapshot, sowing_dates, crops, norm, success, spinup) -> PlanInputs: ...
+# PlanInputs: weather, clim, static, crop matrix, prior (B0 on the network's scale)
+def decode_network(raw [N, C, 9], inputs) -> PlanOutputs: ...
+def decode_b0(plan: ClimatologyPlan) -> PlanOutputs: ...
 
 class CropRecommender(Protocol):
-    model_id: str
-    def predict(self, inputs: PlanInputs) -> PlanOutputs: ...
-# OnnxRecommender (planner bundle, manifest SHA-256 checked at load) · ClimatologyRecommender (B0)
+    model_id: str; crops: Sequence[CropCard]
+    def recommend(self, snapshot: SiteSnapshot, sowing_dates: Sequence[date]) -> Recommendation: ...
+# OnnxRecommender (planner bundle, manifest digests checked at load) · ClimatologyRecommender (B0)
+# fieldpilot_planner.manifest: text files are hashed with LF endings, so a bundle
+# exported on Windows verifies on Linux
 
 class PlanningService:
     def plan(self, plot_id: int, first_sowing: date, weeks: int) -> PlantingPlan: ...
@@ -1069,6 +1073,92 @@ class PlanningService:
 - `weeks` is between 1 and 12.
 - `MissingDataError` (409) when the climate history is incomplete.
 - Only `app/planning/onnx.py` imports `onnxruntime`.
+
+### 4.12 Identity (`app/identity`): login, register and roles (D082)
+
+```python
+class Role(StrEnum):
+    FARMER = "farmer"; CUSTOMER = "customer"   # may register themselves
+    OPERATOR = "operator"; ADMIN = "admin"     # created by scripts/create_user.py only
+
+@dataclass(frozen=True)
+class Phone:                             # Colombian mobile, stored E.164: +573001234567
+    e164: str
+    @classmethod
+    def parse(cls, raw: str) -> "Phone": ...   # InvalidPhoneError
+
+@dataclass(frozen=True)
+class User:
+    phone: Phone; full_name: str; role: Role; password_hash: str
+    consent_version: str; consent_at: datetime
+    created_at: datetime; failed_logins: int = 0; locked_until: datetime | None = None
+    last_login_at: datetime | None = None; active: bool = True; id: int | None = None
+
+@dataclass(frozen=True)
+class Principal:                         # who is calling, from the access token
+    user_id: int | None                  # None only for the demo farmer (AUTH_REQUIRED=0)
+    role: Role
+    @property
+    def actor(self) -> str: ...          # "farmer:12", written to every event (principle 6)
+
+class PasswordHasher(Protocol):          # Argon2Hasher (argon2-cffi, Argon2id)
+    def hash(self, password: str) -> str: ...
+    def verify(self, password: str, encoded: str) -> bool: ...
+    def needs_rehash(self, encoded: str) -> bool: ...
+
+class AccessTokens(Protocol):            # JwtAccessTokens (PyJWT, HS256)
+    def issue(self, user_id: int, role: Role, now: datetime) -> str: ...
+    def principal(self, token: str, now: datetime) -> Principal: ...   # InvalidSessionError
+
+class AuthService:                       # wall clock, not the simulated one
+    def register(self, form: Registration) -> AuthResult: ...
+    def login(self, phone: str, password: str) -> TokenPair: ...
+    def refresh(self, refresh_token: str) -> TokenPair: ...
+    def logout(self, principal: Principal, refresh_token: str) -> None: ...
+    def logout_all(self, principal: Principal) -> None: ...
+    def me(self, principal: Principal) -> User: ...
+```
+
+**Rules.**
+1. **Passwords** are hashed with Argon2id; plain text is never stored or
+   logged. A password has between `password_min_length` and 128 characters
+   and must not contain the phone number. A hash made with older
+   parameters is replaced at the next successful login.
+2. **The same answer for an unknown phone and a wrong password** (401). An
+   unknown phone still verifies a dummy hash, so the response time does not
+   reveal which phones are registered.
+3. **Lockout.** After `max_failed_logins` failures in a row, the account is
+   locked for `lockout_minutes` (423). A successful login resets the
+   counter.
+4. **Access tokens** are JWT, HS256, valid `access_token_minutes`. They
+   carry only `sub`, `role`, `iss`, `aud`, `iat`, `exp` and `jti`, never a
+   phone number or a name. The key is `AUTH_JWT_SECRET`; it is required
+   under `APP_PROFILE=prod`, and without it the other profiles generate one
+   per process, so sessions end at restart.
+5. **Refresh tokens** are 32 random bytes, returned once and stored as
+   SHA-256. Every refresh rotates the token within its family. Presenting a
+   token that was already used revokes the whole family (theft detection).
+6. **Consent.** Registration requires accepting the current privacy policy
+   version (`privacy_policy_version`, Ley 1581 de 2012); the version and the
+   time are stored with the user.
+7. **Audit.** `auth_event` is append-only and uses wall time: `registered`,
+   `login_succeeded`, `login_failed`, `account_locked`, `session_refreshed`,
+   `refresh_reused`, `logged_out`, `logged_out_all`. It never stores a
+   phone, a password or a token.
+8. **Authorisation** is one FastAPI dependency per rule (`app/api/auth.py`):
+   - every route needs a valid access token, except `/health`, `/auth/*`
+     (but `/auth/me` and the logouts) and the privacy policy;
+   - farm routes need the `farmer` or `admin` role;
+   - routes that name a plot also need a `PlotMember` row (admin passes);
+   - tasks, cycles and events are not yet scoped per plot: one farm per
+     deployment until the multi-farm step.
+9. **`AUTH_REQUIRED=0`** is honoured only under `APP_PROFILE=demo`: every
+   request then acts as the demo farmer, as the dashboard did before D082.
+   With any other profile, setting it stops the app at startup.
+
+`config/identity.yaml`: `access_token_minutes` (15), `refresh_token_days`
+(30), `max_failed_logins` (5), `lockout_minutes` (15),
+`password_min_length` (10), `privacy_policy_version`.
 
 ### 4.10 Persistence (`app/persistence`)
 
@@ -1152,6 +1242,10 @@ erDiagram
 | **Report** | id, cycle_id, stage_id?, language, content (markdown), created_at |
 | **ControlState** | id (single row), emergency_stop_active, changed_at, changed_by |
 | **SimClockState** | id (single row), sim_anchor, wall_anchor, speed_factor, paused |
+| **User** | id, phone (unique, E.164), full_name, role, password_hash, active, failed_logins, locked_until?, last_login_at?, consent_version, consent_at, created_at (D082) |
+| **RefreshSession** | id, user_id, token_hash (unique), family_id, expires_at, created_at, used_at?, revoked_at? |
+| **AuthEvent** | id, occurred_at (wall clock), kind, user_id?, detail (JSON, no personal data) |
+| **PlotMember** | id, plot_id, user_id · unique (plot_id, user_id) |
 
 Money is stored in minor units (`Money(amount_minor, currency)`) to avoid
 float rounding. Every datetime column is aware UTC (§4.10).
@@ -1246,6 +1340,12 @@ startup writes a `config_override` event with both values.
 | Method | Path | Service |
 |---|---|---|
 | GET | `/health` | — |
+| POST | `/auth/register` | `AuthService.register`: farmer or customer; 201 with the user and a token pair (D082) |
+| POST | `/auth/login`, `/auth/refresh` | `AuthService.login`, `AuthService.refresh`: a token pair |
+| POST | `/auth/logout`, `/auth/logout-all` | Revoke one refresh token, or all of the user's (204) |
+| GET | `/auth/me` | The calling user |
+| GET | `/auth/privacy-policy` | The current policy version, sent back on register |
+| POST | `/plots/{id}/members` | Admin only: give a user access to a plot |
 | GET | `/plots`, `/plots/{id}/zones` | plots and zones |
 | GET | `/plots/{id}/imagery` | NDVI, low-NDVI %, bare soil and low vigour per zone (D067), SAM boxes and zone areas (D073) |
 | GET | `/plots/{id}/imagery/image` | The scene's RGB PNG; 404 without a scene (D073) |
@@ -1279,7 +1379,12 @@ Errors map to HTTP codes in one place (`app/api/errors.py`):
 
 | Error | Code |
 |---|---|
+| `InvalidCredentialsError`, `InvalidSessionError` | 401 |
+| `ForbiddenError` | 403 |
 | `NotFoundError` | 404 |
+| `PhoneTakenError`, `StalePolicyError` | 409 |
+| `AccountLockedError` | 423 |
+| `InvalidPhoneError`, `WeakPasswordError`, `ConsentRequiredError` | 422 |
 | `InvalidTransitionError`, `RevertRefusedError`, `MissingDataError` | 409 |
 | `UnsupportedActionError`, `UnsupportedAudioError`, `NothingHeardError` | 422 |
 | `LLMUnavailableError` (or a `PAUSED` chat run), `SpeechUnavailableError`, chat under `MOCK_LLM=1`, `FixtureExhaustedError` (a replay that does not match the farm) | 503 |
