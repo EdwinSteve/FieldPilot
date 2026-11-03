@@ -1,5 +1,7 @@
+import { ApiError } from "../../api/client";
 import { api } from "../../api/endpoints";
 import { fetchHealth } from "../../api/health";
+import { useCallback } from "react";
 import { useResource, type Resource } from "../../hooks/useResource";
 import type { SensorReadings } from "../../types/api";
 import type { FarmSnapshot } from "../view-models/snapshot";
@@ -15,13 +17,22 @@ function soilReadings(sensors: SensorReadings[]) {
   );
 }
 
+/**
+ * Only crops stage 2 runs have a catalogue entry (maize today, D083); any other
+ * crop is a manual record, and its 404 means "no stages", not a farm that failed.
+ */
+function noStages(error: unknown): null {
+  if (error instanceof ApiError && error.status === 404) return null;
+  throw error;
+}
+
 function events(kind: string) {
   return api.events({ kind, limit: EVENTS });
 }
 
-/** One consistent read of the farm, or null before any farm exists. */
-async function loadFarm(): Promise<FarmSnapshot | null> {
-  const [plot] = await api.plots();
+/** One consistent read of the farmer's plot, or null when it is gone. */
+async function loadFarm(plotId: number): Promise<FarmSnapshot | null> {
+  const plot = (await api.plots()).find((candidate) => candidate.id === plotId);
   if (plot === undefined) return null;
   const [
     health,
@@ -59,10 +70,20 @@ async function loadFarm(): Promise<FarmSnapshot | null> {
     events("revert"),
   ]);
   const zone = zones[0] ?? null;
-  const cycle = cycles.find((candidate) => candidate.plot_id === plot.id) ?? null;
+  // Tasks, cycles, reports and the log are still one list for the whole deployment
+  // (D082): keep this plot's, so a farmer never sees another farm's work.
+  const ours = new Set(cycles.filter((c) => c.plot_id === plot.id).map((c) => c.id));
+  const cycle =
+    cycles.find((c) => c.plot_id === plot.id && c.status === "active") ??
+    cycles.find((c) => c.plot_id === plot.id) ??
+    null;
+  const ourTasks = tasks.filter((task) => ours.has(task.cycle_id));
+  const taskIds = new Set(ourTasks.map((task) => task.id));
+  const onOurs = <T extends { task_id: number | null }>(items: T[]) =>
+    items.filter((item) => item.task_id === null || taskIds.has(item.task_id));
   const [sensors, crop] = await Promise.all([
     zone === null ? [] : api.readings(zone.id, READINGS),
-    cycle === null ? null : api.crop(cycle.crop),
+    cycle === null ? null : api.crop(cycle.crop).catch(noStages),
   ]);
   return {
     chatLive: !health.mock_llm,
@@ -72,21 +93,24 @@ async function loadFarm(): Promise<FarmSnapshot | null> {
     readings: soilReadings(sensors),
     cycle,
     stageOrder: crop?.stages.map((stage) => stage.name) ?? [],
-    tasks,
-    notifications,
-    reports,
+    tasks: ourTasks,
+    notifications: onOurs(notifications),
+    reports: reports.filter((report) => ours.has(report.cycle_id)),
     stop,
     imagery,
-    verdicts,
-    executions,
-    failures,
-    rejections,
-    reverts,
-    refusals,
-    notices,
+    verdicts: onOurs(verdicts),
+    executions: onOurs(executions),
+    failures: onOurs(failures),
+    rejections: onOurs(rejections),
+    reverts: onOurs(reverts),
+    refusals: onOurs(refusals),
+    notices: onOurs(notices),
   };
 }
 
-export function useFarmSnapshot(version: number): Resource<FarmSnapshot | null> {
-  return useResource(loadFarm, version);
+export function useFarmSnapshot(version: number, plotId: number): Resource<FarmSnapshot | null> {
+  return useResource(
+    useCallback(() => loadFarm(plotId), [plotId]),
+    version,
+  );
 }

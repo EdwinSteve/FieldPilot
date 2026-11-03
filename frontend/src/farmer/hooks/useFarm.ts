@@ -68,7 +68,7 @@ function nextReads(reads: Reads, resource: Resource<FarmSnapshot | null>, now: n
 }
 
 /** A real moment as the phone's own clock reads it, "10:42 am". */
-function phoneClock(ms: number): string {
+export function phoneClock(ms: number): string {
   const offsetHours = -new Date(ms).getTimezoneOffset() / 60;
   return formatClock(new Date(ms).toISOString(), offsetHours);
 }
@@ -88,11 +88,15 @@ function viewsOf(snapshot: FarmSnapshot, exchanges: ChatExchange[]): FarmViews {
 }
 
 /** The farm as the screens see it: fresh views, and actions that report success. */
-export function useFarm(): FarmState {
+export function useFarm(plotId: number): FarmState {
   const { version, requestedAt, refresh } = useFarmRefresh();
-  const resource = useFarmSnapshot(version);
+  const resource = useFarmSnapshot(version, plotId);
   const { data: fresh, error, loading } = resource;
-  const [cached] = useState(readCachedFarm);
+  // A copy saved for another plot is not this farm.
+  const [cached] = useState(() => {
+    const saved = readCachedFarm();
+    return saved?.snapshot.plot.id === plotId ? saved : null;
+  });
   const data = fresh ?? (error === null ? null : (cached?.snapshot ?? null));
   const action = useAction(refresh);
   const talk = useTalk(data?.plot.id);

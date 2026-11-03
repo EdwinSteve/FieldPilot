@@ -3,19 +3,23 @@ import { BackTarget } from "./components/backTarget";
 import { BigButton } from "./components/BigButton";
 import { StateView } from "./components/StateView";
 import { TabBar } from "./components/TabBar";
-import { useAccount, type AccountControl } from "./hooks/useAccount";
-import { useFarm } from "./hooks/useFarm";
+import type { FarmPlot } from "./api/lifecycle";
+import { phoneClock, useFarm } from "./hooks/useFarm";
+import { useFarmProgress, type FarmProgress } from "./hooks/useFarmProgress";
 import { useFarmRoute } from "./hooks/useFarmRoute";
 import { useFocusHeading } from "./hooks/useFocusHeading";
 import { useOnline } from "./hooks/useOnline";
+import { useSession, type SessionControl } from "./hooks/useSession";
 import { en } from "./i18n/en";
 import { gatedRoute, startRoute } from "./lib/accountGate";
-import { hrefOf, isEntryScreen, tabOf, type Route } from "./lib/route";
+import { hrefOf, tabOf, type Route } from "./lib/route";
 import { LogInScreen, SignUpScreen } from "./screens/AccountScreens";
+import { AdviceScreen } from "./screens/AdviceScreen";
 import { DecideScreen } from "./screens/DecideScreen";
 import { FieldScreen } from "./screens/FieldScreen";
 import { PlanScreen } from "./screens/PlanScreen";
 import { ReportScreen } from "./screens/ReportScreen";
+import { SetupScreen } from "./screens/SetupScreen";
 import { StopScreen } from "./screens/StopScreen";
 import { TalkScreen } from "./screens/TalkScreen";
 import { TodayScreen } from "./screens/TodayScreen";
@@ -32,10 +36,12 @@ function screenFor(
 ): ReactNode {
   const today = <TodayScreen view={farm.today} age={age} onSignOut={onSignOut} />;
   switch (route.screen) {
-    // Entry screens never wait for the farm: `contentFor` shows them first.
+    // Entry and setup screens never wait for the farm: `FarmerApp` shows them first.
     case "welcome":
     case "login":
     case "signup":
+    case "setup":
+    case "advice":
       return null;
     case "today":
       return today;
@@ -95,53 +101,71 @@ function connectionNotice(online: boolean, stale: boolean, age: string | null): 
   return en.state.stale(age ?? en.freshness.justNow);
 }
 
-/** Signing in or up from an entry screen goes on to Today; from a farm screen, it stays. */
-function goOnFrom(route: Route): void {
-  if (isEntryScreen(route)) window.location.hash = hrefOf({ screen: "today" });
-}
-
-function entryFor(route: Route, shown: Route, account: AccountControl): ReactNode {
+function entryFor(shown: Route, session: SessionControl, online: boolean): ReactNode {
   switch (shown.screen) {
     case "welcome":
       return (
         <WelcomeScreen
-          startHref={hrefOf(startRoute(account.signedIn, account.account !== null))}
+          startHref={hrefOf(startRoute(session.farmer !== null, session.known !== null))}
         />
       );
     case "login":
-      return (
-        <LogInScreen
-          account={account.account}
-          onLogIn={(phone, pin) => {
-            const result = account.logIn(phone, pin);
-            if (result === "ok") goOnFrom(route);
-            return result;
-          }}
-        />
-      );
+      return <LogInScreen session={session} />;
     case "signup":
-      return (
-        <SignUpScreen
-          existing={account.account}
-          onSignUp={(name, phone, pin) => {
-            account.signUp(name, phone, pin);
-            goOnFrom(route);
-          }}
-        />
-      );
+      return <SignUpScreen session={session} online={online} />;
     default:
       return null;
   }
 }
 
-function contentFor(
+/** Before a crop grows: set up the farm, then choose what to sow. */
+function setupFor(shown: Route, session: SessionControl, farm: FarmProgress): ReactNode {
+  const stage = farm.stage;
+  const farmer = session.farmer;
+  if (farmer === null || stage === null) return null;
+  if (shown.screen === "setup" && stage.stage === "no_plot") {
+    return <SetupScreen farmer={farmer} home={session.known?.home ?? null} onSaved={farm.reload} />;
+  }
+  if (shown.screen === "advice" && stage.stage === "no_cycle") {
+    return <AdviceScreen key={stage.plot.id} plot={stage.plot} onPlanted={farm.reload} />;
+  }
+  return null;
+}
+
+interface FarmAreaProps {
+  plot: FarmPlot;
+  route: Route;
+  shown: Route;
+  online: boolean;
+  onSignOut: () => void;
+}
+
+/** The farm with a crop growing: its screens, kept fresh, and the tab bar. */
+function FarmArea({ plot, route, shown, online, onSignOut }: FarmAreaProps) {
+  const state = useFarm(plot.id);
+  const tab = tabOf(shown);
+  const farm = state.status === "ready" ? state.farm : null;
+  return (
+    <>
+      {farmContent(route, shown, state, online, onSignOut)}
+      {tab === null ? null : (
+        <TabBar
+          active={tab}
+          unread={farm?.updates.unreadCount ?? 0}
+          decisionWaiting={(farm?.today.decision ?? null) !== null}
+        />
+      )}
+    </>
+  );
+}
+
+function farmContent(
   route: Route,
   shown: Route,
   state: FarmState,
   online: boolean,
-  account: AccountControl,
+  onSignOut: () => void,
 ): ReactNode {
-  if (isEntryScreen(shown)) return entryFor(route, shown, account);
   switch (state.status) {
     case "loading":
       return <StateView icon="hourglass" title={en.state.loading} />;
@@ -175,13 +199,50 @@ function contentFor(
           <div inert={state.farm.busy} className="contents">
             {/* The key plays the entrance on a change of screen, never on a data refresh. */}
             <div key={hrefOf(route)} className="flex min-h-0 flex-1 animate-screen-in flex-col">
-              {screenFor(shown, state.farm, state.age, account.signOut)}
+              {screenFor(shown, state.farm, state.age, onSignOut)}
             </div>
           </div>
         </>
       );
     }
   }
+}
+
+function signedInContent(
+  route: Route,
+  shown: Route,
+  session: SessionControl,
+  farm: FarmProgress,
+  online: boolean,
+): ReactNode {
+  if (farm.failed) {
+    return (
+      <StateView
+        icon={online ? "warning" : "cloudOff"}
+        title={online ? en.state.errorTitle : en.state.offline}
+        detail={`${en.state.errorDetail} ${en.state.lastTried(phoneClock(farm.triedAt))}`}
+      >
+        <div className="flex w-full max-w-80 flex-col pt-2">
+          <BigButton variant="primary" onClick={farm.reload}>
+            {en.state.retry}
+          </BigButton>
+        </div>
+      </StateView>
+    );
+  }
+  const stage = farm.stage;
+  if (stage === null) return <StateView icon="hourglass" title={en.state.loading} />;
+  if (stage.stage !== "farming") return setupFor(shown, session, farm);
+  return (
+    <FarmArea
+      key={stage.plot.id}
+      plot={stage.plot}
+      route={route}
+      shown={shown}
+      online={online}
+      onSignOut={() => void session.logOut()}
+    />
+  );
 }
 
 /** Floats over the screen so nothing jumps. A fast action never shows it. */
@@ -207,26 +268,24 @@ function Notice({ text }: { text: string }) {
 /** The shell: one phone-sized column with the current screen and the tab bar. */
 export function FarmerApp() {
   const { route, back } = useFarmRoute();
-  const state = useFarm();
   const online = useOnline();
-  const account = useAccount();
+  const session = useSession();
+  const signedIn = session.farmer !== null;
+  const farm = useFarmProgress(session.farmer?.id ?? null);
   // Signed out, the log-in stands in front of the screen the URL asks for.
-  const shown = gatedRoute(route, account.signedIn, account.account !== null);
-  const tab = tabOf(shown);
+  const shown = gatedRoute(route, signedIn, session.known !== null, farm.progress);
   const shell = useRef<HTMLDivElement>(null);
-  const farm = state.status === "ready" ? state.farm : null;
 
   useEffect(() => {
     const name = en.titles.screens[shown.screen];
     document.title = shown.screen === "welcome" ? en.titles.app : en.titles.page(name);
   }, [shown.screen]);
 
-  // A signed-in farmer sent to the log-in sees Today: the URL says so too.
+  // Signed in, a screen the gate replaced shows in the URL too, so Back and a reload agree.
+  const replaced = signedIn && hrefOf(shown) !== hrefOf(route) ? hrefOf(shown) : null;
   useEffect(() => {
-    if (account.signedIn && route.screen === "login") {
-      window.location.replace(hrefOf({ screen: "today" }));
-    }
-  }, [account.signedIn, route.screen]);
+    if (replaced !== null) window.location.replace(replaced);
+  }, [replaced]);
 
   useFocusHeading(hrefOf(shown), shell);
 
@@ -235,14 +294,11 @@ export function FarmerApp() {
       ref={shell}
       className="relative mx-auto flex h-dvh w-full max-w-[430px] flex-col overflow-hidden bg-ground pt-[env(safe-area-inset-top)]"
     >
-      <BackTarget value={back}>{contentFor(route, shown, state, online, account)}</BackTarget>
-      {tab === null ? null : (
-        <TabBar
-          active={tab}
-          unread={farm?.updates.unreadCount ?? 0}
-          decisionWaiting={(farm?.today.decision ?? null) !== null}
-        />
-      )}
+      <BackTarget value={back}>
+        {!signedIn || shown.screen === "welcome"
+          ? entryFor(shown, session, online)
+          : signedInContent(route, shown, session, farm, online)}
+      </BackTarget>
     </div>
   );
 }
