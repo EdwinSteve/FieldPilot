@@ -1029,20 +1029,42 @@ class PlantingPlan:
     model: str                           # bundle id, or "b0-climatology"
     outlooks: tuple[CropOutlook, ...]    # ranked by rel_yield_p50, then p_success
 
-class ClimateSource(Protocol):           # daily series ending on `until`
-    def history(self, lat: float, lon: float, until: date, days: int) -> DailyWeather: ...
-# PowerClimateSource (NASA POWER, cached per plot and day) · FixtureClimateSource (mock mode, CI)
+class SiteSource(Protocol):              # D081
+    def snapshot(self, plot_id: int) -> SiteSnapshot: ...   # MissingDataError when absent
+# FixtureSiteSource: data/fixtures/planner/site_<plot_id>.json, written by
+# `make planner-site PLOT=<id> LAT= LON= ELEV=` (NASA POWER, SoilGrids, ONI)
+
+# fieldpilot_planner.serving (shared with training, numpy only)
+@dataclass(frozen=True)
+class SiteSnapshot:
+    lat, lon, elevation_m, cell_elevation_m
+    soil_profile                         # [6 layers, 7 properties], SoilGrids
+    climatology                          # [366, 9]: baseline 1991-2020 by day of year
+    weather_first_day: date
+    weather; valid                       # cleaned daily channels, ≥ 365 + 30 days to the latest day
+    oni                                  # {(year, end month): value}
+def plan_inputs(snapshot, sowing_dates, crops, norm, success_threshold) -> PlanInputs: ...
+# PlanInputs: weather, clim, static, crop matrix, prior (B0 on the network's scale), b0 (raw)
+def decode(outputs [N, C, 9], crops) -> PlanOutputs: ...
 
 class CropRecommender(Protocol):
-    def outlook(self, inputs: PlannerInputs) -> Sequence[CropOutlook]: ...
-# OnnxRecommender (planner bundle) · ClimatologyRecommender (B0, no model)
+    model_id: str
+    def predict(self, inputs: PlanInputs) -> PlanOutputs: ...
+# OnnxRecommender (planner bundle, manifest SHA-256 checked at load) · ClimatologyRecommender (B0)
 
 class PlanningService:
     def plan(self, plot_id: int, first_sowing: date, weeks: int) -> PlantingPlan: ...
-    # builds PlannerInputs with fieldpilot_planner.features, asks the
-    # recommender, and logs one planting_plan_served event
+    # snapshot → plan_inputs → recommender → CropOutlooks ranked per week;
+    # logs one planting_plan_served event (model id, snapshot SHA-256, top crop per week)
 ```
 
+- **The weather history of a future sowing** ends on the snapshot's latest
+  day. The ONI is the season ending two months before sowing if it has
+  been published; otherwise it is the latest published season, with its
+  trend.
+- **The bundle** is `PLANNER_BUNDLE`, which defaults to the newest folder
+  in `planner/models/`. With no bundle, the backend serves B0, and the
+  plan's `model` says `b0-climatology`.
 - The plan is advice: it never creates, changes or proposes a task.
 - `weeks` is between 1 and 12.
 - `MissingDataError` (409) when the climate history is incomplete.
