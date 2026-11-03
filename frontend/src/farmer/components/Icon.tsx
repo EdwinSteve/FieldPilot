@@ -5,6 +5,7 @@ export const CLOUD_PATH = "M7 14a4 4 0 0 1 .5-8 5.5 5.5 0 0 1 10.5 2 3 3 0 0 1 0
 
 const PATHS = {
   arrowDown: <path d="M12 5v14M6 13l6 6 6-6" />,
+  bag: <path d="M9 3h6l-1.5 3h-3zM10.5 6C6 8 4 12 4 15a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6c0-3-2-7-6.5-9z" />,
   arrowRight: <path d="M5 12h14M13 6l6 6-6 6" />,
   arrowUp: <path d="M12 19V5M6 11l6-6 6 6" />,
   back: <path d="M15 5l-7 7 7 7" />,
@@ -17,6 +18,9 @@ const PATHS = {
   ),
   chat: (
     <path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
+  ),
+  call: (
+    <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z" />
   ),
   check: <path d="M5 12.5l4.5 4.5L19 7" />,
   chevronDown: <path d="M6 9l6 6 6-6" />,
@@ -55,7 +59,15 @@ const PATHS = {
       <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18" />
     </>
   ),
+  field: <path d="M4 7l8-3 8 3v10l-8 3-8-3zM4 12l8 3 8-3" />,
   forward: <path d="M9 5l7 7-7 7" />,
+  gear: (
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2.5v2.5M12 19v2.5M21.5 12H19M5 12H2.5M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8M18.7 18.7l-1.8-1.8M7.1 7.1L5.3 5.3" />
+      <circle cx="12" cy="12" r="7" />
+    </>
+  ),
   home: <path d="M3 11l9-7 9 7v9H3z" />,
   hourglass: <path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9" />,
   info: (
@@ -64,6 +76,7 @@ const PATHS = {
       <path d="M12 11v6M12 7.5v.5" />
     </>
   ),
+  logOut: <path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3M16 8l4 4-4 4M20 12H10" />,
   lock: (
     <>
       <rect x="5" y="11" width="14" height="10" rx="2" />
@@ -77,13 +90,33 @@ const PATHS = {
     </>
   ),
   plus: <path d="M12 5v14M5 12h14" />,
+  moon: <path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" />,
+  phone: (
+    <>
+      <rect x="7" y="2.5" width="10" height="19" rx="2" />
+      <path d="M11 18h2" />
+    </>
+  ),
+  pin: (
+    <>
+      <path d="M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.5-6 11-6 11z" />
+      <circle cx="12" cy="10" r="2" />
+    </>
+  ),
   play: <path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke="none" />,
+  question: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 9.5a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5M12 17v.5" />
+    </>
+  ),
   satellite: (
     <>
       <rect x="9" y="9" width="6" height="6" rx="1" />
       <path d="M3 5l6 4M21 5l-6 4M3 19l6-4M21 19l-6-4" />
     </>
   ),
+  scale: <path d="M5 9h14l-2 11H7zM9 9a3 3 0 0 1 6 0M12 13v3" />,
   send: <path d="M12 19V5M6 11l6-6 6 6" />,
   sensor: (
     <>
@@ -97,7 +130,19 @@ const PATHS = {
       <path d="M8.5 12l2.5 2.5 4.5-5" />
     </>
   ),
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+    </>
+  ),
   stopSquare: <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none" />,
+  user: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </>
+  ),
   undo: (
     <>
       <path d="M9 14L4 9l5-5" />

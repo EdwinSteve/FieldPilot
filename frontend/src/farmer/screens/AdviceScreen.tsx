@@ -1,21 +1,25 @@
 import { useState } from "react";
 import { api } from "../../api/endpoints";
 import { useResource } from "../../hooks/useResource";
-import { lifecycle, type CropOutlook, type FarmPlot, type PlantingPlan } from "../api/lifecycle";
+import { lifecycle, type CropOutlook, type FarmPlot, type Lot, type PlantingPlan } from "../api/lifecycle";
 import { BigButton } from "../components/BigButton";
-import { Chip } from "../components/Chip";
+import { CropCard } from "../components/CropCard";
+import { SettingsLink } from "../components/SettingsLink";
+import type { HarvestNote } from "../components/HarvestSheet";
 import { Icon } from "../components/Icon";
-import { MonthTable, YieldBars } from "../components/PlanCharts";
 import { Sheet } from "../components/Sheet";
+import { SowingStrips } from "../components/SowingStrips";
 import { StateView } from "../components/StateView";
 import { readDraft } from "../hooks/setupDraftStore";
 import { useAdvice } from "../hooks/useAdvice";
+import { useLots } from "../hooks/useLots";
 import { en } from "../i18n/en";
 import { formatCalendarDate } from "../lib/farmTime";
-import { orderForGoals, RECOMMENDED, type Goal } from "../lib/goals";
+import { orderForGoals, RECOMMENDED } from "../lib/goals";
 import { cropLabel, farmLabel } from "../lib/names";
-import { monthGrid, nothingGrowsWell, percent, weekOf } from "../lib/plantingPlan";
+import { nothingGrowsWell, weekOf } from "../lib/plantingPlan";
 import { earliestSowing, plotToday, sowingDateProblem } from "../lib/sowingDate";
+import { kgText } from "../lib/harvest";
 import { startFailure, type StartFailure } from "../lib/startFailure";
 
 /** The planner's "no network" model id (D079). */
@@ -28,63 +32,12 @@ function phoneNow(): string {
 
 const loadClock = () => api.clock();
 
-function Metric({ label, value, detail }: { label: string; value: string; detail?: string }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-caption text-ink-2">{label}</span>
-      <span className="text-body font-extrabold">{value}</span>
-      {detail === undefined ? null : <span className="text-caption text-ink-3">{detail}</span>}
-    </div>
-  );
-}
-
-interface CropCardProps {
-  outlook: CropOutlook;
-  recommended: boolean;
-  bestFor: Goal | null;
-  grown: boolean;
-  onPlanted: () => void;
-}
-
-function CropCard({ outlook, recommended, bestFor, grown, onPlanted }: CropCardProps) {
-  const name = cropLabel(outlook.crop);
-  return (
-    <article className="flex flex-col gap-3.5 rounded-card bg-surface p-4.5">
-      <div className="flex flex-col gap-2">
-        <h3 className="text-head font-extrabold tracking-key">{name}</h3>
-        <div className="flex flex-wrap gap-1.5">
-          {recommended ? <Chip tone="good">{en.advice.recommended}</Chip> : null}
-          {bestFor === null ? null : (
-            <Chip tone="undo">{en.advice.bestFor(en.setup.goals[bestFor])}</Chip>
-          )}
-          {grown ? <Chip tone="neutral">{en.advice.youGrow}</Chip> : null}
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-x-3 gap-y-3">
-        <Metric
-          label={en.advice.expected}
-          value={en.advice.expectedValue(percent(outlook.rel_yield_p50))}
-          detail={en.advice.range(percent(outlook.rel_yield_p10), percent(outlook.rel_yield_p90))}
-        />
-        <Metric
-          label={en.advice.success}
-          value={en.advice.successValue(Math.round(outlook.p_success * 10))}
-        />
-        <Metric
-          label={en.advice.water}
-          value={en.advice.waterValue(Math.round(outlook.irrigation_mm_p50))}
-        />
-        <Metric label={en.advice.harvest} value={formatCalendarDate(outlook.harvest_date)} />
-      </div>
-      <span className="flex items-center gap-2 text-small font-bold text-ink-2">
-        <Icon name={outlook.automatable ? "drop" : "info"} size={20} className="shrink-0" />
-        {outlook.automatable ? en.advice.automatic : en.advice.manual}
-      </span>
-      <BigButton variant="primary" size="compact" onClick={onPlanted}>
-        {en.advice.planted}
-      </BigButton>
-    </article>
-  );
+async function firstCheck(plotId: number): Promise<void> {
+  try {
+    if ((await api.zones(plotId)).length > 0) await api.dailyCycle(plotId);
+  } catch {
+    // The morning check runs it anyway; nothing here for the farmer to do.
+  }
 }
 
 interface PlantSheetProps {
@@ -121,8 +74,9 @@ function PlantSheet({ plot, plan, crop, today, onClose, onStarted }: PlantSheetP
         sowing_date: date,
         accept_own_risk: acceptOwnRisk,
       });
-      // Stage 2 takes over: its first daily check starts now, not tomorrow morning.
-      if (cycle.automated) void api.dailyCycle(plot.id).catch(() => null);
+      // Stage 2 takes over now, not tomorrow morning, but only on a farm with sensors:
+      // without a zone the check has nothing to read and stops with a failure notice.
+      if (cycle.automated) void firstCheck(plot.id);
       onStarted();
     } catch (caught) {
       const reason = startFailure(caught);
@@ -138,8 +92,8 @@ function PlantSheet({ plot, plan, crop, today, onClose, onStarted }: PlantSheetP
       {ownRisk ? (
         <>
           <h2 className="text-head font-extrabold tracking-key">{en.advice.ownRiskTitle}</h2>
-          <p className="text-body leading-snug">{en.advice.ownRisk(top)}</p>
-          <BigButton variant="needs" disabled={busy} onClick={() => void start(true)}>
+          <p className="text-body leading-snug">{en.advice.ownRisk(name, top, crop.automatable)}</p>
+          <BigButton variant="primary" disabled={busy} onClick={() => void start(true)}>
             {busy ? en.advice.starting : en.advice.ownRiskConfirm}
           </BigButton>
         </>
@@ -218,11 +172,55 @@ interface Planting {
   today: string;
 }
 
-function Advice({ plot, plan, onPlanted }: { plot: FarmPlot; plan: PlantingPlan; onPlanted: () => void }) {
+function SavedNote({ note }: { note: HarvestNote }) {
+  return (
+    <output className="flex shrink-0 gap-3 rounded-card bg-tint px-4.5 py-4 text-primary-hover">
+      <Icon name="check" size={24} strokeWidth={2.8} className="mt-0.5 shrink-0" />
+      <span className="flex flex-col gap-0.5">
+        <span className="text-lead font-extrabold">{en.harvest.saved(kgText(note.kg), note.crop)}</span>
+        <span className="text-body">{en.harvest.savedNext}</span>
+      </span>
+    </output>
+  );
+}
+
+/** The farm's harvests so far, newest first; nothing before the first. */
+function PastHarvests({ lots }: { lots: readonly Lot[] }) {
+  if (lots.length === 0) return null;
+  return (
+    <section className="flex shrink-0 flex-col gap-2.5 rounded-card bg-surface p-4.5">
+      <h2 className="text-lead font-bold">{en.harvest.pastTitle}</h2>
+      <ul className="flex flex-col gap-2">
+        {lots.toSorted((a, b) => b.harvested_on.localeCompare(a.harvested_on)).map((lot) => (
+          <li key={lot.code} className="flex flex-col">
+            <span className="text-body font-bold">{cropLabel(lot.crop)}</span>
+            <span className="text-small text-ink-2">
+              {en.harvest.pastRow(
+                formatCalendarDate(lot.harvested_on),
+                kgText(lot.quantity_kg),
+                en.harvest.grades[lot.grade],
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+interface AdviceProps {
+  plot: FarmPlot;
+  plan: PlantingPlan;
+  harvested: HarvestNote | null;
+  onPlanted: () => void;
+}
+
+function Advice({ plot, plan, harvested, onPlanted }: AdviceProps) {
   const [draft] = useState(readDraft);
   const [weekIndex, setWeekIndex] = useState(0);
   const [planting, setPlanting] = useState<Planting | null>(null);
   const clock = useResource(loadClock, 0);
+  const lots = useLots(plot.id);
   // The backend's clock says what today is; the phone's stands in if it has not answered.
   const plant = (crop: CropOutlook) =>
     setPlanting({
@@ -239,10 +237,14 @@ function Advice({ plot, plan, onPlanted }: { plot: FarmPlot; plan: PlantingPlan;
 
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4.5 pt-7 pb-6">
-      <div className="flex flex-col gap-1 px-0.5">
-        <h1 className="text-title font-extrabold tracking-title">{en.advice.title}</h1>
-        <span className="text-lead leading-snug text-ink-2">{en.advice.lead(farmLabel(plot.name))}</span>
-      </div>
+      <header className="flex items-start justify-between gap-3 px-0.5">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-title font-extrabold tracking-title">{en.advice.title}</h1>
+          <span className="text-lead leading-snug text-ink-2">{en.advice.lead(farmLabel(plot.name))}</span>
+        </div>
+        <SettingsLink />
+      </header>
+      {harvested === null ? null : <SavedNote note={harvested} />}
       <WeekPicker plan={plan} chosen={weekIndex} onChoose={setWeekIndex} />
       {poor ? (
         <div role="note" className="flex gap-3 rounded-card bg-bad-tint px-4.5 py-4 text-bad-text">
@@ -266,8 +268,7 @@ function Advice({ plot, plan, onPlanted }: { plot: FarmPlot; plan: PlantingPlan;
           onPlanted={() => plant(outlook)}
         />
       ))}
-      <YieldBars outlooks={week.outlooks} />
-      <MonthTable grid={monthGrid(plan)} />
+      <SowingStrips plan={plan} grown={draft.crops} />
       {others.length === 0 ? null : (
         <>
           <h2 className="px-0.5 pt-1 text-lead font-bold">{en.advice.otherCrops}</h2>
@@ -283,6 +284,7 @@ function Advice({ plot, plan, onPlanted }: { plot: FarmPlot; plan: PlantingPlan;
           ))}
         </>
       )}
+      <PastHarvests lots={lots} />
       <p className="flex items-start gap-2 px-1 text-caption leading-snug text-ink-3">
         <Icon name="info" size={18} className="mt-0.5 shrink-0" />
         {plan.model === BASELINE_MODEL
@@ -305,12 +307,14 @@ function Advice({ plot, plan, onPlanted }: { plot: FarmPlot; plan: PlantingPlan;
 
 interface AdviceScreenProps {
   plot: FarmPlot;
+  /** The harvest just saved, said once at the top. */
+  harvested: HarvestNote | null;
   /** A crop was started: read the farmer's progress again, which opens the farm. */
   onPlanted: () => void;
 }
 
 /** What to sow on the farmer's own plot, from the planner (D079, D081), and the sowing confirmation (D083). */
-export function AdviceScreen({ plot, onPlanted }: AdviceScreenProps) {
+export function AdviceScreen({ plot, harvested, onPlanted }: AdviceScreenProps) {
   const advice = useAdvice(plot.id);
   switch (advice.status) {
     case "loading":
@@ -344,6 +348,6 @@ export function AdviceScreen({ plot, onPlanted }: AdviceScreenProps) {
         </StateView>
       );
     case "ready":
-      return <Advice plot={plot} plan={advice.plan} onPlanted={onPlanted} />;
+      return <Advice plot={plot} plan={advice.plan} harvested={harvested} onPlanted={onPlanted} />;
   }
 }

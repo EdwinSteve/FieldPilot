@@ -463,6 +463,27 @@ describe("reportView", () => {
 });
 
 describe("planView", () => {
+  it("gives the harvest form the crop, its dates and the waiting decision", () => {
+    const harvest = planView(demo.day2Cycle).harvest;
+    expect(harvest).toMatchObject({
+      cycleId: 1,
+      crop: "maize",
+      sowingDate: "2026-10-01",
+      today: "2026-11-03",
+      areaHa: 2,
+    });
+    // A decision waiting or a watering still scheduled both hold the harvest back (D083 §6).
+    const open = demo.day2Cycle.tasks.find(
+      (task) => task.status === "pending_approval" || task.status === "scheduled",
+    );
+    expect(open).toBeDefined();
+    expect(harvest?.openTask).toEqual({ id: open?.id, decision: open?.status === "pending_approval" });
+  });
+
+  it("has no harvest without a crop growing", () => {
+    expect(planView({ ...demo.day2Cycle, cycle: null }).harvest).toBeNull();
+  });
+
   it("hides the stage the seed cannot support", () => {
     const view = planView(demo.day2Cycle);
     expect(view.crop).toBe("Maize");

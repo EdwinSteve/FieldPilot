@@ -2,8 +2,12 @@
 import type { FieldProblem } from "../lib/account";
 import type { ActionFailure } from "../lib/actionFailure";
 import type { AuthFailure } from "../lib/authFailure";
+import type { Cause, Chance, HarvestSize, Verdict, WaterNeed } from "../lib/cropAdvice";
 import type { OutlineProblem } from "../lib/farmOutline";
 import type { Goal } from "../lib/goals";
+import type { TextSize, ThemeChoice } from "../lib/look";
+import type { AmountProblem, DateProblem, Grade, HarvestFailure } from "../lib/harvest";
+import type { UnitDefault } from "../lib/harvestDefaults";
 import type { YieldLevel } from "../lib/plantingPlan";
 import type { SowingDateProblem } from "../lib/sowingDate";
 import type { RainLevel } from "../lib/rainLevel";
@@ -100,6 +104,7 @@ export const en = {
       report: "Report",
       plan: "Plan",
       stop: "Stop",
+      settings: "Settings",
     } satisfies Record<Route["screen"], string>,
   },
   tabs: {
@@ -125,6 +130,7 @@ export const en = {
     report: "Back to the report",
     plan: "Back to the plan",
     stop: "Back to Stop",
+    settings: "Back to Settings",
   } satisfies Record<Route["screen"], string>,
   soil: {
     fullAt: (fieldCapacity: number) => `Full ${fieldCapacity}%`,
@@ -290,6 +296,62 @@ export const en = {
     saving: "Saving your farm…",
     saveFailed: "Your farm wasn’t saved. Please try again.",
   },
+  harvest: {
+    open: "I’ve harvested it",
+    title: (crop: string) => `You harvested ${crop}`,
+    when: "When did you harvest?",
+    howMuch: "How much did you harvest?",
+    units: { kg: "Kilos", bags: "Bags" },
+    amountKg: "Kilos",
+    amountBags: "Number of bags",
+    bagSize: "How many kilos is one of your bags?",
+    bagPreset: (kg: number) => `${kg} kg`,
+    bagOther: "Other",
+    bagOtherLabel: "Kilos in one bag",
+    total: (bags: string, bagKg: string, kg: string) => `${bags} bags × ${bagKg} kg = ${kg} kg`,
+    totalKg: (kg: string) => `${kg} kg in all`,
+    quality: "What quality is it?",
+    grades: {
+      extra: "Extra",
+      first: "First",
+      second: "Second",
+    } satisfies Record<Grade, string>,
+    gradeDetails: {
+      extra: "The best of the harvest",
+      first: "Good, ordinary quality",
+      second: "Lower quality",
+    } satisfies Record<Grade, string>,
+    save: "Save harvest",
+    saving: "Saving…",
+    cancel: "Cancel",
+    problems: {
+      date: {
+        missing: "Choose the day you harvested.",
+        before_sowing: "The harvest comes after the day you planted.",
+        future: "Choose today or a day before.",
+      } satisfies Record<DateProblem, string>,
+      amount: {
+        missing: "Write how much you harvested.",
+        too_much: "That is more than this farm can give. Check the number.",
+      } satisfies Record<AmountProblem, string>,
+      unit: "Choose bags or kilos.",
+      bag: "Choose or write the size of your bags.",
+      grade: "Choose the quality.",
+    },
+    failures: {
+      open_tasks: "Some work is still open on this crop. Finish it first, then save the harvest.",
+      already: "This crop was already harvested.",
+      invalid: "FieldPilot didn’t accept this date or amount. Please check them.",
+      other: "The harvest wasn’t saved. Please try again.",
+    } satisfies Record<HarvestFailure, string>,
+    seeDecision: "Answer the decision",
+    openDecision: "A decision is still waiting on this crop. Answer it before you save the harvest.",
+    openWatering: "A watering is still planned on this crop. Save the harvest once it has run.",
+    saved: (kg: string, crop: string) => `Harvest saved: ${kg} kg of ${crop}.`,
+    savedNext: "Now choose what to plant next.",
+    pastTitle: "Past harvests",
+    pastRow: (date: string, kg: string, grade: string) => `${date} · ${kg} kg · ${grade}`,
+  },
   advice: {
     preparingTitle: "Getting your farm’s data",
     preparingDetail:
@@ -311,24 +373,60 @@ export const en = {
     leastPoor: "The best of a poor choice",
     bestFor: (goal: string) => `Best to ${goal.toLowerCase()}`,
     youGrow: "You grow this",
-    expected: "Expected harvest",
-    expectedValue: (percent: number) => `${percent}% of a full harvest`,
-    range: (low: number, high: number) => `${low}–${high}% in most years`,
-    success: "Chance it does well",
-    successValue: (inTen: number) => `${inTen} in 10 years`,
-    water: "Extra water",
-    waterValue: (mm: number) => `${mm} mm on top of the rain`,
-    harvest: "Ready to harvest",
+    verdicts: {
+      good: "Good choice",
+      okay: "Okay choice",
+      poor: "Poor choice",
+    } satisfies Record<Verdict, string>,
+    harvestWords: {
+      big: "Big",
+      medium: "Medium",
+      small: "Small",
+    } satisfies Record<HarvestSize, string>,
+    harvestLabel: "Harvest",
+    harvestProof: (percent: number) => `${percent}% of a full harvest`,
+    chanceWords: {
+      very_likely: "High chance it does well",
+      maybe: "Some chance it does well",
+      risky: "Low chance it does well",
+    } satisfies Record<Chance, string>,
+    chanceProof: (inTen: number) => `${inTen} in 10 years`,
+    waterWords: {
+      little: "Little watering",
+      some: "Some watering",
+      a_lot: "A lot of watering",
+    } satisfies Record<WaterNeed, string>,
+    waterProof: (mm: number) => `${mm} mm on top of the rain`,
+    readyLabel: "Ready to harvest",
+    goodReasons: {
+      little: "Grows well here. The rain gives it almost all the water it needs.",
+      some: "Grows well here, with some watering on top of the rain.",
+      a_lot: "Grows well here, but you must water it a lot on top of the rain.",
+    } satisfies Record<WaterNeed, string>,
+    causes: {
+      too_hot: "It is too hot here for this crop.",
+      too_cold: "It is too cold here for this crop.",
+      small_harvest: "It gives a small harvest here.",
+      often_fails: "Some years it does badly here.",
+    } satisfies Record<NonNullable<Cause>, string>,
+    okayLead: "It can grow here.",
     automatic: "FieldPilot can water it",
     manual: "Advice only: FieldPilot can’t water it yet",
-    chartTitle: "Expected harvest this week",
-    chartLead: "With rain only. The thin line shows most years.",
-    gridTitle: "Best months to sow",
-    gridLead: "The best expected harvest for a sowing in each month.",
-    cropColumn: "Crop",
-    gridCell: (crop: string, month: string, percent: number, level: string) =>
-      `${crop}, sown in ${month}: ${percent}%, ${level}`,
-    levels: { good: "good", fair: "fair", poor: "poor" } satisfies Record<YieldLevel, string>,
+    moreDetails: "More details",
+    rangeDetail: (low: number, high: number) => `In most years: ${low}–${high}% of a full harvest.`,
+    stressDetail: (heat: number, cold: number) =>
+      `Days too hot: ${heat}. Days too cold: ${cold}.`,
+    stripTitle: "Best time to sow",
+    stripLead: "The next 3 months, from this week on. Taller bars mean a bigger harvest.",
+    bestTime: (date: string | null) =>
+      date === null ? "Best time: this week" : `Best time: week of ${date}`,
+    noGoodTime: "No good time in the next 3 months",
+    marks: { good: "Good", fair: "Okay", poor: "Poor" } satisfies Record<YieldLevel, string>,
+    bestMark: "Best week",
+    stripLabel: (crop: string, best: string, good: number, okay: number, poor: number) =>
+      `${crop}. ${best}. ${good} good weeks, ${okay} okay, ${poor} poor.`,
+    showOthers: "Show other crops",
+    hideOthers: "Hide other crops",
     otherCrops: "Other crops",
     modelNote: (until: string) =>
       `From FieldPilot’s planting model, with real weather up to ${until}.`,
@@ -346,10 +444,12 @@ export const en = {
     startManual: "I’ll keep a record of it, but I can’t water this crop yet.",
     confirm: "Start looking after it",
     starting: "Starting…",
-    ownRiskTitle: "This crop isn’t recommended",
-    ownRisk: (crops: string) =>
-      `For that week I recommend ${crops}. You can still plant this one, at your own risk.`,
-    ownRiskConfirm: "Plant at my own risk",
+    ownRiskTitle: "Not one of the recommended crops",
+    ownRisk: (crop: string, crops: string, automatic: boolean) =>
+      `For that week I recommended ${crops}. You have already planted ${crop}, so I will ${
+        automatic ? "look after it" : "keep a record of it"
+      } all the same. If the harvest is poor, that risk is yours.`,
+    ownRiskConfirm: "Yes, I planted it",
     cancel: "Cancel",
     startFailures: {
       active: "This farm already has a crop growing.",
@@ -676,5 +776,49 @@ export const en = {
         ? `Next watering: ${day} ${time}, after your OK`
         : `Next watering: ${day} ${time}`,
     nothingNext: "Nothing is planned. The next morning check decides.",
+  },
+  settings: {
+    open: "Settings",
+    title: "Settings",
+    you: "You",
+    phone: (number: string) => `+57 ${number}`,
+    farmPlace: (town: string, department: string) => `${town}, ${department}`,
+    farmSize: (size: string) => `${size} in all`,
+    readOnly: "To change your name or number, ask the FieldPilot team.",
+    look: "How it looks",
+    theme: "Colours",
+    themes: {
+      phone: "Same as phone",
+      light: "Light",
+      dark: "Dark",
+    } satisfies Record<ThemeChoice, string>,
+    textSize: "Text size",
+    textSizes: {
+      normal: "Normal",
+      large: "Large",
+    } satisfies Record<TextSize, string>,
+    textSample: "This is how the words look.",
+    harvest: "Your harvest",
+    harvestLead: "The harvest form opens with these, so you don’t choose them each time.",
+    unit: "You count the harvest in",
+    units: {
+      bags: "Bags",
+      kg: "Kilos",
+      ask: "Ask each time",
+    } satisfies Record<UnitDefault, string>,
+    askHint: "The harvest form will ask bags or kilos each time.",
+    privacy: "Privacy",
+    agreed: "You agreed to this when you made your account:",
+    policyVersion: (version: string) => `Privacy policy of ${version}`,
+    account: "Your account",
+    signOutHint: "Sign out when someone else will use this phone.",
+    signOutEverywhere: "Sign out on all phones",
+    everywhereTitle: "Sign out on all phones?",
+    everywhereDetail:
+      "Every phone where you are logged in will ask for your password again, this one too.",
+    everywhereConfirm: "Yes, sign out everywhere",
+    everywhereBusy: "Signing out…",
+    everywhereFailed: "No signal or FieldPilot can’t be reached. You are still logged in. Try again.",
+    cancel: "Cancel",
   },
 };

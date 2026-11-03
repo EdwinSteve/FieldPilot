@@ -258,9 +258,22 @@ export interface PlanStage {
   next: string | null;
 }
 
+/** What the harvest form needs to know about the crop growing (D083 §6). */
+export interface HarvestInfo {
+  cycleId: number;
+  crop: string;
+  sowingDate: string;
+  /** The plot's today, the latest day a harvest can be. */
+  today: string;
+  areaHa: number;
+  /** A decision waiting or a watering ahead: the backend refuses the harvest until it is done. */
+  openTask: { id: number; decision: boolean } | null;
+}
+
 export interface PlanView {
   crop: string;
   dayCount: string;
+  harvest: HarvestInfo | null;
   /** Null while the backend's stage contradicts the crop's age. */
   stage: PlanStage | null;
   days: PlanDay[];

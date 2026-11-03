@@ -95,6 +95,20 @@ export interface StartedCycle extends Cycle {
   own_risk: boolean;
 }
 
+export interface Harvest {
+  harvested_on: string;
+  quantity_kg: number;
+  grade: "extra" | "first" | "second";
+}
+
+/** A harvest the farmer confirmed (D083 §6). Its code and passport belong to the market (D080). */
+export interface Lot extends Harvest {
+  code: string;
+  cycle_id: number;
+  plot_id: number;
+  crop: string;
+}
+
 /** A plot as D083 answers, with where it is. */
 export interface FarmPlot extends Plot {
   municipality: string | null;
@@ -110,6 +124,7 @@ export const lifecycle = {
   me: () => getJson<User>("/auth/me"),
   logOut: (refreshToken: string) =>
     postJson<undefined>("/auth/logout", { refresh_token: refreshToken }),
+  logOutAll: () => postJson<undefined>("/auth/logout-all"),
 
   plots: () => getJson<FarmPlot[]>("/plots"),
   createPlot: (plot: NewPlot) => postJson<FarmPlot>("/plots", plot),
@@ -120,4 +135,7 @@ export const lifecycle = {
   cycles: () => getJson<StartedCycle[]>("/cycles"),
   startCycle: (plotId: number, cycle: NewCycle) =>
     postJson<StartedCycle>(`/plots/${plotId}/cycles`, cycle),
+  harvest: (cycleId: number, harvest: Harvest) =>
+    postJson<Lot>(`/cycles/${cycleId}/harvest`, harvest),
+  lots: (plotId: number) => getJson<Lot[]>(`/plots/${plotId}/lots`),
 };

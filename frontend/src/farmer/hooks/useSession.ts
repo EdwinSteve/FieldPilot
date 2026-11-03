@@ -11,6 +11,8 @@ export interface SessionControl {
   logIn: typeof session.logIn;
   register: typeof session.register;
   logOut: () => Promise<void>;
+  /** Signs out on every phone; throws when the backend cannot be reached. */
+  logOutEverywhere: () => Promise<void>;
 }
 
 /** The login of this tab (see api/session), re-rendering on sign-in and sign-out only. */
@@ -22,5 +24,6 @@ export function useSession(): SessionControl {
     logIn: (phone, password) => session.logIn(phone, password),
     register: (form, home) => session.register(form, home),
     logOut: () => session.logOut(),
+    logOutEverywhere: () => session.logOutEverywhere(),
   };
 }

@@ -1,9 +1,10 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BackTarget } from "./components/backTarget";
 import { BigButton } from "./components/BigButton";
 import { StateView } from "./components/StateView";
 import { TabBar } from "./components/TabBar";
 import type { FarmPlot } from "./api/lifecycle";
+import type { HarvestNote } from "./components/HarvestSheet";
 import { phoneClock, useFarm } from "./hooks/useFarm";
 import { useFarmProgress, type FarmProgress } from "./hooks/useFarmProgress";
 import { useFarmRoute } from "./hooks/useFarmRoute";
@@ -19,6 +20,7 @@ import { DecideScreen } from "./screens/DecideScreen";
 import { FieldScreen } from "./screens/FieldScreen";
 import { PlanScreen } from "./screens/PlanScreen";
 import { ReportScreen } from "./screens/ReportScreen";
+import { SettingsScreen } from "./screens/SettingsScreen";
 import { SetupScreen } from "./screens/SetupScreen";
 import { StopScreen } from "./screens/StopScreen";
 import { TalkScreen } from "./screens/TalkScreen";
@@ -28,13 +30,13 @@ import { WelcomeScreen } from "./screens/WelcomeScreen";
 import { ZoneScreen } from "./screens/ZoneScreen";
 import type { Farm, FarmState } from "./view-models/types";
 
-function screenFor(
-  route: Route,
-  farm: Farm,
-  age: string | null,
-  onSignOut: () => void,
-): ReactNode {
-  const today = <TodayScreen view={farm.today} age={age} onSignOut={onSignOut} />;
+/** What the farm screens can ask of the shell: the harvest that ends the crop. */
+interface ShellActions {
+  onHarvested: (note: HarvestNote) => void;
+}
+
+function screenFor(route: Route, farm: Farm, age: string | null, shell: ShellActions): ReactNode {
+  const today = <TodayScreen view={farm.today} age={age} />;
   switch (route.screen) {
     // Entry and setup screens never wait for the farm: `FarmerApp` shows them first.
     case "welcome":
@@ -42,6 +44,7 @@ function screenFor(
     case "signup":
     case "setup":
     case "advice":
+    case "settings":
       return null;
     case "today":
       return today;
@@ -82,7 +85,7 @@ function screenFor(
       );
     }
     case "plan":
-      return <PlanScreen view={farm.plan} onUndo={farm.undo} />;
+      return <PlanScreen view={farm.plan} onUndo={farm.undo} onHarvested={shell.onHarvested} />;
     case "stop":
       return (
         <StopScreen
@@ -119,7 +122,12 @@ function entryFor(shown: Route, session: SessionControl, online: boolean): React
 }
 
 /** Before a crop grows: set up the farm, then choose what to sow. */
-function setupFor(shown: Route, session: SessionControl, farm: FarmProgress): ReactNode {
+function setupFor(
+  shown: Route,
+  session: SessionControl,
+  farm: FarmProgress,
+  harvested: HarvestNote | null,
+): ReactNode {
   const stage = farm.stage;
   const farmer = session.farmer;
   if (farmer === null || stage === null) return null;
@@ -127,7 +135,9 @@ function setupFor(shown: Route, session: SessionControl, farm: FarmProgress): Re
     return <SetupScreen farmer={farmer} home={session.known?.home ?? null} onSaved={farm.reload} />;
   }
   if (shown.screen === "advice" && stage.stage === "no_cycle") {
-    return <AdviceScreen key={stage.plot.id} plot={stage.plot} onPlanted={farm.reload} />;
+    return (
+      <AdviceScreen key={stage.plot.id} plot={stage.plot} harvested={harvested} onPlanted={farm.reload} />
+    );
   }
   return null;
 }
@@ -137,17 +147,17 @@ interface FarmAreaProps {
   route: Route;
   shown: Route;
   online: boolean;
-  onSignOut: () => void;
+  shell: ShellActions;
 }
 
 /** The farm with a crop growing: its screens, kept fresh, and the tab bar. */
-function FarmArea({ plot, route, shown, online, onSignOut }: FarmAreaProps) {
+function FarmArea({ plot, route, shown, online, shell }: FarmAreaProps) {
   const state = useFarm(plot.id);
   const tab = tabOf(shown);
   const farm = state.status === "ready" ? state.farm : null;
   return (
     <>
-      {farmContent(route, shown, state, online, onSignOut)}
+      {farmContent(route, shown, state, online, shell)}
       {tab === null ? null : (
         <TabBar
           active={tab}
@@ -164,7 +174,7 @@ function farmContent(
   shown: Route,
   state: FarmState,
   online: boolean,
-  onSignOut: () => void,
+  shell: ShellActions,
 ): ReactNode {
   switch (state.status) {
     case "loading":
@@ -199,7 +209,7 @@ function farmContent(
           <div inert={state.farm.busy} className="contents">
             {/* The key plays the entrance on a change of screen, never on a data refresh. */}
             <div key={hrefOf(route)} className="flex min-h-0 flex-1 animate-screen-in flex-col">
-              {screenFor(shown, state.farm, state.age, onSignOut)}
+              {screenFor(shown, state.farm, state.age, shell)}
             </div>
           </div>
         </>
@@ -214,6 +224,7 @@ function signedInContent(
   session: SessionControl,
   farm: FarmProgress,
   online: boolean,
+  harvest: { note: HarvestNote | null; onHarvested: (note: HarvestNote) => void },
 ): ReactNode {
   if (farm.failed) {
     return (
@@ -232,7 +243,18 @@ function signedInContent(
   }
   const stage = farm.stage;
   if (stage === null) return <StateView icon="hourglass" title={en.state.loading} />;
-  if (stage.stage !== "farming") return setupFor(shown, session, farm);
+  const farmer = session.farmer;
+  if (shown.screen === "settings" && farmer !== null) {
+    return (
+      <SettingsScreen
+        farmer={farmer}
+        plot={stage.stage === "no_plot" ? null : stage.plot}
+        onSignOut={() => void session.logOut()}
+        onSignOutEverywhere={session.logOutEverywhere}
+      />
+    );
+  }
+  if (stage.stage !== "farming") return setupFor(shown, session, farm, harvest.note);
   return (
     <FarmArea
       key={stage.plot.id}
@@ -240,7 +262,7 @@ function signedInContent(
       route={route}
       shown={shown}
       online={online}
-      onSignOut={() => void session.logOut()}
+      shell={{ onHarvested: harvest.onHarvested }}
     />
   );
 }
@@ -275,6 +297,12 @@ export function FarmerApp() {
   // Signed out, the log-in stands in front of the screen the URL asks for.
   const shown = gatedRoute(route, signedIn, session.known !== null, farm.progress);
   const shell = useRef<HTMLDivElement>(null);
+  // Said once on What to plant after the harvest; gone after the next sowing or sign-out.
+  const [harvested, setHarvested] = useState<HarvestNote | null>(null);
+  const onHarvested = (note: HarvestNote) => {
+    setHarvested(note);
+    farm.reload();
+  };
 
   useEffect(() => {
     const name = en.titles.screens[shown.screen];
@@ -297,7 +325,7 @@ export function FarmerApp() {
       <BackTarget value={back}>
         {!signedIn || shown.screen === "welcome"
           ? entryFor(shown, session, online)
-          : signedInContent(route, shown, session, farm, online)}
+          : signedInContent(route, shown, session, farm, online, { note: harvested, onHarvested })}
       </BackTarget>
     </div>
   );

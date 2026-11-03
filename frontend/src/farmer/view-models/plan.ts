@@ -17,9 +17,10 @@ import { irrigationRun } from "../lib/irrigationRun";
 import { cropLabel } from "../lib/names";
 import { hrefOf } from "../lib/route";
 import { roundReading } from "../lib/soilStatus";
+import { plotToday } from "../lib/sowingDate";
 import { visibleStage } from "../lib/visibleStage";
 import { eventOfTask, isWatering, plotOffset, volumeOf, zoneName, type FarmSnapshot } from "./snapshot";
-import type { PlanDay, PlanStage, PlanTask, PlanView, TaskState } from "./types";
+import type { HarvestInfo, PlanDay, PlanStage, PlanTask, PlanView, TaskState } from "./types";
 
 const DAYS_AHEAD = 2;
 
@@ -201,6 +202,22 @@ function stage(snapshot: FarmSnapshot, dayCount: number): PlanStage | null {
   };
 }
 
+function harvestInfo(snapshot: FarmSnapshot): HarvestInfo | null {
+  const cycle = snapshot.cycle;
+  if (cycle === null || cycle.status !== "active") return null;
+  const open = snapshot.tasks.find(
+    (task) => task.status === "pending_approval" || task.status === "scheduled",
+  );
+  return {
+    cycleId: cycle.id,
+    crop: cycle.crop,
+    sowingDate: cycle.sowing_date,
+    today: plotToday(snapshot.clock.now, plotOffset(snapshot)),
+    areaHa: snapshot.plot.area_ha,
+    openTask: open === undefined ? null : { id: open.id, decision: open.status === "pending_approval" },
+  };
+}
+
 export function planView(snapshot: FarmSnapshot): PlanView {
   const offset = plotOffset(snapshot);
   const cycle = snapshot.cycle;
@@ -208,6 +225,7 @@ export function planView(snapshot: FarmSnapshot): PlanView {
   return {
     crop: cycle === null ? "" : cropLabel(cycle.crop),
     dayCount: en.plan.dayCount(dayCount),
+    harvest: harvestInfo(snapshot),
     stage: stage(snapshot, dayCount),
     days: days(snapshot),
   };

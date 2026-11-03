@@ -28,6 +28,7 @@ describe("hrefOf", () => {
   it.each<[Route]>([
     [{ screen: "today" }],
     [{ screen: "stop" }],
+    [{ screen: "settings" }],
     [{ screen: "decide", taskId: 7 }],
     [{ screen: "zone", zoneId: 1 }],
     [{ screen: "report", reportId: 2 }],

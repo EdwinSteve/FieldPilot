@@ -1,4 +1,5 @@
 import { useState } from "react";
+import appIcon from "../assets/icon-180.png";
 import { BigButton } from "../components/BigButton";
 import { Chip } from "../components/Chip";
 import { Icon, PlantIcon, StopSign } from "../components/Icon";
@@ -7,16 +8,42 @@ import { MoistureDrop } from "../components/MoistureDrop";
 import { NeedsYouCard } from "../components/NeedsYouCard";
 import { RainLevelIcon } from "../components/RainLevelIcon";
 import { RecentUpdates } from "../components/RecentUpdates";
+import { SettingsLink } from "../components/SettingsLink";
 import { Sheet } from "../components/Sheet";
 import { StatusTile } from "../components/StatusTile";
 import { WeekStrip } from "../components/WeekStrip";
+import { Wordmark } from "../components/Wordmark";
 import { en } from "../i18n/en";
 import { hrefOf } from "../lib/route";
 import type { TodayView } from "../view-models/types";
 
+/** The app's own bar: whose app this is on the left, the two ways out of the day on the right. */
+function TopBar() {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="flex min-w-0 items-center gap-2.5">
+        <img src={appIcon} alt="" width={40} height={40} className="size-10 shrink-0 rounded-tile" />
+        <Wordmark />
+      </span>
+      <div className="flex shrink-0 items-center gap-2">
+        <a
+          href={hrefOf({ screen: "stop" })}
+          className="press flex min-h-16 min-w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-control border-2 border-stop bg-surface text-caption font-extrabold text-stop no-underline"
+        >
+          <StopSign size={24} />
+          {en.today.stop}
+        </a>
+        <SettingsLink />
+      </div>
+    </div>
+  );
+}
+
 function Header({ view, age }: { view: TodayView; age: string | null }) {
   return (
-    <header className="flex items-start justify-between gap-3 px-0.5">
+    <header className="flex flex-col gap-4 px-0.5">
+      <TopBar />
+      {/* The day, the greeting and the farm read as one group, at the full width. */}
       <div className="flex flex-col gap-0.5">
         <span className="text-small text-ink-3">{view.dateLine}</span>
         <h1 className="text-title font-extrabold tracking-title">{view.greeting}</h1>
@@ -25,13 +52,6 @@ function Header({ view, age }: { view: TodayView; age: string | null }) {
           <span className="text-caption text-ink-3">{en.freshness.updated(age)}</span>
         )}
       </div>
-      <a
-        href={hrefOf({ screen: "stop" })}
-        className="press flex min-h-16 min-w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-control border-2 border-stop bg-surface text-caption font-extrabold text-stop no-underline"
-      >
-        <StopSign size={24} />
-        {en.today.stop}
-      </a>
     </header>
   );
 }
@@ -159,13 +179,12 @@ interface TodayScreenProps {
   view: TodayView;
   /** How old the farm on screen is; null when unknown. */
   age: string | null;
-  onSignOut: () => void;
 }
 
-export function TodayScreen({ view, age, onSignOut }: TodayScreenProps) {
+export function TodayScreen({ view, age }: TodayScreenProps) {
   const [wordsOpen, setWordsOpen] = useState(false);
   return (
-    <main className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-4.5 pt-6 pb-4.5">
+    <main className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-4.5 pt-4 pb-4.5">
       <Header view={view} age={age} />
       {view.stoppedBanner === null ? null : <StoppedBanner text={view.stoppedBanner} />}
       {view.decision ? <NeedsYouCard decision={view.decision} /> : null}
@@ -179,13 +198,6 @@ export function TodayScreen({ view, age, onSignOut }: TodayScreenProps) {
       >
         <Icon name="info" size={20} />
         {en.today.wordsLink}
-      </button>
-      <button
-        type="button"
-        onClick={onSignOut}
-        className="press -mt-2 inline-flex min-h-12 items-center justify-center self-center border-0 bg-transparent px-3 text-small font-bold text-ink-2 underline"
-      >
-        {en.auth.signOut}
       </button>
       {wordsOpen ? <WordsSheet view={view} onClose={() => setWordsOpen(false)} /> : null}
     </main>

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type Ref } from "react";
 import type { StageState } from "../../lib/stages";
 import { BackLink } from "../components/BackHeader";
+import { BigButton } from "../components/BigButton";
+import { HarvestSheet, type HarvestNote } from "../components/HarvestSheet";
 import { Icon, PlantIcon } from "../components/Icon";
 import { TaskRow } from "../components/TaskRow";
 import { TaskSheet } from "../components/TaskSheet";
@@ -77,10 +79,13 @@ function DaySection({ day, onOpen, ref }: DaySectionProps) {
 interface PlanScreenProps {
   view: PlanView;
   onUndo: (taskId: number) => Promise<boolean>;
+  /** The crop is harvested: the farm goes back to choosing what to plant. */
+  onHarvested: (note: HarvestNote) => void;
 }
 
-export function PlanScreen({ view, onUndo }: PlanScreenProps) {
+export function PlanScreen({ view, onUndo, onHarvested }: PlanScreenProps) {
   const [selected, setSelected] = useState<PlanTask | null>(null);
+  const [harvesting, setHarvesting] = useState(false);
   const today = useRef<HTMLElement>(null);
 
   // The plan opens on today, however long the history above it grows.
@@ -101,6 +106,12 @@ export function PlanScreen({ view, onUndo }: PlanScreenProps) {
           <h1 className="text-title-md font-extrabold tracking-title">{en.plan.title}</h1>
         </div>
         <CropCard view={view} />
+        {view.harvest === null ? null : (
+          <BigButton variant="outline" size="compact" onClick={() => setHarvesting(true)}>
+            <PlantIcon size={24} />
+            {en.harvest.open}
+          </BigButton>
+        )}
       </header>
       <main className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-4.5 pt-1 pb-5">
         {view.days.map((day) => (
@@ -114,6 +125,9 @@ export function PlanScreen({ view, onUndo }: PlanScreenProps) {
       </main>
       {selected ? (
         <TaskSheet task={selected} onClose={() => setSelected(null)} onUndo={undo} />
+      ) : null}
+      {harvesting && view.harvest !== null ? (
+        <HarvestSheet info={view.harvest} onClose={() => setHarvesting(false)} onSaved={onHarvested} />
       ) : null}
     </>
   );

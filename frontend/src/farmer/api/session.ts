@@ -15,7 +15,7 @@ import { lifecycle, type Registration, type TokenPair, type User } from "./lifec
 const SESSION_KEY = "fieldpilot.session";
 const KNOWN_KEY = "fieldpilot.known";
 /** What one farmer's visit leaves behind; the next person on this phone must not see it. */
-const PRIVATE_KEYS = ["fieldpilot.farm", "fieldpilot.setup"];
+const PRIVATE_KEYS = ["fieldpilot.farm", "fieldpilot.setup", "fieldpilot.harvest"];
 const PRIVATE_SESSION_KEYS = ["fieldpilot.chat"];
 
 function read(key: string): string | null {
@@ -95,6 +95,15 @@ class SessionKeeper implements Session {
     } catch {
       // Offline or already ended: the tokens are dropped here either way.
     }
+    this.end();
+  }
+
+  /**
+   * Ends every session of this farmer, on any phone (POST /auth/logout-all).
+   * Unlike Sign out it must reach the backend: offline, it throws and this phone stays signed in.
+   */
+  async logOutEverywhere(): Promise<void> {
+    await lifecycle.logOutAll();
     this.end();
   }
 

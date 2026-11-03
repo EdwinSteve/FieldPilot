@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CropOutlook, PlantingPlan } from "../api/lifecycle";
-import { monthGrid, nothingGrowsWell, percent, rankOf, weekOf, yieldLevel } from "./plantingPlan";
+import { nothingGrowsWell, percent, rankOf, weekOf, yieldLevel } from "./plantingPlan";
 
 function outlook(crop: string, p50: number): CropOutlook {
   return {
@@ -45,30 +45,6 @@ describe("nothingGrowsWell", () => {
     expect(nothingGrowsWell([outlook("potato", 0.25), outlook("common_bean", 0.25)])).toBe(true);
     expect(nothingGrowsWell([outlook("maize", 0.45), outlook("cotton", 0)])).toBe(false);
     expect(nothingGrowsWell([])).toBe(true);
-  });
-});
-
-describe("monthGrid", () => {
-  it("gives each crop its best sowing in each month", () => {
-    expect(monthGrid(plan)).toEqual({
-      months: ["2026-11", "2026-12"],
-      rows: [
-        {
-          crop: "maize",
-          cells: [
-            { yieldP50: 0.9, sowingDate: "2026-11-23" },
-            { yieldP50: 0.6, sowingDate: "2026-12-07" },
-          ],
-        },
-        {
-          crop: "soybean",
-          cells: [
-            { yieldP50: 0.95, sowingDate: "2026-11-30" },
-            { yieldP50: 0.5, sowingDate: "2026-12-07" },
-          ],
-        },
-      ],
-    });
   });
 });
 

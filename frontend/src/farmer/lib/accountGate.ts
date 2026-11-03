@@ -31,6 +31,8 @@ export function gatedRoute(
 ): Route {
   if (!signedIn) return isEntryScreen(route) ? route : startRoute(false, knownOnPhone);
   if (route.screen === "welcome" || progress === "loading") return route;
+  // Settings open once the farm exists: from What to plant as from Today.
+  if (route.screen === "settings" && progress !== "no_plot") return route;
   if (progress !== "farming") return homeRoute(progress);
   return isEntryScreen(route) || isSetupScreen(route) ? homeRoute(progress) : route;
 }

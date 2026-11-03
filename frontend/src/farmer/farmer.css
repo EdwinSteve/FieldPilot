@@ -123,6 +123,64 @@
   }
 }
 
+/* Dark, chosen in Settings or left to the phone (hooks/useLook sets the attribute).
+   Each colour keeps its meaning; `surface` stays the text on a solid colour, so the
+   solid colours turn light and their text dark. Every text pair is 4.5:1 or more. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-ground: #0f1512;
+  --color-ground-welcome: #121912;
+  --color-surface: #1a2320;
+  --color-border: #33413a;
+  --color-divider: #26302b;
+  --color-ink: #e9efea;
+  --color-ink-2: #cdd6cf;
+  --color-ink-3: #a8b4ac;
+  --color-primary: #8fc46a;
+  --color-primary-hover: #a9d68a;
+  --color-field: #74a043;
+  --color-tint: #213019;
+  --color-earth: #b98a4b;
+  --color-needs: #e0a24f;
+  --color-needs-icon: #eab066;
+  --color-needs-text: #f2c98c;
+  --color-needs-tint: #3b2c15;
+  --color-undo: #6aafe3;
+  --color-undo-icon: #82bdea;
+  --color-undo-text: #a7d1f1;
+  --color-undo-tint: #15283a;
+  --color-stop: #f0675e;
+  --color-stop-tint: #3e1916;
+  --color-bad: #f0675e;
+  --color-bad-text: #f6a29b;
+  --color-bad-tint: #3e1916;
+  --color-overlay: rgb(0 0 0 / 0.6);
+  --color-photo-label: rgb(9 14 12 / 0.78);
+}
+
+/* Large text, chosen in Settings: every size about 15 % bigger. */
+:root[data-text="large"] {
+  --text-caption: 17px;
+  --text-small: 18px;
+  --text-body: 20px;
+  --text-lead: 21px;
+  --text-row: 22px;
+  --text-key: 23px;
+  --text-key-lg: 25px;
+  --text-head: 27px;
+  --text-title-sm: 29px;
+  --text-title-md: 31px;
+  --text-title: 34px;
+  --text-hero: 44px;
+}
+
+/* A new look fades across the whole page in a quarter second. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 250ms;
+  animation-timing-function: var(--ease-calm);
+}
+
 /* Anything tappable dips under the finger, so the farmer sees the tap land. */
 @utility press {
   transition: transform 100ms ease-out;
@@ -164,7 +222,10 @@
     *,
     *::before,
     *::after,
-    *::backdrop {
+    *::backdrop,
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
       animation: none !important;
       transition: none !important;
     }
