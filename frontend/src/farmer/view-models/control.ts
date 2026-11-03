@@ -1,14 +1,35 @@
 // The Stop and Talk screens: small enough to share a file.
 import { en } from "../i18n/en";
-import { formatClock } from "../lib/farmTime";
+import { formatClock, relativeDay } from "../lib/farmTime";
 import { forecastOfDay } from "../lib/forecast";
 import { activeRun } from "../lib/irrigationRun";
 import { clipLength, type LookedAt } from "../lib/lookedAt";
-import { pendingTasks, plotOffset, soilAt, type FarmSnapshot } from "./snapshot";
+import { isWatering, pendingTasks, plotOffset, soilAt, type FarmSnapshot } from "./snapshot";
 import { firstDecision } from "./today";
 import type { ChatExchange, StopView, TalkChip, TalkExchange, TalkView } from "./types";
 
 const FARMER_PREFIX = "farmer:";
+
+/** The first watering still ahead, planned or waiting for the farmer. */
+function nextWatering(snapshot: FarmSnapshot): string | null {
+  const offset = plotOffset(snapshot);
+  const now = snapshot.clock.now;
+  const next = snapshot.tasks
+    .filter(
+      (task) =>
+        isWatering(task) &&
+        (task.status === "scheduled" || task.status === "pending_approval") &&
+        Date.parse(task.scheduled_for) >= Date.parse(now),
+    )
+    .toSorted((a, b) => Date.parse(a.scheduled_for) - Date.parse(b.scheduled_for))
+    .at(0);
+  if (next === undefined) return null;
+  return en.stop.nextWatering(
+    relativeDay(next.scheduled_for, now, offset),
+    formatClock(next.scheduled_for, offset),
+    next.status === "pending_approval",
+  );
+}
 
 export function stopView(snapshot: FarmSnapshot): StopView {
   const offset = plotOffset(snapshot);
@@ -24,6 +45,7 @@ export function stopView(snapshot: FarmSnapshot): StopView {
             changedBy?.startsWith(FARMER_PREFIX) === true,
           ),
     runningUntil: running === null ? null : formatClock(running.endsAt, offset),
+    nextWatering: nextWatering(snapshot),
   };
 }
 

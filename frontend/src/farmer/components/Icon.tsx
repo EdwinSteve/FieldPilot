@@ -15,6 +15,9 @@ const PATHS = {
       <path d="M3 10h18M8 3v4M16 3v4" />
     </>
   ),
+  chat: (
+    <path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
+  ),
   check: <path d="M5 12.5l4.5 4.5L19 7" />,
   clock: (
     <>

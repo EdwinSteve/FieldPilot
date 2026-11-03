@@ -4,6 +4,8 @@ const REFRESH_MS = 3_000;
 
 export interface FarmRefresh {
   version: number;
+  /** Real time the newest read was asked for: how old the farm is once it lands. */
+  requestedAt: number;
   refresh: () => void;
 }
 
@@ -12,8 +14,11 @@ export interface FarmRefresh {
  * more: the simulation's ticks stay with the dashboard, so the recorded demo holds.
  */
 export function useFarmRefresh(): FarmRefresh {
-  const [version, setVersion] = useState(0);
-  const refresh = useCallback(() => setVersion((current) => current + 1), []);
+  const [tick, setTick] = useState(() => ({ version: 0, requestedAt: Date.now() }));
+  const refresh = useCallback(() => {
+    const requestedAt = Date.now();
+    setTick((current) => ({ version: current.version + 1, requestedAt }));
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -22,5 +27,5 @@ export function useFarmRefresh(): FarmRefresh {
     return () => window.clearInterval(timer);
   }, [refresh]);
 
-  return { version, refresh };
+  return { ...tick, refresh };
 }

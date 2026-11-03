@@ -3,8 +3,11 @@ import { demo } from "../fixtures/snapshots";
 import { fromCache, toCache } from "./farmCache";
 
 describe("the farm cache", () => {
-  it("round-trips a read", () => {
-    expect(fromCache(toCache(demo.day2Cycle))).toEqual(demo.day2Cycle);
+  it("round-trips a read with the time it was saved", () => {
+    expect(fromCache(toCache(demo.day2Cycle, 1_700_000_000_000))).toEqual({
+      snapshot: demo.day2Cycle,
+      savedAt: 1_700_000_000_000,
+    });
   });
 
   it("is empty with nothing stored", () => {
@@ -14,6 +17,8 @@ describe("the farm cache", () => {
   it("ignores what it cannot trust", () => {
     expect(fromCache("not json")).toBeNull();
     expect(fromCache('{"version":1,"snapshot":{}}')).toBeNull();
-    expect(fromCache('{"version":2}')).toBeNull();
+    expect(fromCache('{"version":2,"snapshot":{}}')).toBeNull();
+    expect(fromCache('{"version":3}')).toBeNull();
+    expect(fromCache('{"version":3,"snapshot":{}}')).toBeNull();
   });
 });

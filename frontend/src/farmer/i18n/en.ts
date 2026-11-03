@@ -1,5 +1,7 @@
 // Every farmer-facing string. Spanish comes later: keep this file the only source.
+import type { ActionFailure } from "../lib/actionFailure";
 import type { RainLevel } from "../lib/rainLevel";
+import type { Route } from "../lib/route";
 import type { TrendDirection } from "../lib/soilTrend";
 import type { Level } from "../lib/statusLevel";
 import type { SoilStatus } from "../lib/soilStatus";
@@ -41,23 +43,64 @@ export const en = {
   state: {
     loading: "Loading your farm…",
     errorTitle: "I can’t reach the farm right now",
-    errorDetail: "I will keep trying.",
+    errorDetail: "I will keep trying on my own.",
+    retry: "Try again",
+    retrying: "Trying…",
+    lastTried: (time: string) => `Last tried at ${time}`,
     emptyTitle: "No farm yet",
     emptyDetail: "Your farm will appear here once it is set up.",
-    actionFailed: "That didn’t work. Please try again.",
+    failures: {
+      offline: "No signal. That wasn’t sent. Try again when you have signal.",
+      unreachable: "I can’t reach the farm. That wasn’t sent. Please try again.",
+      rejected: "The farm didn’t accept that. Please try again.",
+    } satisfies Record<ActionFailure, string>,
     working: "Saving…",
-    staleData: "I can’t reach the farm. This may be out of date.",
+    offline: "No signal. You can look, but nothing can be sent.",
+    stale: (age: string) => `I can’t reach the farm. Last update ${age}.`,
+  },
+  freshness: {
+    updated: (age: string) => `Updated ${age}`,
+    justNow: "just now",
+    minutes: (count: number) => `${count} min ago`,
+    hours: (count: number) => `${count} h ago`,
+    days: (count: number) => (count === 1 ? "1 day ago" : `${count} days ago`),
+  },
+  titles: {
+    page: (screen: string) => `${screen} · FieldPilot`,
+    app: "FieldPilot",
+    screens: {
+      welcome: "FieldPilot",
+      today: "Today",
+      talk: "Talk",
+      updates: "Updates",
+      decide: "Your decision",
+      field: "Field from above",
+      zone: "Soil",
+      report: "Report",
+      plan: "Plan",
+      stop: "Stop",
+    } satisfies Record<Route["screen"], string>,
   },
   tabs: {
     label: "Main",
     today: "Today",
     talk: "Talk",
     updates: "Updates",
+    unread: (count: number) => (count === 1 ? "1 new" : `${count} new`),
+    decisionWaiting: "a decision needs you",
   },
   back: {
+    welcome: "Back",
     today: "Back to Today",
+    talk: "Back to Talk",
     updates: "Back to Updates",
-  },
+    decide: "Back to the question",
+    field: "Back to the field photo",
+    zone: "Back to the soil",
+    report: "Back to the report",
+    plan: "Back to the plan",
+    stop: "Back to Stop",
+  } satisfies Record<Route["screen"], string>,
   soil: {
     fullAt: (fieldCapacity: number) => `Full ${fieldCapacity}%`,
     of: (fieldCapacity: number) => `/ ${fieldCapacity}%`,
@@ -127,6 +170,19 @@ export const en = {
     recentUpdates: "Recent updates",
     seeAll: "See all",
     undoLeft: (timeLeft: string) => `${timeLeft} left to undo`,
+    wordsLink: "What do these words mean?",
+  },
+  words: {
+    title: "What the words mean",
+    close: "Close",
+    needsYou: "I wait for your yes or no before I do this.",
+    automatic: "Routine work I did on my own. It always follows the safety rules.",
+    canUndo: "I will do this on my own, but you can still cancel it while the time runs.",
+    soil: (value: string, fieldCapacity: number) =>
+      `${value}% water in the soil now. At ${fieldCapacity}% the soil is full and can’t hold more.`,
+    soilUnknown: (fieldCapacity: number) =>
+      `Water in the soil. At ${fieldCapacity}% the soil is full and can’t hold more.`,
+    stop: "Stops all new watering until you tap Start again.",
   },
   task: {
     water: (zone: string) => `Water ${zone}?`,
@@ -223,13 +279,14 @@ export const en = {
       mm === null ? `Watered ${zone}` : `Watered ${zone} · ${mm} mm`,
     watering: (zone: string, mm: number | null) =>
       mm === null ? `Watering ${zone}` : `Watering ${zone} · ${mm} mm`,
-    wateringTime: (day: string, range: string, how: string) => `${day} ${range} · ${how}`,
+    at: (day: string, time: string) => `${day} ${time}`,
+    wateringTime: (range: string, how: string) => `${range} · ${how}`,
     youApproved: "You said yes",
     saidNo: "You said no",
     saidNoBecause: (reason: string) =>
       `You said no: ${reason.charAt(0).toLowerCase()}${reason.slice(1)}`,
-    saidNoTime: (day: string, time: string, zone: string, mm: number | null) =>
-      mm === null ? `${day} ${time} · ${zone}` : `${day} ${time} · ${zone} · ${mm} mm`,
+    saidNoTime: (time: string, zone: string, mm: number | null) =>
+      mm === null ? `${time} · ${zone}` : `${time} · ${zone} · ${mm} mm`,
     cancelledRow: (zone: string, mm: number | null) =>
       mm === null ? `You cancelled water for ${zone}` : `You cancelled water · ${zone} · ${mm} mm`,
     didntRun: (zone: string, mm: number | null) =>
@@ -242,13 +299,13 @@ export const en = {
         ? `You stopped watering · ${zone} · ${applied} mm applied`
         : `You stopped watering · ${zone} · ${applied} of ${mm} mm`,
     plantsWeak: (zone: string) => `Plants weak in ${zone}`,
-    satelliteTime: (day: string, time: string) => `${day} ${time} · satellite check`,
+    satelliteTime: (time: string) => `${time} · satellite check`,
     reportTitle: (daysAgo: number, date: string) => {
       if (daysAgo === 0) return "Today’s report";
       if (daysAgo === 1) return "Yesterday’s report";
       return `Report · ${date}`;
     },
-    reportTime: (day: string, time: string) => `${day} ${time}`,
+    showOlder: "Show older",
     rare: {
       valveClosed: "Valve is now closed",
       undoClosed: "Undo closed",
@@ -334,7 +391,6 @@ export const en = {
     undo: "Undo",
     close: "Close",
     answer: "Answer now",
-    closeDetails: "Close details",
     taskDetails: "Task details",
     dayCount: (day: number) => `Day ${day}`,
     dayToday: (label: string) => `Today · ${label}`,
@@ -399,5 +455,11 @@ export const en = {
     valvesCanClose: "Valves can close",
     alertsStillOn: "Alerts and reports still on",
     startAgain: "Start again",
+    whenStarted: "When you start again",
+    nextWatering: (day: string, time: string, waitsForYou: boolean) =>
+      waitsForYou
+        ? `Next watering: ${day} ${time}, after your OK`
+        : `Next watering: ${day} ${time}`,
+    nothingNext: "Nothing is planned. The next morning check decides.",
   },
 };

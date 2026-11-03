@@ -11,7 +11,7 @@ function Confirm({ view, onStop }: { view: StopView; onStop: () => void }) {
   const running = view.runningUntil;
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4.5 pt-5 pb-6">
-      <BackLink href={hrefOf({ screen: "today" })} label={en.back.today} />
+      <BackLink />
       <div className="flex flex-col items-center gap-4.5 pt-3">
         <IconCircle tone="stop" size="stop">
           <StopSign size={76} />
@@ -81,7 +81,13 @@ function Stopped({ view, onResume }: { view: StopView; onResume: () => void }) {
             </InfoRow>
           ))}
         </div>
-        <div className="mt-auto flex flex-col">
+        <div className="mt-auto flex flex-col gap-3">
+          <p className="flex flex-col gap-0.5 px-1 text-center">
+            <span className="text-small font-bold text-ink-3">{en.stop.whenStarted}</span>
+            <span className="text-lead font-bold text-ink">
+              {view.nextWatering ?? en.stop.nothingNext}
+            </span>
+          </p>
           <BigButton variant="primary" size="extraLarge" onClick={onResume}>
             <Icon name="play" size={26} />
             {en.stop.startAgain}

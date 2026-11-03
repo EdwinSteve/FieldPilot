@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { BigButton } from "../components/BigButton";
 import { Icon } from "../components/Icon";
 import { IconCircle } from "../components/IconCircle";
 import { RareCard } from "../components/RareCard";
@@ -5,7 +7,22 @@ import { ScreenBody } from "../components/ScreenBody";
 import { UndoCard } from "../components/UndoCard";
 import { UpdateRow } from "../components/UpdateRow";
 import { en } from "../i18n/en";
-import type { UpdatesView } from "../view-models/types";
+import { groupRuns } from "../lib/groupRuns";
+import type { UpdateItem, UpdatesView } from "../view-models/types";
+
+/** Rows shown at first, and added by each Show older: a short list scans fast. */
+const PAGE = 20;
+
+function DayGroups({ items }: { items: UpdateItem[] }) {
+  return groupRuns(items, (item) => item.group).map((run, index) => (
+    <section key={`${run.key}-${index}`} className="flex flex-col gap-2">
+      <h2 className="px-1 pt-1 text-small font-extrabold text-ink-2">{run.key}</h2>
+      {run.items.map((item) => (
+        <UpdateRow key={item.id} item={item} underDay />
+      ))}
+    </section>
+  ));
+}
 
 interface UpdatesScreenProps {
   view: UpdatesView;
@@ -14,6 +31,8 @@ interface UpdatesScreenProps {
 }
 
 export function UpdatesScreen({ view, onUndo, onMarkAllRead }: UpdatesScreenProps) {
+  const [shown, setShown] = useState(PAGE);
+  const hidden = view.items.length - shown;
   return (
     <ScreenBody>
       <div className="flex items-end justify-between gap-2.5 px-0.5">
@@ -45,14 +64,15 @@ export function UpdatesScreen({ view, onUndo, onMarkAllRead }: UpdatesScreenProp
       {view.rare.map((item) => (
         <RareCard key={item.kind} item={item} />
       ))}
-      <section className="flex flex-col gap-2">
-        {view.items.map((item) => (
-          <UpdateRow key={item.id} item={item} />
-        ))}
-        {view.items.length === 0 ? (
-          <p className="rounded-tile bg-surface p-4 text-body text-ink-2">{en.updates.empty}</p>
-        ) : null}
-      </section>
+      <DayGroups items={view.items.slice(0, shown)} />
+      {view.items.length === 0 ? (
+        <p className="rounded-tile bg-surface p-4 text-body text-ink-2">{en.updates.empty}</p>
+      ) : null}
+      {hidden > 0 ? (
+        <BigButton variant="outline" onClick={() => setShown((count) => count + PAGE)}>
+          {en.updates.showOlder}
+        </BigButton>
+      ) : null}
     </ScreenBody>
   );
 }

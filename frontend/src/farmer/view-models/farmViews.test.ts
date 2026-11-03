@@ -226,7 +226,9 @@ describe("updatesView", () => {
         kind: "alert",
         title: notice.message,
         lang: "es",
+        group: "Today",
         time: "Today 6:00 am",
+        timeInDay: "6:00 am",
         href: null,
         unread: true,
       });
@@ -242,6 +244,19 @@ describe("updatesView", () => {
       );
       expect(row?.title).toBe("Watering planned · Zone 2 · 20 mm");
       expect(row?.time).toBe("Tomorrow 6:00 am");
+      // Filed under the day it was planned, so its time keeps the day it runs.
+      expect(row?.group).toBe("Today");
+      expect(row?.timeInDay).toBe("Tomorrow 6:00 am");
+    });
+
+    it("files rows under their day and drops the day the heading says", () => {
+      const items = updatesView(demo.day2Cycle).items;
+      expect(items.map((item) => item.group)).toEqual(
+        items.map((item) => (item.id.endsWith("-1") ? "Yesterday" : "Today")),
+      );
+      const watered = items.find((item) => item.id === "water-2");
+      expect(watered?.time).toBe("Today 6:00–9:20 am · Automatic");
+      expect(watered?.timeInDay).toBe("6:00–9:20 am · Automatic");
     });
 
     it("adds no such row while the undo card is showing", () => {
@@ -457,6 +472,14 @@ describe("stopView", () => {
   it("names the running water it cannot stop", () => {
     expect(stopView(demo.day2Cycle).runningUntil).toBe("9:20 am");
     expect(stopView(demo.day1Held).runningUntil).toBeNull();
+  });
+
+  it("says what runs first once the farmer starts again", () => {
+    expect(stopView(demo.day2Cycle).nextWatering).toBe("Next watering: Tomorrow 6:00 am");
+    expect(stopView(demo.day1Held).nextWatering).toBe(
+      "Next watering: Today 6:00 am, after your OK",
+    );
+    expect(stopView(demo.day2Undone).nextWatering).toBeNull();
   });
 
   it("says who stopped it", () => {

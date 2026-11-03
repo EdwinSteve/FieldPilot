@@ -9,13 +9,12 @@ import { MoistureChart } from "../components/MoistureChart";
 import { MoistureDrop } from "../components/MoistureDrop";
 import { ScreenBody } from "../components/ScreenBody";
 import { en } from "../i18n/en";
-import { hrefOf } from "../lib/route";
 import type { ZoneView } from "../view-models/types";
 
 export function ZoneScreen({ view }: { view: ZoneView }) {
   return (
     <>
-      <BackHeader href={hrefOf({ screen: "today" })} label={en.back.today}>
+      <BackHeader>
         <div className="flex flex-1 flex-col">
           <h1 className="text-title-sm font-extrabold tracking-title">{view.name}</h1>
           <span className="text-caption text-ink-3">{view.caption}</span>

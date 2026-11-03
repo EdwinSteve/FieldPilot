@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState, type Ref } from "react";
 import type { StageState } from "../../lib/stages";
 import { BackLink } from "../components/BackHeader";
 import { Icon, PlantIcon } from "../components/Icon";
 import { TaskRow } from "../components/TaskRow";
 import { TaskSheet } from "../components/TaskSheet";
 import { en } from "../i18n/en";
-import { hrefOf } from "../lib/route";
 import type { PlanDay, PlanTask, PlanView } from "../view-models/types";
 
 const STEP_COLOURS: Record<StageState, string> = {
@@ -41,9 +40,15 @@ function CropCard({ view }: { view: PlanView }) {
   );
 }
 
-function DaySection({ day, onOpen }: { day: PlanDay; onOpen: (task: PlanTask) => void }) {
+interface DaySectionProps {
+  day: PlanDay;
+  onOpen: (task: PlanTask) => void;
+  ref?: Ref<HTMLElement>;
+}
+
+function DaySection({ day, onOpen, ref }: DaySectionProps) {
   return (
-    <section className="flex flex-col gap-2">
+    <section ref={ref} className="flex scroll-mt-1 flex-col gap-2">
       <div className="flex items-center gap-2.5 px-0.5">
         <span
           className={`text-body font-extrabold ${
@@ -76,6 +81,13 @@ interface PlanScreenProps {
 
 export function PlanScreen({ view, onUndo }: PlanScreenProps) {
   const [selected, setSelected] = useState<PlanTask | null>(null);
+  const today = useRef<HTMLElement>(null);
+
+  // The plan opens on today, however long the history above it grows.
+  useEffect(() => {
+    today.current?.scrollIntoView({ block: "start" });
+  }, []);
+
   const undo = (taskId: number) => {
     void onUndo(taskId).then((done) => {
       if (done) setSelected(null);
@@ -85,14 +97,19 @@ export function PlanScreen({ view, onUndo }: PlanScreenProps) {
     <>
       <header className="flex flex-col gap-3 px-4.5 pt-5 pb-2">
         <div className="flex items-center gap-3">
-          <BackLink href={hrefOf({ screen: "today" })} label={en.back.today} />
+          <BackLink />
           <h1 className="text-title-md font-extrabold tracking-title">{en.plan.title}</h1>
         </div>
         <CropCard view={view} />
       </header>
       <main className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-4.5 pt-1 pb-5">
         {view.days.map((day) => (
-          <DaySection key={day.label} day={day} onOpen={setSelected} />
+          <DaySection
+            key={day.label}
+            day={day}
+            onOpen={setSelected}
+            ref={day.today ? today : undefined}
+          />
         ))}
       </main>
       {selected ? (

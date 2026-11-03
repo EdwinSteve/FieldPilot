@@ -1,8 +1,12 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { BackTarget } from "./components/backTarget";
+import { BigButton } from "./components/BigButton";
 import { StateView } from "./components/StateView";
 import { TabBar } from "./components/TabBar";
 import { useFarm } from "./hooks/useFarm";
 import { useFarmRoute } from "./hooks/useFarmRoute";
+import { useFocusHeading } from "./hooks/useFocusHeading";
+import { useOnline } from "./hooks/useOnline";
 import { en } from "./i18n/en";
 import { hrefOf, tabOf, type Route } from "./lib/route";
 import { DecideScreen } from "./screens/DecideScreen";
@@ -17,8 +21,8 @@ import { WelcomeScreen } from "./screens/WelcomeScreen";
 import { ZoneScreen } from "./screens/ZoneScreen";
 import type { Farm, FarmState } from "./view-models/types";
 
-function screenFor(route: Route, farm: Farm): ReactNode {
-  const today = <TodayScreen view={farm.today} />;
+function screenFor(route: Route, farm: Farm, age: string | null): ReactNode {
+  const today = <TodayScreen view={farm.today} age={age} />;
   switch (route.screen) {
     case "welcome":
       return <WelcomeScreen />;
@@ -73,32 +77,54 @@ function screenFor(route: Route, farm: Farm): ReactNode {
   }
 }
 
-function contentFor(route: Route, state: FarmState): ReactNode {
+/** The one line under the screen's top that says the farm may not be current. */
+function connectionNotice(online: boolean, stale: boolean, age: string | null): string | null {
+  if (!online) return en.state.offline;
+  if (!stale) return null;
+  return en.state.stale(age ?? en.freshness.justNow);
+}
+
+function contentFor(route: Route, state: FarmState, online: boolean): ReactNode {
   if (route.screen === "welcome") return <WelcomeScreen />;
   switch (state.status) {
     case "loading":
       return <StateView icon="hourglass" title={en.state.loading} />;
     case "error":
       return (
-        <StateView icon="warning" title={en.state.errorTitle} detail={en.state.errorDetail} />
+        <StateView
+          icon={online ? "warning" : "cloudOff"}
+          title={online ? en.state.errorTitle : en.state.offline}
+          detail={`${en.state.errorDetail} ${en.state.lastTried(state.lastTried)}`}
+        >
+          <div className="flex w-full max-w-80 flex-col pt-2">
+            <BigButton variant="primary" disabled={state.retrying} onClick={state.retry}>
+              {state.retrying ? en.state.retrying : en.state.retry}
+            </BigButton>
+          </div>
+        </StateView>
       );
     case "empty":
       return <StateView icon="home" title={en.state.emptyTitle} detail={en.state.emptyDetail} />;
-    case "ready":
+    case "ready": {
+      const failure = state.farm.actionFailure;
+      // A failed tap offline already says "No signal": one notice is enough.
+      const notice =
+        failure === "offline" ? null : connectionNotice(online, state.stale, state.age);
       return (
         <>
-          {state.stale ? <Notice text={en.state.staleData} /> : null}
-          {state.farm.actionFailed ? <Notice text={en.state.actionFailed} /> : null}
+          {notice === null ? null : <Notice text={notice} />}
+          {failure === null ? null : <Notice text={en.state.failures[failure]} />}
           {state.farm.busy ? <Saving /> : null}
           {/* `inert` stops every tap while an action runs, without greying the buttons. */}
           <div inert={state.farm.busy} className="contents">
             {/* The key plays the entrance on a change of screen, never on a data refresh. */}
             <div key={hrefOf(route)} className="flex min-h-0 flex-1 animate-screen-in flex-col">
-              {screenFor(route, state.farm)}
+              {screenFor(route, state.farm, state.age)}
             </div>
           </div>
         </>
       );
+    }
   }
 }
 
@@ -124,13 +150,33 @@ function Notice({ text }: { text: string }) {
 
 /** The shell: one phone-sized column with the current screen and the tab bar. */
 export function FarmerApp() {
-  const route = useFarmRoute();
+  const { route, back } = useFarmRoute();
   const state = useFarm();
+  const online = useOnline();
   const tab = tabOf(route);
+  const shell = useRef<HTMLDivElement>(null);
+  const farm = state.status === "ready" ? state.farm : null;
+
+  useEffect(() => {
+    const name = en.titles.screens[route.screen];
+    document.title = route.screen === "welcome" ? en.titles.app : en.titles.page(name);
+  }, [route.screen]);
+
+  useFocusHeading(hrefOf(route), shell);
+
   return (
-    <div className="relative mx-auto flex h-dvh w-full max-w-[430px] flex-col overflow-hidden bg-ground pt-[env(safe-area-inset-top)]">
-      {contentFor(route, state)}
-      {tab === null ? null : <TabBar active={tab} />}
+    <div
+      ref={shell}
+      className="relative mx-auto flex h-dvh w-full max-w-[430px] flex-col overflow-hidden bg-ground pt-[env(safe-area-inset-top)]"
+    >
+      <BackTarget value={back}>{contentFor(route, state, online)}</BackTarget>
+      {tab === null ? null : (
+        <TabBar
+          active={tab}
+          unread={farm?.updates.unreadCount ?? 0}
+          decisionWaiting={(farm?.today.decision ?? null) !== null}
+        />
+      )}
     </div>
   );
 }

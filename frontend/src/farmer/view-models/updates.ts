@@ -9,6 +9,7 @@ import {
   rejectionReason,
 } from "../lib/eventInputs";
 import {
+  dayHeading,
   daysFromToday,
   formatClock,
   formatClockRange,
@@ -33,6 +34,20 @@ import type { RareCase, UndoItem, UpdateItem, UpdatesView } from "./types";
 interface Dated {
   at: number;
   item: UpdateItem;
+}
+
+type Stamp = Pick<UpdateItem, "group" | "time" | "timeInDay">;
+
+/**
+ * Where a row sits and what time it shows. `atIso` files it under a day;
+ * `timeIso` is the moment its words name, which a planned watering puts ahead.
+ */
+function stamp(snapshot: FarmSnapshot, atIso: string, timeIso: string, rest: string): Stamp {
+  const offset = plotOffset(snapshot);
+  const now = snapshot.clock.now;
+  const time = en.updates.at(relativeDay(timeIso, now, offset), rest);
+  const sameDay = daysFromToday(atIso, now, offset) === daysFromToday(timeIso, now, offset);
+  return { group: dayHeading(atIso, now, offset), time, timeInDay: sameDay ? rest : time };
 }
 
 function isUnread(snapshot: FarmSnapshot, taskId: number): boolean {
@@ -62,10 +77,11 @@ function wateredRow(snapshot: FarmSnapshot, task: Task): Dated | null {
       id: `water-${task.id}`,
       kind: "water",
       title: running ? en.updates.watering(zone, mm) : en.updates.watered(zone, mm),
-      time: en.updates.wateringTime(
-        relativeDay(run.startedAt, now, offset),
-        formatClockRange(run.startedAt, run.endsAt, offset),
-        levelLabel(task),
+      ...stamp(
+        snapshot,
+        run.startedAt,
+        run.startedAt,
+        en.updates.wateringTime(formatClockRange(run.startedAt, run.endsAt, offset), levelLabel(task)),
       ),
       href: hrefOf({ screen: "plan" }),
       unread: isUnread(snapshot, task.id),
@@ -84,11 +100,11 @@ function saidNoRow(snapshot: FarmSnapshot, task: Task): Dated {
       id: `no-${task.id}`,
       kind: "said_no",
       title: reason === null ? en.updates.saidNo : en.updates.saidNoBecause(reason),
-      time: en.updates.saidNoTime(
-        relativeDay(at, snapshot.clock.now, offset),
-        formatClock(at, offset),
-        zoneName(snapshot),
-        volumeOf(task),
+      ...stamp(
+        snapshot,
+        at,
+        at,
+        en.updates.saidNoTime(formatClock(at, offset), zoneName(snapshot), volumeOf(task)),
       ),
       href: hrefOf({ screen: "plan" }),
       unread: isUnread(snapshot, task.id),
@@ -113,10 +129,7 @@ function cancelledRow(snapshot: FarmSnapshot, task: Task): Dated {
         applied > 0
           ? en.updates.stoppedRow(zoneName(snapshot), applied, volumeOf(task))
           : en.updates.cancelledRow(zoneName(snapshot), volumeOf(task)),
-      time: en.updates.reportTime(
-        relativeDay(task.updated_at, snapshot.clock.now, offset),
-        formatClock(task.updated_at, offset),
-      ),
+      ...stamp(snapshot, task.updated_at, task.updated_at, formatClock(task.updated_at, offset)),
       href: hrefOf({ screen: "plan" }),
       unread: isUnread(snapshot, task.id),
     },
@@ -137,10 +150,7 @@ function failedRow(snapshot: FarmSnapshot, task: Task): Dated | null {
       title: isWatering(task)
         ? en.updates.didntRun(zoneName(snapshot), volumeOf(task))
         : en.updates.actionDidntRun,
-      time: en.updates.reportTime(
-        relativeDay(at, snapshot.clock.now, offset),
-        formatClock(at, offset),
-      ),
+      ...stamp(snapshot, at, at, formatClock(at, offset)),
       href: hrefOf({ screen: "plan" }),
       unread: isUnread(snapshot, task.id),
     },
@@ -157,8 +167,10 @@ function plannedRow(snapshot: FarmSnapshot, task: Task): Dated | null {
       id: `planned-${task.id}`,
       kind: "water",
       title: en.updates.planned(zoneName(snapshot), volumeOf(task)),
-      time: en.updates.reportTime(
-        relativeDay(task.scheduled_for, snapshot.clock.now, offset),
+      ...stamp(
+        snapshot,
+        task.created_at,
+        task.scheduled_for,
         formatClock(task.scheduled_for, offset),
       ),
       href: hrefOf({ screen: "plan" }),
@@ -188,10 +200,7 @@ function alertRows(snapshot: FarmSnapshot): Dated[] {
         kind: "alert",
         title: notice.message,
         lang: "es",
-        time: en.updates.reportTime(
-          relativeDay(notice.created_at, snapshot.clock.now, offset),
-          formatClock(notice.created_at, offset),
-        ),
+        ...stamp(snapshot, notice.created_at, notice.created_at, formatClock(notice.created_at, offset)),
         href: null,
         unread: notice.read_at === null,
       },
@@ -205,7 +214,6 @@ function reportRows(snapshot: FarmSnapshot): Dated[] {
   const weak = snapshot.imagery.zones[0]?.low_vigor === true;
   return snapshot.reports.flatMap((report) => {
     const at = Date.parse(report.created_at);
-    const day = relativeDay(report.created_at, now, offset);
     const time = formatClock(report.created_at, offset);
     const date = formatLongDate(report.created_at, offset);
     const rows: Dated[] = [];
@@ -216,7 +224,7 @@ function reportRows(snapshot: FarmSnapshot): Dated[] {
           id: `satellite-${report.id}`,
           kind: "satellite",
           title: en.updates.plantsWeak(zoneName(snapshot)),
-          time: en.updates.satelliteTime(day, time),
+          ...stamp(snapshot, report.created_at, report.created_at, en.updates.satelliteTime(time)),
           href: hrefOf({ screen: "field" }),
           unread: false,
         },
@@ -229,7 +237,7 @@ function reportRows(snapshot: FarmSnapshot): Dated[] {
         id: `report-${report.id}`,
         kind: "report",
         title: en.updates.reportTitle(daysAgo, date),
-        time: en.updates.reportTime(day, time),
+        ...stamp(snapshot, report.created_at, report.created_at, time),
         href: hrefOf({ screen: "report", reportId: report.id }),
         unread: false,
       },

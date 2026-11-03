@@ -15,7 +15,13 @@ const LOOK: Record<UpdateKind, { icon: IconName; level: Level }> = {
   alert: { icon: "warning", level: "bad" },
 };
 
-export function UpdateRow({ item }: { item: UpdateItem }) {
+interface UpdateRowProps {
+  item: UpdateItem;
+  /** Under a day heading: the time leaves out the day the heading already says. */
+  underDay?: boolean;
+}
+
+export function UpdateRow({ item, underDay = false }: UpdateRowProps) {
   const { icon, level } = LOOK[item.kind];
   const row = `flex min-h-14 items-center gap-3.5 no-underline ${levelCard(level)}`;
   const content = (
@@ -27,7 +33,7 @@ export function UpdateRow({ item }: { item: UpdateItem }) {
         <span lang={item.lang} className="text-body font-bold text-ink">
           {item.title}
         </span>
-        <span className="text-caption text-ink-2">{item.time}</span>
+        <span className="text-caption text-ink-2">{underDay ? item.timeInDay : item.time}</span>
       </span>
       {item.unread ? (
         <span className="size-3 shrink-0 rounded-full bg-current">

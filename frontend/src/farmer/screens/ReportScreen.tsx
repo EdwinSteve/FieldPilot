@@ -5,7 +5,6 @@ import { levelCard } from "../components/levelStyle";
 import { MoistureDrop } from "../components/MoistureDrop";
 import { ScreenBody } from "../components/ScreenBody";
 import { en } from "../i18n/en";
-import { hrefOf } from "../lib/route";
 import { soilStatus } from "../lib/soilStatus";
 import { soilLevel, type Level } from "../lib/statusLevel";
 import type { ReportRow, ReportRowKind, ReportView, SoilReading } from "../view-models/types";
@@ -68,7 +67,7 @@ function OriginalReport({ text }: { text: string }) {
 export function ReportScreen({ view }: { view: ReportView }) {
   return (
     <>
-      <BackHeader href={hrefOf({ screen: "updates" })} label={en.back.updates}>
+      <BackHeader>
         <div className="flex flex-col">
           <h1 className="text-title-sm font-extrabold tracking-title">{view.title}</h1>
           <span className="text-caption text-ink-3">{view.dateLine}</span>

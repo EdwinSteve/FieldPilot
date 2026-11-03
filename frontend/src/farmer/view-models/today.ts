@@ -96,7 +96,9 @@ function recentUpdates(snapshot: FarmSnapshot): UpdateItem[] {
     id: `undo-${undo.taskId}`,
     kind: "undo",
     title: undo.title,
+    group: "",
     time: en.today.undoLeft(undo.timeLeft),
+    timeInDay: en.today.undoLeft(undo.timeLeft),
     href: hrefOf({ screen: "updates" }),
     unread: false,
   };

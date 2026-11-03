@@ -1,6 +1,7 @@
 // What each screen renders. Screens depend on these types and never on the API.
 import type { NormBox } from "../../types/api";
 import type { StageState } from "../../lib/stages";
+import type { ActionFailure } from "../lib/actionFailure";
 import type { ApprovalOutcome } from "../lib/approvalOutcome";
 import type { LookedAt } from "../lib/lookedAt";
 import type { TrendDirection } from "../lib/soilTrend";
@@ -130,7 +131,12 @@ export interface UpdateItem {
   title: string;
   /** Set when the words are the backend's own, not this app's. */
   lang?: "es";
+  /** The day it is filed under on Updates: "Today", "Mon 2 Nov". */
+  group: string;
+  /** With its day, "Today 6:00 am", for a list without day headings. */
   time: string;
+  /** Without the day when the heading already says it. */
+  timeInDay: string;
   /** Null when there is nothing more to open. */
   href: string | null;
   unread: boolean;
@@ -261,6 +267,8 @@ export interface StopView {
   since: string;
   /** End of the watering that keeps running; the stop does not close a valve. */
   runningUntil: string | null;
+  /** What runs first once the farmer starts again; null when nothing is planned. */
+  nextWatering: string | null;
 }
 
 /** Everything the screens need, read fresh from the backend. */
@@ -282,12 +290,19 @@ export interface Farm {
   markAllRead: () => Promise<boolean>;
   setStopped: (stopped: boolean) => Promise<boolean>;
   busy: boolean;
-  actionFailed: boolean;
+  /** Why the last action failed, while the notice is up. */
+  actionFailure: ActionFailure | null;
   talk: TalkControl;
 }
 
 export type FarmState =
   | { status: "loading" }
-  | { status: "error" }
+  | { status: "error"; retry: () => void; retrying: boolean; lastTried: string }
   | { status: "empty" }
-  | { status: "ready"; farm: Farm; stale: boolean };
+  | {
+      status: "ready";
+      farm: Farm;
+      stale: boolean;
+      /** How old the farm on screen is, "just now" or "4 min ago"; null when unknown. */
+      age: string | null;
+    };

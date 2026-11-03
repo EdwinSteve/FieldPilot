@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { BackLink } from "../components/BackHeader";
 import { BigButton, BigLink } from "../components/BigButton";
 import { Chip } from "../components/Chip";
@@ -7,6 +7,7 @@ import { IconCircle } from "../components/IconCircle";
 import { LEVEL_TEXT } from "../components/levelStyle";
 import { MoistureDrop } from "../components/MoistureDrop";
 import { RainLevelIcon } from "../components/RainLevelIcon";
+import { useFocusHeading } from "../hooks/useFocusHeading";
 import { en } from "../i18n/en";
 import type { ApprovalOutcome } from "../lib/approvalOutcome";
 import { hrefOf } from "../lib/route";
@@ -272,6 +273,9 @@ interface DecideScreenProps {
 
 export function DecideScreen({ view, onApprove, onReject }: DecideScreenProps) {
   const [step, setStep] = useState<Step>({ name: "ask" });
+  const steps = useRef<HTMLDivElement>(null);
+  // Each step is a new question or answer: a screen reader hears its heading.
+  useFocusHeading(step.name, steps);
 
   const approve = () => {
     void onApprove(view.taskId).then((outcome) => {
@@ -287,22 +291,24 @@ export function DecideScreen({ view, onApprove, onReject }: DecideScreenProps) {
   return (
     <>
       <header className="flex items-center gap-3 px-4.5 pt-5 pb-2">
-        <BackLink href={hrefOf({ screen: "today" })} label={en.back.today} />
+        <BackLink />
         <Chip tone="needs">
           <span className="text-small">{en.autonomy.needsYou}</span>
         </Chip>
       </header>
-      {step.name === "ask" && view.open ? (
-        <Ask view={view} onYes={approve} onNo={() => setStep({ name: "reason" })} />
-      ) : null}
-      {step.name === "ask" && !view.open ? <Closed /> : null}
-      {step.name === "reason" ? (
-        <Reason onPick={reject} onOther={() => setStep({ name: "other" })} />
-      ) : null}
-      {step.name === "other" ? (
-        <OtherReason onSave={reject} onBack={() => setStep({ name: "reason" })} />
-      ) : null}
-      {step.name === "done" ? <Done step={step} view={view} /> : null}
+      <div ref={steps} className="contents">
+        {step.name === "ask" && view.open ? (
+          <Ask view={view} onYes={approve} onNo={() => setStep({ name: "reason" })} />
+        ) : null}
+        {step.name === "ask" && !view.open ? <Closed /> : null}
+        {step.name === "reason" ? (
+          <Reason onPick={reject} onOther={() => setStep({ name: "other" })} />
+        ) : null}
+        {step.name === "other" ? (
+          <OtherReason onSave={reject} onBack={() => setStep({ name: "reason" })} />
+        ) : null}
+        {step.name === "done" ? <Done step={step} view={view} /> : null}
+      </div>
     </>
   );
 }

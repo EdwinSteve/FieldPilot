@@ -15,7 +15,7 @@ export function FieldScreen({ view }: { view: FieldView | null }) {
   }
   return (
     <>
-      <BackHeader href={hrefOf({ screen: "today" })} label={en.back.today}>
+      <BackHeader>
         <div className="flex flex-col">
           <h1 className="text-head font-extrabold tracking-title">{en.field.title}</h1>
           <span className="text-caption text-ink-3">{view.caption}</span>
