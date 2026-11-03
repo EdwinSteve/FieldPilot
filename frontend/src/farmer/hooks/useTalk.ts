@@ -1,7 +1,8 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/endpoints";
 import { type Recording, startRecording } from "../../lib/recorder";
 import type { ChatAnswer } from "../../types/api";
+import { fromStoredChat, toStoredChat } from "../lib/chatStore";
 import { lookedAtOfRun, type LookedAt } from "../lib/lookedAt";
 import { micFailure, sendFailure, type TalkFailure } from "../lib/talkFailure";
 import type { ChatExchange, TalkStatus } from "../view-models/types";
@@ -9,6 +10,24 @@ import type { ChatExchange, TalkStatus } from "../view-models/types";
 /** A forgotten mic must not stay open: it sends itself after a minute. */
 const MAX_RECORDING_MS = 60_000;
 const TRACE_EVENTS = 100;
+/** Per tab: a reload keeps the talk, closing the tab forgets it. */
+const CHAT_KEY = "fieldpilot.chat";
+
+function readStoredChat(): ChatExchange[] {
+  try {
+    return fromStoredChat(window.sessionStorage.getItem(CHAT_KEY));
+  } catch {
+    return [];
+  }
+}
+
+function storeChat(exchanges: readonly ChatExchange[]): void {
+  try {
+    window.sessionStorage.setItem(CHAT_KEY, toStoredChat(exchanges));
+  } catch {
+    // Private mode or a full disk: the talk simply ends with the page.
+  }
+}
 
 interface OpenRecording {
   recording: Recording;
@@ -49,13 +68,15 @@ async function sourcesOf(runId: string): Promise<LookedAt[]> {
 export function useTalk(plotId: number | undefined): Talk {
   const [status, setStatus] = useState<TalkStatus>("idle");
   const [failure, setFailure] = useState<TalkFailure | null>(null);
-  const [exchanges, setExchanges] = useState<ChatExchange[]>([]);
+  const [exchanges, setExchanges] = useState<ChatExchange[]>(readStoredChat);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const open = useRef<OpenRecording | null>(null);
   // Bumped by `cancel`, so a mic that opens late knows it is no longer wanted.
   const attempt = useRef(0);
-  const nextId = useRef(1);
+  const nextId = useRef(Math.max(0, ...exchanges.map((exchange) => exchange.id)) + 1);
+
+  useEffect(() => storeChat(exchanges), [exchanges]);
 
   const ask = useCallback(async (durationMs: number | null, send: () => Promise<Asked>) => {
     setFailure(null);
