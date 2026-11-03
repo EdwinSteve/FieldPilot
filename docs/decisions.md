@@ -2355,3 +2355,39 @@ Two facts constrain the design:
   they can be trusted, and the dashboard shows that limit.
 - If time runs out before the network wins, the demo still has an honest
   planner (B0), and the network stays an experiment.
+
+---
+
+## D081 — The planner serves from a site snapshot per plot
+
+- **Date:** 2026-11-03
+- **Status:** Accepted (2026-11-03)
+
+**Context.** §4.11 (D079) gave the backend a `ClimateSource` with only the
+recent daily weather. The trained network needs more for each plot:
+- the soil profile;
+- the 1991-2020 climatology ahead;
+- the ONI;
+- the B0 prior, which is the oracle run on that climatology.
+
+Fetching all of it per request means a thirty-year NASA POWER series and
+SoilGrids rasters, which take minutes, and network access in mock mode.
+
+**Decision.**
+- **One `SiteSnapshot` per plot.** It is built once by
+  `make planner-site`, saved as JSON under `data/fixtures/planner/`, and
+  read by `FixtureSiteSource`. `SiteSource` replaces `ClimateSource`.
+- **`fieldpilot_planner.serving` builds the inputs** with the same cleaning,
+  climatology, features and oracle code that training used. That includes
+  B0, computed at request time.
+- **A sowing after the snapshot's latest day** uses the latest 365 days of
+  history and the latest published ONI. The planner says so in the
+  response.
+- **`OnnxRecommender` checks the bundle's manifest SHA-256** when it loads.
+  A bundle that does not match is refused, and the app does not start.
+
+**Consequences.**
+- The planner works offline and in CI.
+- Refreshing a plot's data is one command.
+- A plan sowed weeks after the snapshot is less informed, and the event
+  records the snapshot's SHA-256, so each plan can be traced to its data.
