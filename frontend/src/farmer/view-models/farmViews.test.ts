@@ -16,6 +16,13 @@ const HELD_TASK = 1;
 const EXTRA_TASK = 3;
 
 describe("todayView", () => {
+  it("on a farm set up in the app, with no zone yet, says there are no sensors", () => {
+    const view = todayView({ ...demo.seed, zone: null, readings: [] });
+    expect(view.statusTitle).toBe("No soil sensors on this farm yet");
+    expect(view.statusDetail).toContain("Soil readings start once sensors are in.");
+    expect(view.soil.display).toBe("—");
+  });
+
   it("before the first cycle: soil only, nothing to decide", () => {
     const view = todayView(demo.seed);
     expect(view.decision).toBeNull();

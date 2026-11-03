@@ -140,6 +140,11 @@ function recentUpdates(snapshot: FarmSnapshot): UpdateItem[] {
   return [undoRow, ...items.slice(0, RECENT_UPDATES - 1)];
 }
 
+function statusTitle(snapshot: FarmSnapshot, zone: string, statusLabel: string | null): string {
+  if (snapshot.zone === null) return en.today.noSensors;
+  return statusLabel === null ? en.soil.noReading : en.soil.zoneIs(zone, statusLabel);
+}
+
 export function todayView(snapshot: FarmSnapshot): TodayView {
   const offset = plotOffset(snapshot);
   const zone = zoneName(snapshot);
@@ -159,8 +164,12 @@ export function todayView(snapshot: FarmSnapshot): TodayView {
     zoneId: snapshot.zone?.id ?? 0,
     status,
     statusLabel: en.levels[status],
-    statusTitle: statusLabel === null ? en.soil.noReading : en.soil.zoneIs(zone, statusLabel),
-    statusDetail: statusDetail(snapshot, soilTileLevel, rainMm),
+    statusTitle: statusTitle(snapshot, zone, statusLabel),
+    // A farm set up in the app has no zone or sensor yet (D083): say so, not "no reading".
+    statusDetail:
+      snapshot.zone === null
+        ? en.today.noSensorsDetail
+        : statusDetail(snapshot, soilTileLevel, rainMm),
     soil: {
       value: soil?.value ?? 0,
       fieldCapacity: fieldCapacity(snapshot),
