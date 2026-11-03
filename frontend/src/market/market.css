@@ -1,0 +1,15 @@
+/* The marketplace shares the farmer app's tokens, type and dark mode, so both read as FieldPilot. */
+@import "../farmer/farmer.css";
+
+@layer base {
+  /* A shop page scrolls as a whole, unlike the farmer app's fixed phone column. */
+  html,
+  body {
+    height: auto;
+    min-height: 100%;
+  }
+
+  #market-root {
+    min-height: 100dvh;
+  }
+}

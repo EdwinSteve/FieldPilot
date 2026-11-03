@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss()],
     build: {
-      rolldownOptions: { input: { main: "index.html", farmer: "farmer.html" } },
+      rolldownOptions: { input: { main: "index.html", farmer: "farmer.html", market: "market.html" } },
     },
     server: {
       port: 5173,
