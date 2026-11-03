@@ -2,7 +2,6 @@
 
 from collections import defaultdict
 from collections.abc import Sequence
-from dataclasses import dataclass
 
 import numpy as np
 import numpy.typing as npt
@@ -11,6 +10,7 @@ from fieldpilot_planner.crops import CropCard
 from fieldpilot_planner.dataset import CleanDataset
 from fieldpilot_planner.metrics import spearman, summary
 from fieldpilot_planner.oracle.labels import LabelSet, sowing_years
+from fieldpilot_planner.outputs import Predictions, from_outcomes
 from fieldpilot_planner.sources.datos_gov import EvaRecord, normalize
 from fieldpilot_planner.train import Samples
 
@@ -18,31 +18,9 @@ F32 = npt.NDArray[np.float32]
 WEEKS = 53
 
 
-@dataclass(frozen=True)
-class Predictions:
-    """[N, C, 3] quantiles, [N, C] probability, [N, C, 3] irrigation in mm."""
-
-    rel_yield: F32
-    success: F32
-    irrigation_mm: F32
-
-
-def from_network(raw: F32) -> Predictions:
-    return Predictions(
-        rel_yield=np.clip(raw[..., 0:3], 0.0, 1.0),
-        success=(1 / (1 + np.exp(-raw[..., 3]))).astype(np.float32),
-        irrigation_mm=np.maximum(np.expm1(raw[..., 4:7]), 0.0),
-    )
-
-
 def from_b0(labels: LabelSet, samples: Samples) -> Predictions:
     """B0 is a point estimate: all three quantiles equal, probability 0 or 1."""
-    b0 = labels.b0[samples.p, samples.s]
-    return Predictions(
-        rel_yield=np.repeat(b0[..., 0:1], 3, axis=-1),
-        success=b0[..., 1],
-        irrigation_mm=np.repeat(b0[..., 2:3], 3, axis=-1),
-    )
+    return from_outcomes(labels.b0[samples.p, samples.s])
 
 
 def _week(data: CleanDataset, sow: npt.NDArray[np.int64]) -> npt.NDArray[np.int64]:

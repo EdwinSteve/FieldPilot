@@ -50,26 +50,46 @@ def leave_one_out(
 ) -> npt.NDArray[np.float32]:  # fmt: skip
     """[label year, 366, len(CLIM_OUTPUTS)] for one point."""
     base_years = range(baseline.first, baseline.last + 1)
-    tables = {
+    tables = _tables(t, rain, tmax, tmin, et0, day0, baseline, window)
+    out = np.empty((len(label_years), DOY, len(CLIM_OUTPUTS)), dtype=np.float32)
+    for i, year in enumerate(label_years):
+        out[i] = _statistics(tables, np.array([y != year for y in base_years]))
+    return out
+
+
+def served_climatology(
+    t: Array, rain: Array, tmax: Array, tmin: Array, et0: Array,
+    day0: date, baseline: YearSpan, window: int,
+) -> npt.NDArray[np.float32]:  # fmt: skip
+    """[366, len(CLIM_OUTPUTS)] over every baseline year: what a plot is served with (D081)."""
+    tables = _tables(t, rain, tmax, tmin, et0, day0, baseline, window)
+    return _statistics(tables, np.ones(baseline.last - baseline.first + 1, dtype=bool))
+
+
+def _tables(
+    t: Array, rain: Array, tmax: Array, tmin: Array, et0: Array,
+    day0: date, baseline: YearSpan, window: int,
+) -> dict[str, Array]:  # fmt: skip
+    base_years = range(baseline.first, baseline.last + 1)
+    return {
         name: by_day_of_year(moving_mean(series, window), day0, base_years)
         for name, series in (("t", t), ("rain", rain), ("tmax", tmax), ("tmin", tmin), ("et0", et0))
     }
-    out = np.empty((len(label_years), DOY, len(CLIM_OUTPUTS)), dtype=np.float32)
-    for i, year in enumerate(label_years):
-        keep = np.array([y != year for y in base_years])
-        t_tab, rain_tab = tables["t"][keep], tables["rain"][keep]
-        out[i] = np.stack(
-            [
-                np.nanmean(t_tab, 0),
-                np.nanpercentile(t_tab, 10, 0), np.nanpercentile(t_tab, 90, 0),
-                np.nanmean(rain_tab, 0), np.nanpercentile(rain_tab, 10, 0),
-                np.nanpercentile(rain_tab, 90, 0),
-                np.nanmean(tables["tmax"][keep], 0), np.nanmean(tables["tmin"][keep], 0),
-                np.nanmean(tables["et0"][keep], 0),
-            ],
-            axis=-1,
-        )  # fmt: skip
-    return out
+
+
+def _statistics(tables: dict[str, Array], keep: npt.NDArray[np.bool_]) -> npt.NDArray[np.float32]:
+    t_tab, rain_tab = tables["t"][keep], tables["rain"][keep]
+    return np.stack(
+        [
+            np.nanmean(t_tab, 0),
+            np.nanpercentile(t_tab, 10, 0), np.nanpercentile(t_tab, 90, 0),
+            np.nanmean(rain_tab, 0), np.nanpercentile(rain_tab, 10, 0),
+            np.nanpercentile(rain_tab, 90, 0),
+            np.nanmean(tables["tmax"][keep], 0), np.nanmean(tables["tmin"][keep], 0),
+            np.nanmean(tables["et0"][keep], 0),
+        ],
+        axis=-1,
+    ).astype(np.float32)  # fmt: skip
 
 
 def day_of_year_index(day: date) -> int:

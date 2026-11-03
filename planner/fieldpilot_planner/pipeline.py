@@ -18,6 +18,7 @@ from fieldpilot_planner.config import PipelineConfig, load_pipeline
 from fieldpilot_planner.crops import CropCard, load_crops
 from fieldpilot_planner.dataset import CleanDataset
 from fieldpilot_planner.oracle.labels import LabelSet, build_labels, sowing_years
+from fieldpilot_planner.outputs import from_network
 from fieldpilot_planner.paths import Paths
 from fieldpilot_planner.points import read_points, select_points, write_points
 from fieldpilot_planner.sources.datos_gov import fetch_eva
@@ -203,7 +204,7 @@ class Session:
         return Trainer(cfg, self.dev, self.device, self.pipe.run_dir / "refit", model).load_best()
 
     def _scores(self, model: Any, test_key: str = "test") -> dict[str, dict[str, float]]:
-        from fieldpilot_planner.evaluate import from_b0, from_b1, from_network, score  # noqa: PLC0415
+        from fieldpilot_planner.evaluate import from_b0, from_b1, score  # noqa: PLC0415
         from fieldpilot_planner.train import predict  # noqa: PLC0415
 
         test = self.samples[test_key]
@@ -217,7 +218,7 @@ class Session:
         }
 
     def evaluate(self) -> None:
-        from fieldpilot_planner.evaluate import adopted, eva_spearman, from_network  # noqa: PLC0415
+        from fieldpilot_planner.evaluate import adopted, eva_spearman  # noqa: PLC0415
         from fieldpilot_planner.train import predict  # noqa: PLC0415
 
         model = self._final_model()
