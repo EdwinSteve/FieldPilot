@@ -1,5 +1,6 @@
 // The harvest the farmer confirms, as POST /cycles/{id}/harvest takes it (D083, docs/api.md §6). Pure logic only.
 import { ApiError } from "../../api/client";
+import type { Lot } from "../api/lifecycle";
 
 export type Unit = "kg" | "bags";
 export type Grade = "extra" | "first" | "second";
@@ -79,6 +80,11 @@ export function harvestProblems(form: HarvestForm, limits: HarvestLimits): Harve
   };
 }
 
+/** The first day a harvest can be on: the day after sowing, as the backend wants. */
+export function firstHarvestDay(sowingDate: string): string {
+  return new Date(Date.parse(`${sowingDate}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+}
+
 function dateProblem(date: string, limits: HarvestLimits): DateProblem | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return "missing";
   if (date <= limits.sowingDate) return "before_sowing";
@@ -92,6 +98,12 @@ export function hasProblem(problems: HarvestProblems): boolean {
 /** "2,000" for the total line. */
 export function kgText(kg: number): string {
   return Math.round(kg).toLocaleString("en-US");
+}
+
+/** The farm's latest harvest of `crop`, or null before its first. */
+export function latestLotOf(lots: readonly Lot[], crop: string): Lot | null {
+  const ofCrop = lots.filter((lot) => lot.crop === crop);
+  return ofCrop.toSorted((a, b) => b.harvested_on.localeCompare(a.harvested_on))[0] ?? null;
 }
 
 /** Why the backend did not record the harvest. */
