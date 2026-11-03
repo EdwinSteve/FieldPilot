@@ -1008,6 +1008,46 @@ WAV in Spanish and asks the text chat. It returns the transcript with the
 answer, and raises `NothingHeardError` on an empty transcript.
 `app/voice/muse.py` uses no `openai` code: the endpoint is Meta's own.
 
+### 4.11 Planning (`app/planning`): stage 1 (D079)
+
+The training pipeline lives in `planner/` (its README is the training
+route). The backend only serves a trained bundle.
+
+```python
+@dataclass(frozen=True)
+class CropOutlook:                       # one crop, one sowing week
+    crop: str; sowing_date: date; harvest_date: date
+    rel_yield_p10: float; rel_yield_p50: float; rel_yield_p90: float
+    p_success: float
+    irrigation_mm_p50: float
+    heat_days: float; cold_days: float
+    automatable: bool                    # the crop has a YAML in config/crops/
+
+@dataclass(frozen=True)
+class PlantingPlan:
+    plot_id: int; generated_at: datetime
+    model: str                           # bundle id, or "b0-climatology"
+    outlooks: tuple[CropOutlook, ...]    # ranked by rel_yield_p50, then p_success
+
+class ClimateSource(Protocol):           # daily series ending on `until`
+    def history(self, lat: float, lon: float, until: date, days: int) -> DailyWeather: ...
+# PowerClimateSource (NASA POWER, cached per plot and day) · FixtureClimateSource (mock mode, CI)
+
+class CropRecommender(Protocol):
+    def outlook(self, inputs: PlannerInputs) -> Sequence[CropOutlook]: ...
+# OnnxRecommender (planner bundle) · ClimatologyRecommender (B0, no model)
+
+class PlanningService:
+    def plan(self, plot_id: int, first_sowing: date, weeks: int) -> PlantingPlan: ...
+    # builds PlannerInputs with fieldpilot_planner.features, asks the
+    # recommender, and logs one planting_plan_served event
+```
+
+- The plan is advice: it never creates, changes or proposes a task.
+- `weeks` is between 1 and 12.
+- `MissingDataError` (409) when the climate history is incomplete.
+- Only `app/planning/onnx.py` imports `onnxruntime`.
+
 ### 4.10 Persistence (`app/persistence`)
 
 The domain uses frozen dataclasses (`app/domain/models.py`) and knows
@@ -1098,7 +1138,8 @@ float rounding. Every datetime column is aware UTC (§4.10).
 `execution_requested`, `execution`, `execution_failed`, `revert`,
 `revert_refused`, `approval`, `rejection`, `notification`,
 `emergency_stop`, `stage_transition`, `agent_tool_call`, `config_override`,
-`clock_changed`, `scenario_injected`, `phenology_gap`.
+`clock_changed`, `scenario_injected`, `phenology_gap`,
+`planting_plan_served` (D079).
 
 Task lifecycle (`domain/task_transitions.py`). A task is created as
 `pending_approval` or `scheduled`, and these are the allowed transitions:
@@ -1186,6 +1227,7 @@ startup writes a `config_override` event with both values.
 | GET | `/plots`, `/plots/{id}/zones` | plots and zones |
 | GET | `/plots/{id}/imagery` | NDVI, low-NDVI %, bare soil and low vigour per zone (D067), SAM boxes and zone areas (D073) |
 | GET | `/plots/{id}/imagery/image` | The scene's RGB PNG; 404 without a scene (D073) |
+| GET | `/plots/{id}/planting-plan?from=&weeks=` | `PlanningService.plan`: crops ranked per sowing week, with the model id (D079) |
 | GET | `/crops/{crop}` | A crop's display name and its stages in order, for the dashboard (D077) |
 | GET | `/autonomy/policy` | Default level per action type and the always-approval list (D073) |
 | GET | `/readings?zone_id=` | readings |

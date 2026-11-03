@@ -2301,3 +2301,57 @@ source. Multi-crop support is shown by the configuration (D077), not by a
 crop with converted data. The research stays in the repository, so it is
 not lost.
 
+
+---
+
+## D079 — Stage 1: a crop planner trained during the hackathon
+
+- **Date:** 2026-11-02
+- **Status:** Accepted (2026-11-02), chosen by Edwin.
+
+**Context.** FieldPilot is one product in three stages: plan what to sow
+(stage 1), automate the crop that was sown (stage 2, built in steps 1–11),
+and sell the harvest directly to buyers with a traceability record
+(stage 3, future). Edwin wants stage 1 in the demo: a model that recommends
+what to sow and when, from the climate, the soil and the season ahead.
+
+Two facts constrain the design:
+- **No labelled data exists** of "crop *c* sown on date *d* here yielded *y*".
+- **The deadline is 2026-11-04.**
+
+**Decision.**
+- **A `planner/` folder holds stage 1:** data download, cleaning, labels,
+  training and export. Every dataset is public, downloaded by its scripts,
+  and recorded in a manifest with its date and SHA-256.
+- **Labels come from an oracle of published FAO models** run on the weather
+  that actually happened, 1981–2025:
+  - a FAO-56 daily water balance;
+  - the FAO-33 yield response, with Ky;
+  - ECOCROP temperature and pH ranges.
+
+  Stage lengths are days after sowing, as published (as in D078).
+- **The model is a neural network (CropPlannerNet)**, trained on the
+  RTX 5060 Ti:
+  - it reads the past 365 days of weather, the climatology ahead, the soil,
+    the site, ENSO and the crop's card;
+  - it predicts the rainfed relative yield (p10/p50/p90), the probability
+    of success, the irrigation need and the stress days.
+- **It must beat the climatology oracle (B0) on 2018–2025.** Otherwise the
+  backend serves B0 and says so. Both sit behind one `CropRecommender` port.
+- **The planner advises; it never acts.**
+  - Starting a cycle is a farmer action.
+  - Only crops with a FieldPilot YAML can be automated by stage 2; the
+    others are shown as advice only.
+  - Each recommendation shown is logged as a new event kind,
+    `planting_plan_served`.
+- **One feature builder** (`fieldpilot_planner.features`) is shared by
+  training and serving. The backend imports it through a path dependency
+  and adds `onnxruntime`. PyTorch never enters the backend.
+
+**Consequences.**
+- Stage 1 is reproducible from public data and scripts in this repository.
+- The recommendations inherit the published crop parameters, which are not
+  calibrated locally. The EVA yield check and the model card say how far
+  they can be trusted, and the dashboard shows that limit.
+- If time runs out before the network wins, the demo still has an honest
+  planner (B0), and the network stays an experiment.
