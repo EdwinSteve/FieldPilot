@@ -21,7 +21,7 @@ flowchart LR
     S -- "notify" --> N[🔔 Execute and notify farmer]
     S -- "approval" --> Q[✋ Wait for farmer approval]
     X & N & Q --> C[📅 Calendar + event log]
-    A -- "writes" --> R[📝 Stage report in Spanish]
+    A -- "writes" --> R[📝 Stage report in the farmer's language]
 ```
 
 The agent **decides** most things on its own. A deterministic gate checks
@@ -70,7 +70,7 @@ flowchart LR
         G1[Segment plot] --> G2[Assess crop state]
     end
     subgraph Reporting
-        R1[Summarize stage] --> R2[Write report in Spanish]
+        R1[Summarize stage] --> R2[Write report in the farmer's language]
     end
     subgraph Planning
         P1[Propose task] --> P2{Autonomy level?}

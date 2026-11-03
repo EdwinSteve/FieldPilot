@@ -2558,3 +2558,52 @@ front-end guide is [`docs/api.md`](api.md).
   - the farmer's name on the passport.
 - D080 stays Proposed for the rest of stage 3. Its slice 1 is this
   decision.
+
+---
+
+## D084 — English by default; the Spanish texts and recordings are kept
+
+- **Date:** 2026-11-03
+- **Status:** Accepted (2026-11-03), chosen by Edwin.
+
+**Context.** The hackathon is judged in English. FieldPilot was written
+for Colombian farmers, so every farmer-facing text was Spanish: the message
+catalogue, the API errors, the agent's answers and reports, the recorded
+model answers and the dashboard. Edwin wants the whole product in English,
+without deleting the Spanish recordings.
+
+**Decision.**
+- **`APP_LANGUAGE` (`en` or `es`) picks the farmer's language**, English by
+  default. It drives:
+  - **the message catalogue:** `config/messages/en.yaml`, new, with
+    `es.yaml` kept; each sets its decimal separator;
+  - **the agent prompts:** `config/agents/en/<name>.md` wins over
+    `<name>.md` for the three prompts that set a language (orchestrator,
+    irrigation, reporting). The other two are shared;
+  - **the recorded answers:** `data/fixtures/llm/demo/` stays Spanish, and
+    `demo-en/` holds the same runs with the farmer-facing texts translated.
+    The tool calls, citations and numbers are identical;
+  - **the demo seed's names** ("Demo farm, Neiva", "Zone 2"), and the
+    language of the reports and of the voice transcription.
+- **API errors are English at the raise site**, with a `key` and its
+  `params`. The handler renders the active catalogue's text for that key, or
+  the English one when the catalogue has none. A test requires a Spanish
+  text for every key the code raises.
+- **The API stays backward compatible.** Neutral fields carry the active
+  language (`reason`, `display_name`, `name`, `crop_name`). The existing
+  `_es` fields stay and always carry Spanish.
+- **The tool argument `text_es` keeps its name.** The recordings use it
+  (D076); it now holds the active language.
+- **The event log stays English**, as it always was for audit reasons.
+- **The demo scene names its zones in both languages** ("Zona 2" and
+  "Zone 2"), so either seed matches it.
+- **The dashboard is translated to English in place.** A dashboard language
+  switch (an i18n dictionary) comes after the hackathon.
+
+**Consequences.**
+- One setting gives the English product for the judges, or the Spanish
+  product for farmers, and the two-day demo replays in both (a test runs
+  each).
+- A new error needs its English text in code and its Spanish text in
+  `es.yaml`, or the test fails.
+- The dashboard is English only until the i18n step.

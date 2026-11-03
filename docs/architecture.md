@@ -121,7 +121,7 @@ def proposal_key(action_type, plot_id, zone_id, local_day: date, params) -> str:
     # sha256 of canonical JSON; excludes rationale, cost and proposer (D023)
 
 class RuleCode(StrEnum):               # English identifiers; Spanish text lives in
-    EMERGENCY_STOP_ACTIVE = ...         # config/messages/es.yaml, keyed by code
+    EMERGENCY_STOP_ACTIVE = ...         # config/messages/<language>.yaml, keyed by code (D084)
     ALWAYS_APPROVAL_TYPE = ...
     DAILY_IRRIGATION_CAP_EXCEEDED = ...
     RAIN_FORECAST_ABOVE_LIMIT = ...
@@ -260,7 +260,7 @@ class FarmerApproval:
     actor: str
     approved_codes: frozenset[RuleCode]   # the violations the farmer saw and accepted
 
-class MessageCatalog:                     # config/messages/es.yaml, every RuleCode required
+class MessageCatalog:                     # config/messages/<language>.yaml, every RuleCode required
     def render(self, code: RuleCode, params: Mapping[str, float | str]) -> str: ...
 ```
 
@@ -1448,7 +1448,8 @@ max_calendar_shift_days: 2     # D026
 ```
 
 ```yaml
-# config/messages/es.yaml  (farmer-facing text; English keys, Spanish values)
+# config/messages/<language>.yaml  (farmer-facing text by key; en is the default,
+# es is kept; APP_LANGUAGE picks one, D084)
 rules:                         # one entry per RuleCode, all required
   rain_forecast_above_limit: "Pendiente de aprobación por lluvia prevista ({forecast_mm} mm > {limit_mm} mm)"
   emergency_stop_active: "Pendiente de aprobación: parada de emergencia activa"

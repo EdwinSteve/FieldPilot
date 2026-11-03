@@ -25,7 +25,7 @@ an interactive reference at `http://localhost:8000/docs` while
 |---|---|
 | Base URL | `http://localhost:8000` (`BACKEND_PORT` changes it) |
 | Format | JSON in and out; dates `YYYY-MM-DD`; datetimes ISO 8601 in UTC |
-| Language | Field names in English. Every `message` is Spanish and safe to show the user as is |
+| Language | Everything is English by default (`APP_LANGUAGE=en`, D084). Every `message` is in `APP_LANGUAGE` and safe to show the user as is. Fields ending in `_es` stay Spanish for older clients; read the neutral field (`reason`, `name`, `display_name`, `crop_name`) |
 | Auth | `Authorization: Bearer <access_token>` on every route except those marked **public** |
 
 **Roles.**
@@ -218,7 +218,7 @@ GET /plots/2/site
 
 | `status` | What to show |
 |---|---|
-| `pending` | "Preparando los datos de tu parcela…". Poll every 10 s |
+| `pending` | "Preparing your plot's data…". Poll every 10 s |
 | `ready` | The plan can be asked for. `weather_until` is the last day of real weather |
 | `failed` | Show `message` and offer a retry: `POST /plots/2/site` |
 | `missing` | No data and no job (an old plot). Offer `POST /plots/2/site` |
@@ -259,7 +259,7 @@ GET /plots/2/planting-plan?from=2026-11-09&weeks=4
       "oni_latest_published": false,
       "outlooks": [
         {
-          "crop": "soybean", "name_es": "Soya",
+          "crop": "soybean", "name": "Soybean", "name_es": "Soya",
           "sowing_date": "2026-11-09", "harvest_date": "2027-03-04",
           "rel_yield_p10": 0.58, "rel_yield_p50": 0.72, "rel_yield_p90": 0.84,
           "p_success": 0.93, "irrigation_mm_p50": 142.0,
@@ -273,7 +273,7 @@ GET /plots/2/planting-plan?from=2026-11-09&weeks=4
 
 **How to show it.**
 - **The order:** `outlooks` is already sorted best first, by `rel_yield_p50`
-  and then `p_success`. **The first three are "recomendados".** Section 5
+  and then `p_success`. **The first three are "recommended".** Section 5
   uses the same rule.
 - **`rel_yield_*`** is a fraction of the crop's potential yield under rain
   only. Show it as a percentage, with the p10 to p90 range as the
@@ -284,7 +284,7 @@ GET /plots/2/planting-plan?from=2026-11-09&weeks=4
   the rain.
 - **`automatable: false`** means stage 2 cannot run that crop yet. It can
   be sown and harvested, but nothing is irrigated automatically. Show it as
-  "solo recomendación".
+  "advice only".
 - **`model`:** `b0-climatology` means the trained network is not in use.
   Say so on screen.
 - **`oni_latest_published: true`** means that week used the latest El Niño
@@ -333,8 +333,8 @@ POST /plots/2/cycles
    1. Send `accept_own_risk: false` first.
    2. On 422 `OwnRiskRequiredError`, show its `message`, which names the
       recommended crops.
-   3. Ask the farmer to confirm explicitly: "Siembro bajo mi propio
-      riesgo".
+   3. Ask the farmer to confirm explicitly: "I sow at my own
+      risk".
    4. Send the same request again with `accept_own_risk: true`.
 5. **The answer says how the cycle runs:**
    - **`automated: true`:** stage 2 (irrigation, phenology) runs it.
@@ -395,8 +395,9 @@ GET /trace/FP-2-20270302-1
 {
   "lot_code": "FP-2-20270302-1",
   "crop": "soybean",
+  "crop_name": "Soybean",
   "crop_name_es": "Soya",
-  "producer": "Productor de La Plata, Huila",
+  "producer": "Producer from La Plata, Huila",
   "municipality": "La Plata",
   "department": "Huila",
   "area_ha": 3.5,
@@ -435,17 +436,17 @@ GET /trace/FP-2-20270302-1
   route.
 - **`cultivation.data_source`:**
   - `measured`: stage 2 recorded the water and inputs. Show the totals.
-  - `declared`: a manual cycle. The totals are `null`; show "registrado por
-    el productor".
+  - `declared`: a manual cycle. The totals are `null`; show "recorded by
+    the producer".
 - **`inputs_applied`** lists `{ "type": "fertilizer" | "agrochemical",
   "date": "YYYY-MM-DD" }`.
 - **`plan`:**
   - `known: false` means the cycle predates the sowing confirmation (the
-    demo seed). Show "sin información de planificación".
+    demo seed). Show "no planning information".
   - `followed_recommendation: false` comes with `own_risk: true`: the
     farmer chose that crop or date on purpose.
 - **`integrity.verified`:**
-  - `true`: show a "Verificado" badge.
+  - `true`: show a "Verified" badge.
   - `false`: someone changed the records after the harvest. Show a warning;
     never hide it.
 - **Never shown, by design:** coordinates, people's names, phone numbers,
@@ -460,7 +461,7 @@ GET /trace/FP-2-20270302-1
 Errors raised by the backend's own code share one shape:
 
 ```json
-{ "error": "OwnRiskRequiredError", "message": "La soya no está entre los 3 recomendados…" }
+{ "error": "OwnRiskRequiredError", "message": "Soybean is not among the recommended crops for that week…" }
 ```
 
 A malformed body (a wrong type, a missing field) is caught earlier, by
@@ -496,5 +497,6 @@ Both are 422. Tell them apart by the key: `error` or `detail`.
 | Automated crops (stage 2) | `maize` (one YAML per crop in `config/crops/`) |
 | Trace `biz_step` | `commissioning` (shipping, receiving and selling come with the rest of stage 3, D080) |
 
-The Spanish names of the planner crops come with each outlook (`name_es`)
-and with the passport (`crop_name_es`).
+Crop names come with each outlook (`name`) and with the passport
+(`crop_name`) in `APP_LANGUAGE`; `name_es` and `crop_name_es` always carry the
+Spanish name.
