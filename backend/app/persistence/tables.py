@@ -31,6 +31,8 @@ class PlotRow(SQLModel, table=True):
     area_ha: float
     created_at: datetime = _utc()
     utc_offset_hours: float
+    municipality: str = ""
+    department: str = ""
 
 
 class ZoneRow(SQLModel, table=True):
@@ -72,6 +74,13 @@ class CropCycleRow(SQLModel, table=True):
     accumulated_gdd: float
     gdd_updated_through: date | None = None
     status: str
+    automated: bool = True
+    own_risk: bool = False
+    plan_model: str | None = None
+    plan_rank: int | None = None
+    plan_rel_yield_p50: float | None = None
+    plan_p_success: float | None = None
+    harvested_on: date | None = None
 
 
 class StageRow(SQLModel, table=True):
@@ -227,3 +236,47 @@ class PlotMemberRow(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     plot_id: int = Field(foreign_key="plot.id", index=True)
     user_id: int = Field(foreign_key="user.id", index=True)
+
+
+# Plots, lots and their trace (§4.13, §4.14, D083).
+
+
+class PlotSiteRow(SQLModel, table=True):
+    """The site snapshot job of a plot; `ready` is read from the snapshot file itself."""
+
+    __tablename__ = "plot_site"
+
+    plot_id: int = Field(foreign_key="plot.id", primary_key=True)
+    status: str
+    requested_at: datetime = _utc()
+    finished_at: datetime | None = _utc(nullable=True)
+    message: str | None = None
+
+
+class HarvestLotRow(SQLModel, table=True):
+    __tablename__ = "harvest_lot"
+
+    code: str = Field(primary_key=True)
+    cycle_id: int = Field(foreign_key="crop_cycle.id", unique=True)
+    plot_id: int = Field(foreign_key="plot.id", index=True)
+    crop: str
+    harvested_on: date
+    quantity_g: int
+    grade: str
+    created_at: datetime = _utc()
+
+
+class TraceEventRow(SQLModel, table=True):
+    __tablename__ = "trace_event"
+    __table_args__ = (UniqueConstraint("lot_code", "seq"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    lot_code: str = Field(foreign_key="harvest_lot.code", index=True)
+    seq: int
+    biz_step: str
+    occurred_at: datetime = _utc()
+    actor: str
+    quantity_g: int
+    data: dict[str, Any] = _json(dict)
+    prev_hash: str
+    hash: str

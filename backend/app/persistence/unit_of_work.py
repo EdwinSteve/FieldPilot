@@ -24,6 +24,11 @@ from app.persistence.repositories.identity import (
     SqlRefreshSessionRepository,
     SqlUserRepository,
 )
+from app.persistence.repositories.market import (
+    SqlHarvestLotRepository,
+    SqlPlotSiteRepository,
+    SqlTraceEventRepository,
+)
 from app.persistence.repositories.system import (
     SqlControlStateRepository,
     SqlNotificationRepository,
@@ -64,6 +69,9 @@ class SqlUnitOfWork:
         self.refresh_sessions = SqlRefreshSessionRepository(session)
         self.auth_events = SqlAuthEventRepository(session)
         self.plot_members = SqlPlotMemberRepository(session)
+        self.plot_sites = SqlPlotSiteRepository(session)
+        self.lots = SqlHarvestLotRepository(session)
+        self.trace_events = SqlTraceEventRepository(session)
         return self
 
     def __exit__(

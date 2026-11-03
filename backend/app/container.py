@@ -9,6 +9,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, timedelta
+from pathlib import Path
 
 from app.agent.llm.mock import MockLLMClient
 from app.agent.llm.muse import MuseClient
@@ -19,8 +20,16 @@ from app.identity.access import AccessPolicy
 from app.identity.passwords import Argon2Hasher
 from app.identity.service import AuthService
 from app.identity.tokens import JwtAccessTokens
+from app.market.trace.passport import PassportService
+from app.planning.ports import CropRecommender
 from app.planning.setup import build_recommender
-from app.planning.sites import FixtureSiteSource
+from app.planning.site_jobs import (
+    DisabledSiteBuilder,
+    SiteBuilder,
+    SiteJobs,
+    SubprocessSiteBuilder,
+)
+from app.planning.sites import FileSiteSource
 from app.satellite.sam31 import Sam31Segmentation
 from app.satellite.scenes import ImageryLoader
 from app.satellite.segmentation import RecordedSegmentation, SegmentationProvider
@@ -32,6 +41,7 @@ from app.services.approvals import ApprovalService
 from app.services.chat import ChatService
 from app.services.clock import ClockService
 from app.services.control import EmergencyStopService
+from app.services.cycles import CycleService
 from app.services.daily_cycle import DailyCycle
 from app.services.due_tasks import DueTaskRunner
 from app.services.execution import ExecutionService
@@ -40,6 +50,7 @@ from app.services.gate_context import StoredGateContextProvider
 from app.services.imagery_reader import StoredImageryReader
 from app.services.phenology import PhenologyService
 from app.services.planning import PlanningService
+from app.services.plots import PlotService
 from app.services.proposals import ProposalService
 from app.services.queries import FarmQueries
 from app.services.rain_forecast import PlotRainForecast
@@ -78,6 +89,9 @@ class Container:
     auth: AuthService
     access: AccessPolicy
     planning: PlanningService  # stage 1 (D079, D081)
+    plots: PlotService  # plots and their site data (D083)
+    cycles: CycleService  # the sowing and the harvest the farmer confirms (D083)
+    passports: PassportService  # stage 3, first slice (D083)
 
 
 def build_container(
@@ -140,6 +154,11 @@ def build_container(
         if chat is None
         else VoiceChatService(chat, MuseVoiceTranscribe.from_settings(settings))
     )
+    recommender = build_recommender(settings.planner_dir, settings.planner_bundle)
+    sites = FileSiteSource([settings.data_dir / "fixtures" / "planner", _sites_dir(settings)])
+    planning = PlanningService(uow, clock, sites, recommender, config.crops)
+    site_jobs = _site_jobs(settings, runtime)
+    crop_names = _crop_names(recommender, config)
     return Container(
         runtime=runtime,
         config=config,
@@ -160,14 +179,35 @@ def build_container(
         auth_required=auth.required,
         auth=_auth_service(runtime, config, auth),
         access=AccessPolicy(uow),
-        planning=PlanningService(
-            uow,
-            clock,
-            FixtureSiteSource(settings.data_dir / "fixtures" / "planner"),
-            build_recommender(settings.planner_dir, settings.planner_bundle),
-            config.crops,
-        ),
+        planning=planning,
+        plots=PlotService(uow, clock, sites, site_jobs),
+        cycles=CycleService(uow, clock, planning, config.crops, crop_names),
+        passports=PassportService(uow, crop_names),
     )
+
+
+def _site_jobs(settings: Settings, runtime: Runtime) -> SiteJobs:
+    """Snapshots the backend builds go to data/planner/sites, never into the fixtures."""
+    builder: SiteBuilder = (
+        SubprocessSiteBuilder(settings.planner_dir)
+        if settings.planner_site_builder == "subprocess"
+        else DisabledSiteBuilder()
+    )
+    jobs = SiteJobs(runtime.uow, system_wall_clock, builder, _sites_dir(settings))
+    jobs.recover()
+    return jobs
+
+
+def _sites_dir(settings: Settings) -> Path:
+    return settings.planner_sites_dir or settings.data_dir / "planner" / "sites"
+
+
+def _crop_names(recommender: CropRecommender, config: RuntimeConfig) -> dict[str, str]:
+    """Spanish crop names for messages and passports: the planner's, then the catalogue's."""
+    names = {card.crop: card.name_es for card in recommender.crops}
+    for name, spec in config.crops.items():
+        names.setdefault(name, spec.display_name.get("es", name))
+    return names
 
 
 def _auth_service(runtime: Runtime, config: RuntimeConfig, auth: AuthSetting) -> AuthService:

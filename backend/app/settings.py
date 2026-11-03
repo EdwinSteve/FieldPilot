@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     # Stage 1 (D081): the planner's configs and models; PLANNER_BUNDLE pins one bundle.
     planner_dir: Path = REPO_ROOT / "planner"
     planner_bundle: Path | None = None
+    # D083: how a new plot's site snapshot is built. "off" in CI and tests (no network).
+    planner_site_builder: Literal["subprocess", "off"] = "subprocess"
+    planner_sites_dir: Path | None = None  # where built snapshots go; data/planner/sites
 
     @model_validator(mode="after")
     def _require_credentials_outside_mock_mode(self) -> Self:

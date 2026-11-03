@@ -1,26 +1,43 @@
-"""Site snapshots stored as files, written by `make planner-site` (D081)."""
+"""Site snapshots stored as files (D081, D083).
 
+Committed fixtures (data/fixtures/planner) come first, then the snapshots the
+backend built itself (data/planner/sites). The backend never downloads data
+on a request.
+"""
+
+from collections.abc import Sequence
 from pathlib import Path
 
 from fieldpilot_planner.manifest import file_digest
 from fieldpilot_planner.serving import SiteSnapshot
 
 from app.domain.errors import MissingDataError
+from app.domain.models import Plot
 from app.planning.ports import SiteRecord
 
+MAX_OFFSET_DEG = 0.01  # a snapshot serves a plot only at its own coordinates
 
-class FixtureSiteSource:
-    """data/fixtures/planner/site_<plot_id>.json; the backend never downloads data."""
 
-    def __init__(self, directory: Path) -> None:
-        self._directory = directory
+class FileSiteSource:
+    def __init__(self, directories: Sequence[Path]) -> None:
+        self._directories = tuple(directories)
 
-    def site(self, plot_id: int) -> SiteRecord:
-        path = self._directory / f"site_{plot_id}.json"
-        if not path.is_file():
-            raise MissingDataError(
-                f"La parcela {plot_id} no tiene datos de sitio para el planificador "
-                f"(make planner-site PLOT={plot_id})."
-            )
-        snapshot = SiteSnapshot.from_json(path.read_text(encoding="utf-8"))
-        return SiteRecord(snapshot, file_digest(path))  # the same on Windows and Linux
+    def site(self, plot: Plot) -> SiteRecord:
+        for directory in self._directories:
+            path = directory / f"site_{plot.id}.json"
+            if not path.is_file():
+                continue
+            snapshot = SiteSnapshot.from_json(path.read_text(encoding="utf-8"))
+            if _matches(snapshot, plot):
+                return SiteRecord(snapshot, file_digest(path))  # the same on any platform
+        raise MissingDataError(
+            f"La parcela {plot.id} todavía no tiene datos de clima y suelo para el planificador "
+            f"(GET /plots/{plot.id}/site)."
+        )
+
+
+def _matches(snapshot: SiteSnapshot, plot: Plot) -> bool:
+    return (
+        abs(snapshot.lat - plot.latitude) <= MAX_OFFSET_DEG
+        and abs(snapshot.lon - plot.longitude) <= MAX_OFFSET_DEG
+    )

@@ -83,10 +83,11 @@ class StoredGateContextProvider:
 
 
 def active_cycle(u: UnitOfWork, plot_id: int) -> CropCycle:
+    """The plot's active automated cycle: the only kind stage 2 acts on (D083)."""
     for cycle in u.cycles.list_by_plot(plot_id):
-        if cycle.status is CycleStatus.ACTIVE:
+        if cycle.status is CycleStatus.ACTIVE and cycle.automated:
             return cycle
-    raise MissingDataError(f"plot {plot_id} has no active crop cycle")
+    raise MissingDataError(f"plot {plot_id} has no active automated crop cycle")
 
 
 def local_day(at: datetime, plot: Plot) -> date:

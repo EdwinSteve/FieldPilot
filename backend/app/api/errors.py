@@ -12,10 +12,16 @@ from fastapi.responses import JSONResponse
 
 from app.agent.llm.ports import FixtureExhaustedError, LLMUnavailableError
 from app.domain.errors import (
+    ActiveCycleExistsError,
+    InvalidHarvestError,
+    InvalidSowingDateError,
     InvalidTransitionError,
     MissingDataError,
     NotFoundError,
+    OpenTasksError,
+    OwnRiskRequiredError,
     ScenarioRejectedError,
+    SiteJobPendingError,
     UnsupportedActionError,
 )
 from app.identity.errors import (
@@ -51,6 +57,12 @@ _CLIENT_ERRORS: dict[type[Exception], HTTPStatus] = {
     WeakPasswordError: HTTPStatus.UNPROCESSABLE_ENTITY,
     ConsentRequiredError: HTTPStatus.UNPROCESSABLE_ENTITY,
     NotFoundError: HTTPStatus.NOT_FOUND,
+    ActiveCycleExistsError: HTTPStatus.CONFLICT,
+    OpenTasksError: HTTPStatus.CONFLICT,
+    SiteJobPendingError: HTTPStatus.CONFLICT,
+    InvalidSowingDateError: HTTPStatus.UNPROCESSABLE_ENTITY,
+    OwnRiskRequiredError: HTTPStatus.UNPROCESSABLE_ENTITY,
+    InvalidHarvestError: HTTPStatus.UNPROCESSABLE_ENTITY,
     InvalidTransitionError: HTTPStatus.CONFLICT,
     RevertRefusedError: HTTPStatus.CONFLICT,
     MissingDataError: HTTPStatus.CONFLICT,

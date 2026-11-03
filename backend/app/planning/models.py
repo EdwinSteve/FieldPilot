@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import date, datetime
+from enum import StrEnum
 
 
 @dataclass(frozen=True)
@@ -38,3 +39,33 @@ class PlantingPlan:
     model: str  # the bundle id, or "b0-climatology"
     site_built_on: date
     weeks: tuple[SowingWeek, ...]
+
+
+class SiteStatus(StrEnum):
+    MISSING = "missing"  # no snapshot and no job (D083)
+    PENDING = "pending"
+    READY = "ready"  # read from the snapshot file, never stored
+    FAILED = "failed"
+
+
+@dataclass(frozen=True)
+class SiteJob:
+    """The last snapshot job of a plot."""
+
+    plot_id: int
+    status: SiteStatus  # pending or failed; a finished job leaves the file behind
+    requested_at: datetime
+    finished_at: datetime | None = None
+    message: str | None = None
+
+
+@dataclass(frozen=True)
+class SiteState:
+    """What the plot's site data looks like now, for GET /plots/{id}/site."""
+
+    status: SiteStatus
+    requested_at: datetime | None
+    finished_at: datetime | None
+    message: str | None
+    weather_until: date | None
+    built_on: date | None

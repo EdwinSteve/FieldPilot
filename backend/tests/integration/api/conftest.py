@@ -4,6 +4,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi import FastAPI
@@ -39,7 +40,7 @@ def database_url(tmp_path: Path) -> str:
     return f"sqlite:///{tmp_path / 'api.db'}"
 
 
-def restart(database_url: str) -> FastAPI:
+def restart(database_url: str, **overrides: Any) -> FastAPI:
     """A new process on the same database: memory-only state is gone (D014)."""
     # The dashboard routes as the demo runs them: no token, the demo farmer (D082).
     # tests/integration/api/test_auth_routes.py covers the routes with a token.
@@ -49,12 +50,20 @@ def restart(database_url: str) -> FastAPI:
         mock_llm=True,
         app_profile="demo",
         auth_required=False,
+        planner_site_builder="off",  # never the network; lifecycle tests inject a fake builder
+        **overrides,
     )
     return create_app(settings)
 
 
 @pytest.fixture
-def app(database_url: str) -> FastAPI:
+def app_overrides() -> dict[str, Any]:
+    """Extra settings for the `app` fixture; a test module may override this fixture."""
+    return {}
+
+
+@pytest.fixture
+def app(database_url: str, app_overrides: dict[str, Any]) -> FastAPI:
     url = database_url
     engine = create_db_engine(url)
     init_schema(engine)
@@ -62,7 +71,7 @@ def app(database_url: str) -> FastAPI:
         u.sim_clock.save(SimClockState(START, START, speed_factor=1.0, paused=True))
         u.commit()
     engine.dispose()
-    return restart(url)
+    return restart(url, **app_overrides)
 
 
 @pytest.fixture

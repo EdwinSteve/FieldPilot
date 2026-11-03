@@ -13,16 +13,27 @@ from fieldpilot_planner.serving import IncompleteHistoryError, PlanOutputs, Sowi
 
 from app.domain.enums import EventKind
 from app.domain.errors import MissingDataError
-from app.domain.models import Event, JsonValue
+from app.domain.models import Event, JsonValue, PlanAtSowing, Plot
 from app.persistence.ports import UnitOfWork
 from app.phenology.catalog import CropCatalog
 from app.planning.models import CropOutlook, PlantingPlan, SowingWeek
-from app.planning.ports import CropRecommender, SiteSource
+from app.planning.ports import CropRecommender, SiteRecord, SiteSource
 from app.services.gate_context import local_day
 from app.simulator.clock import Clock
 
 UowFactory = Callable[[], UnitOfWork]
 MAX_WEEKS = 12
+RECOMMENDED_TOP = 3  # the top 3 of a week are "recommended" (NDCG@3, D079; D083)
+
+
+@dataclass(frozen=True)
+class SowingAdvice:
+    plan: PlanAtSowing | None  # None: not a planner crop, or no site data
+    top: tuple[str, ...]  # the week's recommended crops, Spanish names
+
+    @property
+    def recommended(self) -> bool:
+        return self.plan is not None and self.plan.rank <= RECOMMENDED_TOP
 
 
 @dataclass(frozen=True)
@@ -60,7 +71,31 @@ class PlanningService:
             plot = uow.plots.get(request.plot_id)
         first = request.first_sowing or local_day(now, plot)
         dates = [first + timedelta(weeks=i) for i in range(request.weeks)]
-        site = self._sites.site(request.plot_id)
+        site, weeks = self._weeks(plot, dates)
+        plan = PlantingPlan(request.plot_id, now, self.model_id, site.snapshot.built_on, weeks)
+        self._log(plan, request, site.sha256)
+        return plan
+
+    def advice(self, plot: Plot, sowing_date: date, crop: str) -> SowingAdvice:
+        """Where a crop ranks on a sowing date, for the sowing confirmation (D083).
+
+        Not logged as a plan served: the farmer is confirming, not asking. Without
+        site data the planner cannot judge, and says so instead of guessing.
+        """
+        try:
+            _, weeks = self._weeks(plot, [sowing_date])
+        except MissingDataError:
+            return SowingAdvice(None, ())
+        outlooks = weeks[0].outlooks
+        top = tuple(o.name_es for o in outlooks[:RECOMMENDED_TOP])
+        for rank, outlook in enumerate(outlooks, start=1):
+            if outlook.crop == crop:
+                plan = PlanAtSowing(self.model_id, rank, outlook.rel_yield_p50, outlook.p_success)
+                return SowingAdvice(plan, top)
+        return SowingAdvice(None, top)
+
+    def _weeks(self, plot: Plot, dates: list[date]) -> tuple[SiteRecord, tuple[SowingWeek, ...]]:
+        site = self._sites.site(plot)
         try:
             result = self._recommender.recommend(site.snapshot, dates)
         except IncompleteHistoryError as error:
@@ -68,9 +103,7 @@ class PlanningService:
         weeks = tuple(
             self._week(context, result.outputs, row) for row, context in enumerate(result.contexts)
         )
-        plan = PlantingPlan(request.plot_id, now, self.model_id, site.snapshot.built_on, weeks)
-        self._log(plan, request, site.sha256)
-        return plan
+        return site, weeks
 
     def _week(self, context: SowingContext, outputs: PlanOutputs, row: int) -> SowingWeek:
         outlooks = [

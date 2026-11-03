@@ -33,7 +33,16 @@ def seed_demo_farm(database_url: str) -> SeedSummary:
     with SqlUnitOfWork(engine) as u:
         u.sim_clock.save(SimClockState(START, START, speed_factor=1.0, paused=True))
         plot = u.plots.add(
-            Plot("Finca demo, Neiva", 2.93, -75.28, 2.0, START, utc_offset_hours=-5.0)
+            Plot(
+                "Finca demo, Neiva",
+                2.93,
+                -75.28,
+                2.0,
+                START,
+                utc_offset_hours=-5.0,
+                municipality="Neiva",
+                department="Huila",
+            )
         )
         plot_id = _stored(plot.id, "plot")
         zone_id = _stored(u.zones.add(Zone(plot_id, "Zona 2", 0.5, 32.0, valve_id="v2")).id, "zone")

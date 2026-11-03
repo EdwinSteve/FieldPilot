@@ -5,7 +5,7 @@ from dataclasses import asdict
 from datetime import date, datetime
 from typing import Annotated, Literal, Self
 
-from pydantic import AwareDatetime, BaseModel, Field, JsonValue, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from app.agent.field import ImageryView
 from app.agent.loop import AgentRun
@@ -21,8 +21,10 @@ from app.domain.models import (
     Stage,
     Zone,
 )
+from app.market.trace.models import Grade, HarvestLot
+from app.market.trace.passport import Passport
 from app.phenology.catalog import CropSpec
-from app.planning.models import PlantingPlan
+from app.planning.models import PlantingPlan, SiteState, SiteStatus
 from app.services.daily_cycle import DailyCycleResult
 from app.services.queries import CycleView, SensorReadings, TaskView
 from app.services.scenarios import ScenarioStatus
@@ -37,6 +39,8 @@ class PlotOut(BaseModel):
     longitude: float
     area_ha: float
     utc_offset_hours: float
+    municipality: str
+    department: str
 
     @classmethod
     def of(cls, plot: Plot) -> "PlotOut":
@@ -47,6 +51,8 @@ class PlotOut(BaseModel):
             longitude=plot.longitude,
             area_ha=plot.area_ha,
             utc_offset_hours=plot.utc_offset_hours,
+            municipality=plot.municipality,
+            department=plot.department,
         )
 
 
@@ -109,12 +115,24 @@ class StageOut(BaseModel):
         )
 
 
+class PlanAtSowingOut(BaseModel):
+    model: str
+    rank: int
+    rel_yield_p50: float
+    p_success: float
+
+
 class CycleOut(BaseModel):
     id: int
     plot_id: int
     crop: str
     sowing_date: date
     status: str
+    automated: bool  # stage 2 runs it; false: a manual record (D083)
+    own_risk: bool  # sown outside the planner's top 3, by the farmer's choice
+    plan: PlanAtSowingOut | None  # what the planner predicted; null when it could not judge
+    harvested_on: date | None
+    lot_code: str | None
     accumulated_gdd: float
     gdd_updated_through: date | None
     stages: list[StageOut]
@@ -122,12 +140,18 @@ class CycleOut(BaseModel):
     @classmethod
     def of(cls, view: CycleView) -> "CycleOut":
         cycle = view.cycle
+        plan = cycle.plan
         return cls(
             id=_id(cycle.id),
             plot_id=cycle.plot_id,
             crop=cycle.crop,
             sowing_date=cycle.sowing_date,
             status=str(cycle.status),
+            automated=cycle.automated,
+            own_risk=cycle.own_risk,
+            plan=None if plan is None else PlanAtSowingOut(**asdict(plan)),
+            harvested_on=cycle.harvested_on,
+            lot_code=view.lot_code,
             accumulated_gdd=cycle.accumulated_gdd,
             gdd_updated_through=cycle.gdd_updated_through,
             stages=[StageOut.of(s) for s in view.stages],
@@ -566,4 +590,114 @@ class PlantingPlanOut(BaseModel):
                 )
                 for w in plan.weeks
             ],
+        )
+
+
+# Plots, sowing, harvest and the passport (D083, docs/api.md)
+
+
+class _StrictIn(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class NewPlotIn(_StrictIn):
+    name: Annotated[str, Field(min_length=2, max_length=80)]
+    municipality: Annotated[str, Field(min_length=2, max_length=80)]
+    department: Annotated[str, Field(min_length=2, max_length=80)]
+    latitude: Annotated[float, Field(ge=-4.3, le=13.5)]  # Colombia: where the planner learned
+    longitude: Annotated[float, Field(ge=-82.0, le=-66.8)]
+    area_ha: Annotated[float, Field(gt=0, le=1000)]
+
+
+class SiteOut(BaseModel):
+    status: SiteStatus
+    requested_at: datetime | None
+    finished_at: datetime | None
+    message: str | None
+    weather_until: date | None
+    built_on: date | None
+
+    @classmethod
+    def of(cls, state: SiteState) -> "SiteOut":
+        return cls(**asdict(state))
+
+
+class NewCycleIn(_StrictIn):
+    crop: Annotated[str, Field(pattern=r"^[a-z][a-z_]{1,39}$")]
+    sowing_date: date
+    accept_own_risk: bool = False
+
+
+class HarvestIn(_StrictIn):
+    harvested_on: date
+    quantity_kg: Annotated[float, Field(gt=0)]
+    grade: Grade
+
+
+class LotOut(BaseModel):
+    code: str
+    cycle_id: int
+    plot_id: int
+    crop: str
+    harvested_on: date
+    quantity_kg: float
+    grade: Grade
+    passport_path: str  # GET it without a token; the QR opens the front end's page for it
+
+    @classmethod
+    def of(cls, lot: HarvestLot) -> "LotOut":
+        return cls(
+            code=lot.code,
+            cycle_id=lot.cycle_id,
+            plot_id=lot.plot_id,
+            crop=lot.crop,
+            harvested_on=lot.harvested_on,
+            quantity_kg=lot.quantity_kg,
+            grade=lot.grade,
+            passport_path=f"/trace/{lot.code}",
+        )
+
+
+class IntegrityOut(BaseModel):
+    verified: bool
+    chain_head: str
+    source_digest: str
+    trace_events: int
+
+
+class PassportOut(BaseModel):
+    """Public: never coordinates, names, phones, sensor readings or prices."""
+
+    lot_code: str
+    crop: str
+    crop_name_es: str
+    producer: str
+    municipality: str
+    department: str
+    area_ha: float
+    sowing_date: date
+    harvested_on: date
+    quantity_kg: float
+    grade: str
+    cultivation: dict[str, JsonValue]
+    plan: dict[str, JsonValue]
+    integrity: IntegrityOut
+
+    @classmethod
+    def of(cls, passport: Passport) -> "PassportOut":
+        return cls(
+            lot_code=passport.lot_code,
+            crop=passport.crop,
+            crop_name_es=passport.crop_name_es,
+            producer=passport.producer,
+            municipality=passport.municipality,
+            department=passport.department,
+            area_ha=passport.area_ha,
+            sowing_date=passport.sowing_date,
+            harvested_on=passport.harvested_on,
+            quantity_kg=passport.quantity_kg,
+            grade=passport.grade,
+            cultivation=dict(passport.cultivation),
+            plan=dict(passport.plan),
+            integrity=IntegrityOut(**asdict(passport.integrity)),
         )
