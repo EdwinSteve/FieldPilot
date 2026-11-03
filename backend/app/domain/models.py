@@ -38,6 +38,8 @@ class Plot:
     area_ha: float
     created_at: datetime
     utc_offset_hours: float  # defines the plot's local calendar day (D018)
+    municipality: str = ""  # shown on the public passport, never the coordinates (D083)
+    department: str = ""
     id: int | None = None
 
 
@@ -73,6 +75,16 @@ class Reading:
 
 
 @dataclass(frozen=True)
+class PlanAtSowing:
+    """The planner's view of the crop sown, for that sowing week (D083)."""
+
+    model: str
+    rank: int  # 1 is the best of the week
+    rel_yield_p50: float
+    p_success: float
+
+
+@dataclass(frozen=True)
 class CropCycle:
     plot_id: int
     crop: str
@@ -80,6 +92,10 @@ class CropCycle:
     accumulated_gdd: float = 0.0
     gdd_updated_through: date | None = None  # last local day counted (idempotency)
     status: CycleStatus = CycleStatus.ACTIVE
+    automated: bool = True  # the crop has a YAML: stage 2 runs it (D083)
+    own_risk: bool = False  # sown outside the planner's top 3, by the farmer's choice
+    plan: PlanAtSowing | None = None  # what the planner predicted, when it could judge
+    harvested_on: date | None = None
     id: int | None = None
 
 

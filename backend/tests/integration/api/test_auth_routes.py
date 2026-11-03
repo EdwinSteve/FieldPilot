@@ -37,6 +37,7 @@ def secured(tmp_path: Path) -> Iterator[Secured]:
         database_url=f"sqlite:///{tmp_path / 'auth.db'}",
         mock_llm=True,
         auth_jwt_secret=SECRET,
+        planner_site_builder="off",
     )
     app = create_app(settings)
     container: Container = app.state.container
@@ -252,3 +253,23 @@ def test_the_demo_profile_may_run_without_tokens() -> None:
     app = create_app(_settings(app_profile="demo", auth_required=False))
     with TestClient(app) as client:
         assert client.get("/tasks").status_code == 200
+
+
+def test_a_farmer_sees_only_the_plots_they_created_or_were_given(secured: Secured) -> None:
+    ana = _farmer(secured)["tokens"]["access_token"]
+    luis = _register(secured, phone="3112223344").json()["tokens"]["access_token"]
+    plot = {"name": "La Esperanza", "municipality": "La Plata", "department": "Huila",
+            "latitude": 2.39, "longitude": -75.89, "area_ha": 3.5}  # fmt: skip
+
+    created = secured.client.post("/plots", json=plot, headers=_bearer(ana)).json()
+
+    assert [p["id"] for p in secured.client.get("/plots", headers=_bearer(ana)).json()] == [
+        created["id"]
+    ]
+    assert secured.client.get("/plots", headers=_bearer(luis)).json() == []
+    site = f"/plots/{created['id']}/site"
+    assert secured.client.get(site, headers=_bearer(luis)).status_code == 403
+
+
+def test_the_passport_is_public(secured: Secured) -> None:
+    assert secured.client.get("/trace/FP-1-20261028-1").status_code == 404  # not 401

@@ -64,7 +64,7 @@ def test_a_plot_without_site_data_is_a_conflict(
     response = _plan(client, other.id)
 
     assert response.status_code == 409
-    assert "make planner-site" in response.json()["message"]
+    assert f"/plots/{other.id}/site" in response.json()["message"]
 
 
 def test_weeks_stay_within_one_to_twelve(client: TestClient, farm: Farm) -> None:

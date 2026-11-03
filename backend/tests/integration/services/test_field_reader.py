@@ -149,5 +149,5 @@ def test_a_plot_without_an_active_cycle_is_missing_data(uow: UowFactory, maize: 
         assert plot.id is not None
         u.commit()
 
-    with pytest.raises(MissingDataError, match="no active crop cycle"):
+    with pytest.raises(MissingDataError, match="no active automated crop cycle"):
         _reader(uow, maize).crop_stage(plot.id)

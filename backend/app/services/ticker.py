@@ -9,6 +9,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
+from app.domain.enums import CycleStatus
 from app.domain.errors import MissingDataError
 from app.domain.models import CropCycle, Plot, Task
 from app.persistence.ports import UnitOfWork
@@ -50,7 +51,13 @@ class SimulationTicker:
         at = self._clock.now()
         with self._uow() as u:
             plots = list(u.plots.list())
-            cycles = [c for p in plots if p.id is not None for c in u.cycles.list_by_plot(p.id)]
+            cycles = [  # stage 2 counts degree-days only for active automated cycles (D083)
+                c
+                for p in plots
+                if p.id is not None
+                for c in u.cycles.list_by_plot(p.id)
+                if c.status is CycleStatus.ACTIVE and c.automated
+            ]
         missing = ensure_simulated(self._uow, self._simulator)
         readings = sum(self._record(plot, at) for plot in plots)
         tasks = tuple(self._due.run_due(at))
