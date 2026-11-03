@@ -4,6 +4,7 @@ import { readHarvestDefaults } from "../hooks/harvestDefaultsStore";
 import { en } from "../i18n/en";
 import {
   BAG_PRESETS,
+  firstHarvestDay,
   GRADES,
   harvestFailure,
   harvestKg,
@@ -113,7 +114,7 @@ export function HarvestSheet({ info, onClose, onSaved }: HarvestSheetProps) {
         <input
           type="date"
           value={date}
-          min={info.sowingDate}
+          min={firstHarvestDay(info.sowingDate)}
           max={info.today}
           aria-invalid={tried && problems.date !== null}
           onChange={(event) => setDate(event.target.value)}
