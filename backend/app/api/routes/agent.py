@@ -6,6 +6,7 @@ from fastapi import APIRouter, Body, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from app.agent.loop import AgentRun, RunStatus
+from app.api.auth import FarmerDep
 from app.api.deps import ContainerDep
 from app.api.errors import ChatUnavailableError
 from app.api.schemas import ChatIn, ChatOut, DailyCycleIn, DailyCycleOut, VoiceOut
@@ -15,12 +16,14 @@ MAX_AUDIO_BYTES = 32 * 1024 * 1024  # the transcription service's own limit
 
 
 @router.post("/daily-cycle")
-def daily_cycle(body: DailyCycleIn, container: ContainerDep) -> DailyCycleOut:
+def daily_cycle(body: DailyCycleIn, farmer: FarmerDep, container: ContainerDep) -> DailyCycleOut:
+    container.access.require_farm(farmer, body.plot_id)  # the plot comes in the body
     return DailyCycleOut.of(container.daily_cycle(body.plot_id).run(body.plot_id))
 
 
 @router.post("/chat", response_model=ChatOut)
-def chat(body: ChatIn, container: ContainerDep) -> ChatOut | JSONResponse:
+def chat(body: ChatIn, farmer: FarmerDep, container: ContainerDep) -> ChatOut | JSONResponse:
+    container.access.require_farm(farmer, body.plot_id)
     if container.chat is None:
         raise ChatUnavailableError
     run = container.chat.ask(body.plot_id, body.question)

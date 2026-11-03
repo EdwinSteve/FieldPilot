@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import date
 
 from app.domain.models import Plot, Zone
@@ -13,6 +14,7 @@ from app.satellite.segmentation import (
 from app.services.imagery_reader import StoredImageryReader
 from tests.conftest import SATELLITE_DIR, T0, FieldIds
 from tests.integration.agent.session import IMAGING, SAM_BOXES
+from tests.integration.services.world import CROPS
 
 UowFactory = Callable[[], SqlUnitOfWork]
 DAY = date(2026, 10, 28)
@@ -35,6 +37,7 @@ def _reader(
         ImageryLoader.from_directory(SATELLITE_DIR),
         segmentation or MockSegmentation(SAM_BOXES),
         IMAGING,
+        CROPS,
     )
 
 
@@ -93,3 +96,27 @@ def test_an_outage_leaves_bare_soil_unknown_and_is_retried(
     assert first.zones[0].ndvi_mean == 0.802  # NDVI does not depend on SAM
     assert first.segmentation_note is not None and "HTTP 503" in first.segmentation_note
     assert down.calls == 2  # an outage is not cached
+
+
+def test_low_vigour_uses_the_threshold_of_the_plots_crop(uow: UowFactory, field: FieldIds) -> None:
+    """D077: the same NDVI is low for one crop and normal for another."""
+    with uow() as u:
+        u.zones.add(Zone(field.plot_id, "Zona 2", 0.5, 32.0, valve_id="v9"))
+        u.commit()
+    tolerant = {"maize": replace(CROPS["maize"], low_ndvi_threshold=0.3)}
+    reader = StoredImageryReader(
+        uow,
+        ImageryLoader.from_directory(SATELLITE_DIR),
+        MockSegmentation(SAM_BOXES),
+        IMAGING,
+        tolerant,
+    )
+
+    strict_view = _reader(uow).imagery(field.plot_id, DAY)
+    tolerant_view = reader.imagery(field.plot_id, DAY)
+
+    assert strict_view is not None and tolerant_view is not None
+    [strict_zone], [tolerant_zone] = strict_view.zones, tolerant_view.zones
+    assert strict_zone.ndvi_mean == tolerant_zone.ndvi_mean == 0.378
+    assert strict_view.low_vigor(strict_zone) is True  # maize threshold 0.4
+    assert tolerant_view.low_vigor(tolerant_zone) is False  # threshold 0.3

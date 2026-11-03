@@ -41,7 +41,16 @@ def database_url(tmp_path: Path) -> str:
 
 def restart(database_url: str) -> FastAPI:
     """A new process on the same database: memory-only state is gone (D014)."""
-    return create_app(Settings(_env_file=None, database_url=database_url, mock_llm=True))
+    # The dashboard routes as the demo runs them: no token, the demo farmer (D082).
+    # tests/integration/api/test_auth_routes.py covers the routes with a token.
+    settings = Settings(
+        _env_file=None,
+        database_url=database_url,
+        mock_llm=True,
+        app_profile="demo",
+        auth_required=False,
+    )
+    return create_app(settings)
 
 
 @pytest.fixture

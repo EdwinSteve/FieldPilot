@@ -1,0 +1,72 @@
+{
+ "test_years": "2018-2025",
+ "test": {
+  "network": {
+   "rel_yield_pinball": 0.02091,
+   "rel_yield_mae": 0.06187,
+   "rel_yield_coverage_p10_p90": 0.74,
+   "success_brier": 0.0562,
+   "success_ece": 0.03129,
+   "irrigation_mae_mm": 48.07,
+   "ndcg_at_3": 0.98433
+  },
+  "b0_climatology": {
+   "rel_yield_pinball": 0.03419,
+   "rel_yield_mae": 0.06838,
+   "rel_yield_coverage_p10_p90": 0.2367,
+   "success_brier": 0.09373,
+   "success_ece": 0.09373,
+   "irrigation_mae_mm": 56.47,
+   "ndcg_at_3": 0.9771
+  },
+  "b1_history": {
+   "rel_yield_pinball": 0.02454,
+   "rel_yield_mae": 0.07312,
+   "rel_yield_coverage_p10_p90": 0.6887,
+   "success_brier": 0.07261,
+   "success_ece": 0.03914,
+   "irrigation_mae_mm": 57.0,
+   "ndcg_at_3": 0.97493
+  }
+ },
+ "adopted": true,
+ "eva_spearman": {
+  "maize": 0.04,
+  "common_bean": -0.038,
+  "sorghum": 0.033,
+  "soybean": -0.02,
+  "groundnut": -0.109,
+  "cotton": 0.202,
+  "tomato": 0.219,
+  "potato": 0.104
+ },
+ "holdout": {
+  "network": {
+   "rel_yield_pinball": 0.02763,
+   "rel_yield_mae": 0.08394,
+   "rel_yield_coverage_p10_p90": 0.657,
+   "success_brier": 0.0876,
+   "success_ece": 0.05222,
+   "irrigation_mae_mm": 65.18,
+   "ndcg_at_3": 0.98412
+  },
+  "b0_climatology": {
+   "rel_yield_pinball": 0.03943,
+   "rel_yield_mae": 0.07885,
+   "rel_yield_coverage_p10_p90": 0.0791,
+   "success_brier": 0.11331,
+   "success_ece": 0.11331,
+   "irrigation_mae_mm": 69.13,
+   "ndcg_at_3": 0.98569
+  },
+  "b1_history": {
+   "rel_yield_pinball": 0.09261,
+   "rel_yield_mae": 0.21425,
+   "rel_yield_coverage_p10_p90": 0.1591,
+   "success_brier": 0.22386,
+   "success_ece": 0.21089,
+   "irrigation_mae_mm": 93.74,
+   "ndcg_at_3": 0.90871
+  }
+ }
+}

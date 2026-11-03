@@ -8,13 +8,19 @@ decides here, and only here, which model clients are real (D063).
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 
 from app.agent.llm.mock import MockLLMClient
 from app.agent.llm.muse import MuseClient
 from app.agent.llm.ports import LLMClient
 from app.autonomy.gate import AutonomyGate
-from app.bootstrap import Runtime, RuntimeConfig
+from app.bootstrap import AuthSetting, Runtime, RuntimeConfig
+from app.identity.access import AccessPolicy
+from app.identity.passwords import Argon2Hasher
+from app.identity.service import AuthService
+from app.identity.tokens import JwtAccessTokens
+from app.planning.setup import build_recommender
+from app.planning.sites import FixtureSiteSource
 from app.satellite.sam31 import Sam31Segmentation
 from app.satellite.scenes import ImageryLoader
 from app.satellite.segmentation import RecordedSegmentation, SegmentationProvider
@@ -33,6 +39,7 @@ from app.services.field_reader import StoredFieldReader
 from app.services.gate_context import StoredGateContextProvider
 from app.services.imagery_reader import StoredImageryReader
 from app.services.phenology import PhenologyService
+from app.services.planning import PlanningService
 from app.services.proposals import ProposalService
 from app.services.queries import FarmQueries
 from app.services.rain_forecast import PlotRainForecast
@@ -41,6 +48,7 @@ from app.services.scenarios import ScenarioService
 from app.services.ticker import SimulationTicker
 from app.services.voice_chat import VoiceChatService
 from app.settings import Settings
+from app.simulator.clock import system_wall_clock
 from app.voice.muse import MuseVoiceTranscribe
 from app.weather.fixture import FixtureForecast
 
@@ -66,9 +74,15 @@ class Container:
     daily_cycle: Callable[[int], DailyCycle]  # for a plot, on its current local day
     chat: ChatService | None  # None under MOCK_LLM=1 (D063)
     voice: VoiceChatService | None
+    auth_required: bool  # False only under APP_PROFILE=demo (D082)
+    auth: AuthService
+    access: AccessPolicy
+    planning: PlanningService  # stage 1 (D079, D081)
 
 
-def build_container(settings: Settings, config: RuntimeConfig, runtime: Runtime) -> Container:
+def build_container(
+    settings: Settings, config: RuntimeConfig, runtime: Runtime, auth: AuthSetting
+) -> Container:
     uow, clock = runtime.uow, runtime.clock
     forecast = PlotRainForecast(
         uow, FixtureForecast.from_directory(settings.data_dir / "fixtures" / "open_meteo")
@@ -87,6 +101,7 @@ def build_container(settings: Settings, config: RuntimeConfig, runtime: Runtime)
         ImageryLoader.from_directory(settings.data_dir / "satellite"),
         _segmentation(settings),
         config.imaging,
+        config.crops,
     )
 
     def agent_deps(llm: LLMClient) -> AgentDeps:
@@ -105,7 +120,7 @@ def build_container(settings: Settings, config: RuntimeConfig, runtime: Runtime)
 
     live = None if settings.mock_llm else agent_deps(MuseClient.from_settings(settings))
     recordings = settings.data_dir.joinpath(*MOCK_CYCLE_DIR)
-    queries = FarmQueries(uow, clock, revert, config.messages, imagery)
+    queries = FarmQueries(uow, clock, revert, config.messages, imagery, config.crops)
 
     def cycle_llm(day: date) -> LLMClient:
         """A fresh replay of that day's recording; a day never recorded replays nothing,
@@ -142,6 +157,28 @@ def build_container(settings: Settings, config: RuntimeConfig, runtime: Runtime)
         daily_cycle=daily_cycle,
         chat=chat,
         voice=voice,
+        auth_required=auth.required,
+        auth=_auth_service(runtime, config, auth),
+        access=AccessPolicy(uow),
+        planning=PlanningService(
+            uow,
+            clock,
+            FixtureSiteSource(settings.data_dir / "fixtures" / "planner"),
+            build_recommender(settings.planner_dir, settings.planner_bundle),
+            config.crops,
+        ),
+    )
+
+
+def _auth_service(runtime: Runtime, config: RuntimeConfig, auth: AuthSetting) -> AuthService:
+    """Identity runs on the wall clock: the simulated one must not expire sessions (D082)."""
+    lifetime = timedelta(minutes=config.identity.access_token_minutes)
+    return AuthService(
+        runtime.uow,
+        system_wall_clock,
+        Argon2Hasher(),
+        JwtAccessTokens(auth.signing_key, lifetime),
+        config.identity,
     )
 
 

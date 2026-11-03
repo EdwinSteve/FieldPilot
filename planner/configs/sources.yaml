@@ -1,0 +1,30 @@
+# Public data sources, verified 2026-11-02 (planner/README.md §4.1).
+
+power:
+  url: https://power.larc.nasa.gov/api/temporal/daily/point
+  community: AG
+  parameters: [T2M, T2M_MAX, T2M_MIN, T2MDEW, RH2M, PRECTOTCORR, WS2M, ALLSKY_SFC_SW_DWN, GWETROOT]
+  fill_value: -999.0
+  note: The response's geometry carries the elevation of the grid cell (m).
+elevation:
+  url: https://api.open-meteo.com/v1/elevation
+  note: Copernicus DEM GLO-90; up to 100 coordinates per call.
+soilgrids:
+  url: https://files.isric.org/soilgrids/latest/data_aggregated/1000m/{property}/{property}_{depth}_mean_1000.tif
+  properties: [sand, clay, soc, phh2o, bdod, wv0033, wv1500]
+  depths: [0-5cm, 5-15cm, 15-30cm, 30-60cm, 60-100cm, 100-200cm]
+  note: >-
+    1 km aggregates of SoilGrids 2.0 (Homolosine), read as cloud-optimised
+    GeoTIFFs. The REST API returned the same values but took about two
+    minutes per point (measured 2026-11-02). Mapped units are divided by the
+    d_factor the REST API reports (sources/soilgrids.py: D_FACTOR).
+oni:
+  url: https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt
+divipola:
+  url: https://www.datos.gov.co/resource/gdxc-w37w.json
+  note: DANE municipality centroids; decimal comma in latitud/longitud.
+eva:
+  - {url: "https://www.datos.gov.co/resource/2pnw-mmge.json", years: [2006, 2018],
+     municipality: c_d_mun, crop: cultivo, year: a_o, area: rea_sembrada_ha, yield: rendimiento_t_ha}
+  - {url: "https://www.datos.gov.co/resource/uejq-wxrr.json", years: [2019, 2025],
+     municipality: c_digo_dane_municipio, crop: cultivo, year: a_o, area: rea_sembrada, yield: rendimiento}

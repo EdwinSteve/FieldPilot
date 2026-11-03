@@ -48,6 +48,9 @@ class StoredFieldReader:
         stage = stage_for(cycle.accumulated_gdd, crop)
         return StageView(
             cycle_id=_stored(cycle.id, "cycle"),
+            crop=crop.name,
+            crop_display_es=crop.display_name.get("es", crop.name),
+            root_depth_mm=crop.root_depth_mm,
             stage=stage.name,
             stage_display_es=stage.display_name.get("es", stage.name),
             accumulated_gdd=cycle.accumulated_gdd,

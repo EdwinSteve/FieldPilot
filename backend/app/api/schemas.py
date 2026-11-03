@@ -1,6 +1,7 @@
 """Request and response bodies. Mapping from domain objects only; no logic."""
 
 import json
+from dataclasses import asdict
 from datetime import date, datetime
 from typing import Annotated, Literal, Self
 
@@ -20,6 +21,8 @@ from app.domain.models import (
     Stage,
     Zone,
 )
+from app.phenology.catalog import CropSpec
+from app.planning.models import PlantingPlan
 from app.services.daily_cycle import DailyCycleResult
 from app.services.queries import CycleView, SensorReadings, TaskView
 from app.services.scenarios import ScenarioStatus
@@ -481,3 +484,86 @@ class HeavyRainIn(_ScenarioWindow):
 
 
 ScenarioIn = Annotated[DroughtIn | HeavyRainIn, Field(discriminator="name")]
+
+
+class CropStageOut(BaseModel):
+    name: str
+    display_es: str
+    gdd_start: float
+
+
+class CropOut(BaseModel):
+    """A crop of the catalogue, its stages in order (D077)."""
+
+    name: str
+    display_es: str
+    maturity_gdd: float
+    stages: list[CropStageOut]
+
+    @classmethod
+    def of(cls, crop: CropSpec) -> "CropOut":
+        return cls(
+            name=crop.name,
+            display_es=crop.display_name.get("es", crop.name),
+            maturity_gdd=crop.maturity_gdd,
+            stages=[
+                CropStageOut(
+                    name=stage.name,
+                    display_es=stage.display_name.get("es", stage.name),
+                    gdd_start=stage.gdd_start,
+                )
+                for stage in crop.stages
+            ],
+        )
+
+
+class CropOutlookOut(BaseModel):
+    crop: str
+    name_es: str
+    sowing_date: date
+    harvest_date: date
+    rel_yield_p10: float
+    rel_yield_p50: float
+    rel_yield_p90: float
+    p_success: float
+    irrigation_mm_p50: float
+    heat_days: float
+    cold_days: float
+    automatable: bool  # stage 2 can run it; the others are advice only (D079)
+
+
+class SowingWeekOut(BaseModel):
+    sowing_date: date
+    weather_until: date
+    oni: float
+    oni_latest_published: bool
+    outlooks: list[CropOutlookOut]
+
+
+class PlantingPlanOut(BaseModel):
+    """Crops ranked per sowing week (D079); advice, never a task."""
+
+    plot_id: int
+    generated_at: datetime
+    model: str
+    site_built_on: date
+    weeks: list[SowingWeekOut]
+
+    @classmethod
+    def of(cls, plan: PlantingPlan) -> "PlantingPlanOut":
+        return cls(
+            plot_id=plan.plot_id,
+            generated_at=plan.generated_at,
+            model=plan.model,
+            site_built_on=plan.site_built_on,
+            weeks=[
+                SowingWeekOut(
+                    sowing_date=w.sowing_date,
+                    weather_until=w.weather_until,
+                    oni=w.oni,
+                    oni_latest_published=w.oni_latest_published,
+                    outlooks=[CropOutlookOut(**asdict(o)) for o in w.outlooks],
+                )
+                for w in plan.weeks
+            ],
+        )

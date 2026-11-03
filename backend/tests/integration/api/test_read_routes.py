@@ -45,3 +45,27 @@ def test_events_filter_by_kind_and_task(
 
 def test_reports_start_empty(client: TestClient, farm: Farm) -> None:
     assert client.get("/reports").json() == []
+
+
+def test_a_crop_lists_its_stages_in_order(client: TestClient) -> None:
+    """D077: the dashboard draws the stage bar from the catalogue, not from code."""
+    body = client.get("/crops/maize").json()
+
+    assert (body["name"], body["display_es"]) == ("maize", "Maíz")
+    assert [s["name"] for s in body["stages"]] == [
+        "sowing",
+        "germination_emergence",
+        "vegetative",
+        "flowering",
+        "grain_fill",
+        "maturity_harvest",
+    ]
+    assert body["stages"][0] == {"name": "sowing", "display_es": "Siembra", "gdd_start": 0.0}
+    assert body["maturity_gdd"] == 1472.2
+
+
+def test_an_unknown_crop_is_404(client: TestClient) -> None:
+    response = client.get("/crops/coffee")
+
+    assert response.status_code == 404
+    assert response.json() == {"error": "NotFoundError", "message": "Crop coffee not found"}

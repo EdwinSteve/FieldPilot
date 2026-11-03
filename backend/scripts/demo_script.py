@@ -9,11 +9,13 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from app.agent.llm.ports import LLMClient
-from app.api.deps import FARMER
 from app.container import Container
 from app.domain.enums import TaskStatus
+from app.identity.models import Principal
 from app.services.daily_cycle import DailyCycle, DailyCycleResult
 from app.simulator.scenarios import DroughtScenario
+
+FARMER = Principal.demo_farmer().actor  # the demo runs as the dashboard did (D082)
 
 REJECT_REASON = "Esperaré la lluvia"  # the farmer's answer to the rain hold on day 1
 DROUGHT = timedelta(hours=48)  # the dashboard's "Inyectar sequía (48 h)"

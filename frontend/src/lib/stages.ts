@@ -1,14 +1,5 @@
 // The crop's walk through its stages, and the days since sowing. Pure logic only.
-
-/** The canonical maize order, as in config/crops/maize.yaml. */
-export const STAGE_ORDER = [
-  "sowing",
-  "germination_emergence",
-  "vegetative",
-  "flowering",
-  "grain_fill",
-  "maturity_harvest",
-] as const;
+// The stage order comes from the crop's catalogue entry (GET /crops/{crop}, D077).
 
 export type StageState = "done" | "current" | "todo";
 
@@ -22,14 +13,17 @@ export interface StageStep {
   state: StageState;
 }
 
-/** Each canonical stage as done, current or still ahead. Unknown names are ignored. */
-export function stageProgress(recorded: readonly RecordedStage[]): StageStep[] {
+/** Each stage of the crop, in `order`, as done, current or still ahead. Unknown names are ignored. */
+export function stageProgress(
+  order: readonly string[],
+  recorded: readonly RecordedStage[],
+): StageStep[] {
   const byName = new Map(recorded.map((stage) => [stage.name, stage]));
-  const current = STAGE_ORDER.find((name) => {
+  const current = order.find((name) => {
     const stage = byName.get(name);
     return stage !== undefined && stage.ended_at === null;
   });
-  return STAGE_ORDER.map((name) => {
+  return order.map((name) => {
     const stage = byName.get(name);
     if (stage === undefined) return { name, state: "todo" };
     if (stage.ended_at !== null) return { name, state: "done" };

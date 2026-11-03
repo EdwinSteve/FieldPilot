@@ -1,5 +1,6 @@
 // One function per backend endpoint (architecture §7). No logic beyond the call.
 import type {
+  Crop,
   ChatAnswer,
   Clock,
   ClockChange,
@@ -32,6 +33,7 @@ export const api = {
   readings: (zoneId: number, limit = 200) =>
     getJson<SensorReadings[]>(`/readings?zone_id=${zoneId}&limit=${limit}`),
   cycles: () => getJson<Cycle[]>("/cycles"),
+  crop: (name: string) => getJson<Crop>(`/crops/${encodeURIComponent(name)}`),
 
   tasks: (status?: TaskStatus) => getJson<Task[]>(status ? `/tasks?status=${status}` : "/tasks"),
   approve: (taskId: number) => postJson<Task>(`/tasks/${taskId}/approve`),

@@ -5,7 +5,8 @@ from datetime import timedelta
 from fastapi import APIRouter, HTTPException
 from pydantic import JsonValue
 
-from app.api.deps import FARMER, ContainerDep
+from app.api.auth import FarmerDep
+from app.api.deps import ContainerDep
 from app.api.schemas import (
     ClockIn,
     ClockOut,
@@ -26,21 +27,21 @@ def get_clock(container: ContainerDep) -> ClockOut:
 
 
 @router.post("/clock")
-def change_clock(body: ClockIn, container: ContainerDep) -> ClockOut:
+def change_clock(body: ClockIn, farmer: FarmerDep, container: ContainerDep) -> ClockOut:
     service = container.clock_service
     match body.action:
         case "pause":
-            service.pause(FARMER)
+            service.pause(farmer.actor)
         case "resume":
-            service.resume(FARMER)
+            service.resume(farmer.actor)
         case "speed":
             if body.speed_factor is None:
                 raise HTTPException(status_code=422, detail="speed needs speed_factor")
-            service.set_speed(FARMER, body.speed_factor)
+            service.set_speed(farmer.actor, body.speed_factor)
         case "advance":
             if body.advance_seconds is None:
                 raise HTTPException(status_code=422, detail="advance needs advance_seconds")
-            service.advance(FARMER, timedelta(seconds=body.advance_seconds))
+            service.advance(farmer.actor, timedelta(seconds=body.advance_seconds))
     return _clock(container)
 
 
@@ -57,8 +58,10 @@ def simulation_status(container: ContainerDep) -> ScenarioStatusOut:
 
 
 @router.post("/simulation/scenarios")
-def inject_scenario(body: ScenarioIn, container: ContainerDep) -> dict[str, JsonValue]:
-    return dict(container.scenarios.inject(body.scenario(), FARMER))
+def inject_scenario(
+    body: ScenarioIn, farmer: FarmerDep, container: ContainerDep
+) -> dict[str, JsonValue]:
+    return dict(container.scenarios.inject(body.scenario(), farmer.actor))
 
 
 @router.get("/emergency-stop")
@@ -67,8 +70,10 @@ def get_emergency_stop(container: ContainerDep) -> EmergencyStopOut:
 
 
 @router.post("/emergency-stop")
-def set_emergency_stop(body: EmergencyStopIn, container: ContainerDep) -> EmergencyStopOut:
-    return EmergencyStopOut.of(container.emergency.set(body.active, FARMER))
+def set_emergency_stop(
+    body: EmergencyStopIn, farmer: FarmerDep, container: ContainerDep
+) -> EmergencyStopOut:
+    return EmergencyStopOut.of(container.emergency.set(body.active, farmer.actor))
 
 
 def _clock(container: ContainerDep) -> ClockOut:

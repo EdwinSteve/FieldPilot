@@ -19,7 +19,10 @@ from scripts.demo_script import DROUGHT, ONE_DAY, REJECT_REASON
 def _demo(tmp_path: Path) -> tuple[TestClient, int]:
     url = f"sqlite:///{tmp_path / 'demo.db'}"
     plot_id = seed_demo_farm(url).plot_id
-    app = create_app(Settings(_env_file=None, database_url=url, mock_llm=True))
+    settings = Settings(
+        _env_file=None, database_url=url, mock_llm=True, app_profile="demo", auth_required=False
+    )
+    app = create_app(settings)
     return TestClient(app), plot_id
 
 

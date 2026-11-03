@@ -662,6 +662,8 @@ class CropSpec:
     maturity_gdd: float
     stages: tuple[StageSpec, ...]
     kc_curve: tuple[KcPoint, ...]                    # independent of the stages (D030)
+    root_depth_mm: float                             # effective root zone, for irrigation volumes (D077)
+    low_ndvi_threshold: float                        # mean NDVI below it is low vigour for this crop (D077)
     sources: Mapping[str, Source]                    # citation, url, verification
     reviewed_by_agronomist: bool
     calibration_note: str
@@ -689,6 +691,14 @@ harvest) mapped to degree-days (D030). `crop_coefficient_at` interpolates
 linearly between consecutive points and returns the last point's Kc from
 `maturity_gdd` on. Stages keep moisture targets, nutrients and autonomy
 only, so a stage boundary never forces a corner in the Kc curve.
+
+**Any crop of the catalogue (D077).** Nothing in the code names a crop. A
+cycle's `crop` selects its `CropSpec`, and everything crop-specific lives in
+its YAML: GDD method, stages, Kc curve, root depth and low-NDVI threshold.
+Adding an annual crop measured in degree-days is a new YAML file, with its
+sources. Perennial crops (coffee, cacao), whose stages do not follow
+degree-days from sowing, need another phenology model and their own
+decision.
 
 **Catalog validation.** Every numeric field in the YAML names a source
 declared in the same file (D017). The loader checks the following and stops
@@ -882,7 +892,8 @@ class FieldBrief:
 ```
 
 *Tools.* Read tools (`list_zones`, `read_zone`, `read_forecast`,
-`read_crop_stage`) go through a `FieldReader` port implemented in
+`read_crop_stage`, which also returns the crop and its root depth, so the
+prompts never assume one, D077) go through a `FieldReader` port implemented in
 `app/services`, so `app/agent` still never touches persistence. Writing
 tools have `writes=True`. Two more ports keep the closing tools free of
 storage: `ActionProposer` (`GateProposer` → `ProposalService`) and
@@ -997,6 +1008,158 @@ WAV in Spanish and asks the text chat. It returns the transcript with the
 answer, and raises `NothingHeardError` on an empty transcript.
 `app/voice/muse.py` uses no `openai` code: the endpoint is Meta's own.
 
+### 4.11 Planning (`app/planning`): stage 1 (D079)
+
+The training pipeline lives in `planner/` (its README is the training
+route). The backend only serves a trained bundle.
+
+```python
+@dataclass(frozen=True)
+class CropOutlook:                       # one crop, one sowing week
+    crop: str; sowing_date: date; harvest_date: date
+    rel_yield_p10: float; rel_yield_p50: float; rel_yield_p90: float
+    p_success: float
+    irrigation_mm_p50: float
+    heat_days: float; cold_days: float
+    automatable: bool                    # the crop has a YAML in config/crops/
+
+@dataclass(frozen=True)
+class PlantingPlan:
+    plot_id: int; generated_at: datetime
+    model: str                           # bundle id, or "b0-climatology"
+    outlooks: tuple[CropOutlook, ...]    # ranked by rel_yield_p50, then p_success
+
+class SiteSource(Protocol):              # D081
+    def snapshot(self, plot_id: int) -> SiteSnapshot: ...   # MissingDataError when absent
+# FixtureSiteSource: data/fixtures/planner/site_<plot_id>.json, written by
+# `make planner-site PLOT=<id> LAT= LON= ELEV=` (NASA POWER, SoilGrids, ONI)
+
+# fieldpilot_planner.serving (shared with training, numpy only)
+@dataclass(frozen=True)
+class SiteSnapshot:
+    lat, lon, elevation_m, cell_elevation_m
+    soil_profile                         # [6 layers, 7 properties], SoilGrids
+    climatology                          # [366, 9]: baseline 1991-2020 by day of year
+    weather_first_day: date
+    weather; valid                       # cleaned daily channels, ≥ 365 + 30 days to the latest day
+    oni                                  # {(year, end month): value}
+def climatology_plan(snapshot, sowing_dates, crops, success, spinup) -> ClimatologyPlan: ...  # B0
+def plan_inputs(snapshot, sowing_dates, crops, norm, success, spinup) -> PlanInputs: ...
+# PlanInputs: weather, clim, static, crop matrix, prior (B0 on the network's scale)
+def decode_network(raw [N, C, 9], inputs) -> PlanOutputs: ...
+def decode_b0(plan: ClimatologyPlan) -> PlanOutputs: ...
+
+class CropRecommender(Protocol):
+    model_id: str; crops: Sequence[CropCard]
+    def recommend(self, snapshot: SiteSnapshot, sowing_dates: Sequence[date]) -> Recommendation: ...
+# OnnxRecommender (planner bundle, manifest digests checked at load) · ClimatologyRecommender (B0)
+# fieldpilot_planner.manifest: text files are hashed with LF endings, so a bundle
+# exported on Windows verifies on Linux
+
+class PlanningService:
+    def plan(self, plot_id: int, first_sowing: date, weeks: int) -> PlantingPlan: ...
+    # snapshot → plan_inputs → recommender → CropOutlooks ranked per week;
+    # logs one planting_plan_served event (model id, snapshot SHA-256, top crop per week)
+```
+
+- **The weather history of a future sowing** ends on the snapshot's latest
+  day. The ONI is the season ending two months before sowing if it has
+  been published; otherwise it is the latest published season, with its
+  trend.
+- **The bundle** is `PLANNER_BUNDLE`, which defaults to the newest folder
+  in `planner/models/`. With no bundle, the backend serves B0, and the
+  plan's `model` says `b0-climatology`.
+- The plan is advice: it never creates, changes or proposes a task.
+- `weeks` is between 1 and 12.
+- `MissingDataError` (409) when the climate history is incomplete.
+- Only `app/planning/onnx.py` imports `onnxruntime`.
+
+### 4.12 Identity (`app/identity`): login, register and roles (D082)
+
+```python
+class Role(StrEnum):
+    FARMER = "farmer"; CUSTOMER = "customer"   # may register themselves
+    OPERATOR = "operator"; ADMIN = "admin"     # created by scripts/create_user.py only
+
+@dataclass(frozen=True)
+class Phone:                             # Colombian mobile, stored E.164: +573001234567
+    e164: str
+    @classmethod
+    def parse(cls, raw: str) -> "Phone": ...   # InvalidPhoneError
+
+@dataclass(frozen=True)
+class User:
+    phone: Phone; full_name: str; role: Role; password_hash: str
+    consent_version: str; consent_at: datetime
+    created_at: datetime; failed_logins: int = 0; locked_until: datetime | None = None
+    last_login_at: datetime | None = None; active: bool = True; id: int | None = None
+
+@dataclass(frozen=True)
+class Principal:                         # who is calling, from the access token
+    user_id: int | None                  # None only for the demo farmer (AUTH_REQUIRED=0)
+    role: Role
+    @property
+    def actor(self) -> str: ...          # "farmer:12", written to every event (principle 6)
+
+class PasswordHasher(Protocol):          # Argon2Hasher (argon2-cffi, Argon2id)
+    def hash(self, password: str) -> str: ...
+    def verify(self, password: str, encoded: str) -> bool: ...
+    def needs_rehash(self, encoded: str) -> bool: ...
+
+class AccessTokens(Protocol):            # JwtAccessTokens (PyJWT, HS256)
+    def issue(self, user_id: int, role: Role, now: datetime) -> str: ...
+    def principal(self, token: str, now: datetime) -> Principal: ...   # InvalidSessionError
+
+class AuthService:                       # wall clock, not the simulated one
+    def register(self, form: Registration) -> AuthResult: ...
+    def login(self, phone: str, password: str) -> TokenPair: ...
+    def refresh(self, refresh_token: str) -> TokenPair: ...
+    def logout(self, principal: Principal, refresh_token: str) -> None: ...
+    def logout_all(self, principal: Principal) -> None: ...
+    def me(self, principal: Principal) -> User: ...
+```
+
+**Rules.**
+1. **Passwords** are hashed with Argon2id; plain text is never stored or
+   logged. A password has between `password_min_length` and 128 characters
+   and must not contain the phone number. A hash made with older
+   parameters is replaced at the next successful login.
+2. **The same answer for an unknown phone and a wrong password** (401). An
+   unknown phone still verifies a dummy hash, so the response time does not
+   reveal which phones are registered.
+3. **Lockout.** After `max_failed_logins` failures in a row, the account is
+   locked for `lockout_minutes` (423). A successful login resets the
+   counter.
+4. **Access tokens** are JWT, HS256, valid `access_token_minutes`. They
+   carry only `sub`, `role`, `iss`, `aud`, `iat`, `exp` and `jti`, never a
+   phone number or a name. The key is `AUTH_JWT_SECRET`; it is required
+   under `APP_PROFILE=prod`, and without it the other profiles generate one
+   per process, so sessions end at restart.
+5. **Refresh tokens** are 32 random bytes, returned once and stored as
+   SHA-256. Every refresh rotates the token within its family. Presenting a
+   token that was already used revokes the whole family (theft detection).
+6. **Consent.** Registration requires accepting the current privacy policy
+   version (`privacy_policy_version`, Ley 1581 de 2012); the version and the
+   time are stored with the user.
+7. **Audit.** `auth_event` is append-only and uses wall time: `registered`,
+   `login_succeeded`, `login_failed`, `account_locked`, `session_refreshed`,
+   `refresh_reused`, `logged_out`, `logged_out_all`. It never stores a
+   phone, a password or a token.
+8. **Authorisation** is one FastAPI dependency per rule (`app/api/auth.py`):
+   - every route needs a valid access token, except `/health`, `/auth/*`
+     (but `/auth/me` and the logouts) and the privacy policy;
+   - farm routes need the `farmer` or `admin` role;
+   - routes that name a plot also need a `PlotMember` row (admin passes);
+   - tasks, cycles and events are not yet scoped per plot: one farm per
+     deployment until the multi-farm step.
+9. **`AUTH_REQUIRED=0`** is honoured only under `APP_PROFILE=demo`: every
+   request then acts as the demo farmer, as the dashboard did before D082.
+   With any other profile, setting it stops the app at startup.
+
+`config/identity.yaml`: `access_token_minutes` (15), `refresh_token_days`
+(30), `max_failed_logins` (5), `lockout_minutes` (15),
+`password_min_length` (10), `privacy_policy_version`.
+
 ### 4.10 Persistence (`app/persistence`)
 
 The domain uses frozen dataclasses (`app/domain/models.py`) and knows
@@ -1079,6 +1242,10 @@ erDiagram
 | **Report** | id, cycle_id, stage_id?, language, content (markdown), created_at |
 | **ControlState** | id (single row), emergency_stop_active, changed_at, changed_by |
 | **SimClockState** | id (single row), sim_anchor, wall_anchor, speed_factor, paused |
+| **User** | id, phone (unique, E.164), full_name, role, password_hash, active, failed_logins, locked_until?, last_login_at?, consent_version, consent_at, created_at (D082) |
+| **RefreshSession** | id, user_id, token_hash (unique), family_id, expires_at, created_at, used_at?, revoked_at? |
+| **AuthEvent** | id, occurred_at (wall clock), kind, user_id?, detail (JSON, no personal data) |
+| **PlotMember** | id, plot_id, user_id · unique (plot_id, user_id) |
 
 Money is stored in minor units (`Money(amount_minor, currency)`) to avoid
 float rounding. Every datetime column is aware UTC (§4.10).
@@ -1087,7 +1254,8 @@ float rounding. Every datetime column is aware UTC (§4.10).
 `execution_requested`, `execution`, `execution_failed`, `revert`,
 `revert_refused`, `approval`, `rejection`, `notification`,
 `emergency_stop`, `stage_transition`, `agent_tool_call`, `config_override`,
-`clock_changed`, `scenario_injected`, `phenology_gap`.
+`clock_changed`, `scenario_injected`, `phenology_gap`,
+`planting_plan_served` (D079).
 
 Task lifecycle (`domain/task_transitions.py`). A task is created as
 `pending_approval` or `scheduled`, and these are the allowed transitions:
@@ -1172,9 +1340,17 @@ startup writes a `config_override` event with both values.
 | Method | Path | Service |
 |---|---|---|
 | GET | `/health` | — |
+| POST | `/auth/register` | `AuthService.register`: farmer or customer; 201 with the user and a token pair (D082) |
+| POST | `/auth/login`, `/auth/refresh` | `AuthService.login`, `AuthService.refresh`: a token pair |
+| POST | `/auth/logout`, `/auth/logout-all` | Revoke one refresh token, or all of the user's (204) |
+| GET | `/auth/me` | The calling user |
+| GET | `/auth/privacy-policy` | The current policy version, sent back on register |
+| POST | `/plots/{id}/members` | Admin only: give a user access to a plot |
 | GET | `/plots`, `/plots/{id}/zones` | plots and zones |
 | GET | `/plots/{id}/imagery` | NDVI, low-NDVI %, bare soil and low vigour per zone (D067), SAM boxes and zone areas (D073) |
 | GET | `/plots/{id}/imagery/image` | The scene's RGB PNG; 404 without a scene (D073) |
+| GET | `/plots/{id}/planting-plan?from=&weeks=` | `PlanningService.plan`: crops ranked per sowing week, with the model id (D079) |
+| GET | `/crops/{crop}` | A crop's display name and its stages in order, for the dashboard (D077) |
 | GET | `/autonomy/policy` | Default level per action type and the always-approval list (D073) |
 | GET | `/readings?zone_id=` | readings |
 | GET | `/cycles`, `/cycles/{id}` | cycles and stages |
@@ -1203,7 +1379,12 @@ Errors map to HTTP codes in one place (`app/api/errors.py`):
 
 | Error | Code |
 |---|---|
+| `InvalidCredentialsError`, `InvalidSessionError` | 401 |
+| `ForbiddenError` | 403 |
 | `NotFoundError` | 404 |
+| `PhoneTakenError`, `StalePolicyError` | 409 |
+| `AccountLockedError` | 423 |
+| `InvalidPhoneError`, `WeakPasswordError`, `ConsentRequiredError` | 422 |
 | `InvalidTransitionError`, `RevertRefusedError`, `MissingDataError` | 409 |
 | `UnsupportedActionError`, `UnsupportedAudioError`, `NothingHeardError` | 422 |
 | `LLMUnavailableError` (or a `PAUSED` chat run), `SpeechUnavailableError`, chat under `MOCK_LLM=1`, `FixtureExhaustedError` (a replay that does not match the farm) | 503 |

@@ -18,6 +18,17 @@ from app.domain.errors import (
     ScenarioRejectedError,
     UnsupportedActionError,
 )
+from app.identity.errors import (
+    AccountLockedError,
+    ConsentRequiredError,
+    ForbiddenError,
+    InvalidCredentialsError,
+    InvalidPhoneError,
+    InvalidSessionError,
+    PhoneTakenError,
+    StalePolicyError,
+    WeakPasswordError,
+)
 from app.services.revert import RevertRefusedError
 from app.voice.speech import NothingHeardError, SpeechUnavailableError, UnsupportedAudioError
 
@@ -30,6 +41,15 @@ class ChatUnavailableError(Exception):
 
 # 4xx: the message explains what to fix, and comes from our own code.
 _CLIENT_ERRORS: dict[type[Exception], HTTPStatus] = {
+    InvalidCredentialsError: HTTPStatus.UNAUTHORIZED,
+    InvalidSessionError: HTTPStatus.UNAUTHORIZED,
+    ForbiddenError: HTTPStatus.FORBIDDEN,
+    PhoneTakenError: HTTPStatus.CONFLICT,
+    StalePolicyError: HTTPStatus.CONFLICT,
+    AccountLockedError: HTTPStatus.LOCKED,
+    InvalidPhoneError: HTTPStatus.UNPROCESSABLE_ENTITY,
+    WeakPasswordError: HTTPStatus.UNPROCESSABLE_ENTITY,
+    ConsentRequiredError: HTTPStatus.UNPROCESSABLE_ENTITY,
     NotFoundError: HTTPStatus.NOT_FOUND,
     InvalidTransitionError: HTTPStatus.CONFLICT,
     RevertRefusedError: HTTPStatus.CONFLICT,
@@ -57,9 +77,14 @@ def install_error_handlers(app: FastAPI) -> None:
 
 
 def _client_handler(status: HTTPStatus) -> Handler:
+    # RFC 6750: a 401 tells the client which scheme to use.
+    headers = {"WWW-Authenticate": "Bearer"} if status is HTTPStatus.UNAUTHORIZED else None
+
     async def handler(_request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(
-            status_code=status, content={"error": type(exc).__name__, "message": str(exc)}
+            status_code=status,
+            content={"error": type(exc).__name__, "message": str(exc)},
+            headers=headers,
         )
 
     return handler

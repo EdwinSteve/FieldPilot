@@ -27,7 +27,9 @@ from app.domain.models import (
     Task,
     Zone,
 )
+from app.identity.models import AuthEvent, AuthEventKind, Phone, RefreshSession, Role, User
 from app.persistence.tables import (
+    AuthEventRow,
     ControlStateRow,
     CropCycleRow,
     DecisionRow,
@@ -35,11 +37,13 @@ from app.persistence.tables import (
     NotificationRow,
     PlotRow,
     ReadingRow,
+    RefreshSessionRow,
     ReportRow,
     SensorRow,
     SimClockStateRow,
     StageRow,
     TaskRow,
+    UserRow,
     ZoneRow,
 )
 
@@ -321,3 +325,83 @@ def sim_clock_from_row(row: SimClockStateRow) -> SimClockState:
 
 def _optional_level(value: Any) -> AutonomyLevel | None:
     return AutonomyLevel(value) if value is not None else None
+
+
+def user_to_row(user: User) -> UserRow:
+    return UserRow(
+        id=user.id,
+        phone=user.phone.e164,
+        full_name=user.full_name,
+        role=user.role.value,
+        password_hash=user.password_hash,
+        active=user.active,
+        failed_logins=user.failed_logins,
+        locked_until=user.locked_until,
+        last_login_at=user.last_login_at,
+        consent_version=user.consent_version,
+        consent_at=user.consent_at,
+        created_at=user.created_at,
+    )
+
+
+def user_from_row(row: UserRow) -> User:
+    return User(
+        id=row.id,
+        phone=Phone(row.phone),
+        full_name=row.full_name,
+        role=Role(row.role),
+        password_hash=row.password_hash,
+        active=row.active,
+        failed_logins=row.failed_logins,
+        locked_until=row.locked_until,
+        last_login_at=row.last_login_at,
+        consent_version=row.consent_version,
+        consent_at=row.consent_at,
+        created_at=row.created_at,
+    )
+
+
+def refresh_session_to_row(session: RefreshSession) -> RefreshSessionRow:
+    return RefreshSessionRow(
+        id=session.id,
+        user_id=session.user_id,
+        token_hash=session.token_hash,
+        family_id=session.family_id,
+        expires_at=session.expires_at,
+        created_at=session.created_at,
+        used_at=session.used_at,
+        revoked_at=session.revoked_at,
+    )
+
+
+def refresh_session_from_row(row: RefreshSessionRow) -> RefreshSession:
+    return RefreshSession(
+        id=row.id,
+        user_id=row.user_id,
+        token_hash=row.token_hash,
+        family_id=row.family_id,
+        expires_at=row.expires_at,
+        created_at=row.created_at,
+        used_at=row.used_at,
+        revoked_at=row.revoked_at,
+    )
+
+
+def auth_event_to_row(event: AuthEvent) -> AuthEventRow:
+    return AuthEventRow(
+        id=event.id,
+        occurred_at=event.occurred_at,
+        kind=event.kind.value,
+        user_id=event.user_id,
+        detail=dict(event.detail),
+    )
+
+
+def auth_event_from_row(row: AuthEventRow) -> AuthEvent:
+    return AuthEvent(
+        id=row.id,
+        occurred_at=row.occurred_at,
+        kind=AuthEventKind(row.kind),
+        user_id=row.user_id,
+        detail=row.detail,
+    )

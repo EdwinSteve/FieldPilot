@@ -2219,3 +2219,275 @@ for approval and rejected, autonomous and executed, and notified and
 reverted. It replays offline, and it can be re-recorded with one command
 when a prompt changes.
 
+---
+
+## D077 — Any annual crop: everything crop-specific lives in its YAML
+
+- **Date:** 2026-11-02
+- **Status:** Accepted (2026-11-02), chosen by Edwin. Amends D059 (the
+  low-NDVI threshold leaves `config/imaging.yaml`).
+
+**Context.** The catalogue, the gate, phenology and the simulator already
+read the crop from the cycle, so a second crop needs no new code there. Six
+places still assumed maize:
+- the five agent prompts ("for a maize farm");
+- the irrigation rule of thumb, which assumed a 300 mm root zone;
+- `config/imaging.yaml`'s single low-NDVI threshold;
+- the dashboard's hard-coded stage order;
+- its "Maíz" label;
+- the chat placeholder.
+
+Three options were weighed:
+- **(A)** generalize, and add crops by configuration;
+- **(B)** pluggable phenology models, for perennials;
+- **(C)** let the model generate crop parameters at run time.
+
+C was rejected: those values feed the safety rules and would have no source
+(D019).
+
+**Decision.**
+- **A now; B later**, with its own decision and an agronomist.
+- **Each crop's YAML gains two sourced fields:**
+  - `root_depth_mm`, the effective root zone used to size irrigation;
+  - `imaging.low_ndvi_threshold`.
+
+  For maize they keep today's values (300 mm, 0.4), marked as demo values
+  as before.
+- **The imagery reader takes the threshold from the active cycle's crop.**
+  `config/imaging.yaml` keeps only the segmentation prompt.
+- **`read_crop_stage` also returns the crop** (name and Spanish name) and
+  its root depth, as citable observations. The prompts say "a farm",
+  learn the crop from that tool, and size irrigation as about
+  `root_depth_mm / 100` mm per point of moisture below field capacity.
+- **`GET /crops/{crop}`** returns the display name and the stages in order.
+  The dashboard draws the stage bar and the crop's name from it.
+- **The demo is recorded again** with `make record-demo`, because the
+  prompts change. The replay test must still pass.
+- **A second annual crop** is added only with cited sources, in its own
+  commit.
+
+**Consequences.** Adding an annual crop is a reviewed YAML file. The code,
+the agent and the dashboard work with any crop of the catalogue, and every
+number the agent uses about a crop still has a source.
+
+---
+
+## D078 — The bean waits for a days-based phenology model
+
+- **Date:** 2026-11-02
+- **Status:** Accepted (2026-11-02), chosen by Edwin.
+
+**Context.** D077 makes any annual crop a YAML file. Research for a second
+crop, the common bean, is in `docs/research/beans.md`.
+- **Verified:** the Kc values (FAO-56 Table 12), the stage lengths in days
+  (Table 11), the root depth (Table 22) and CIAT's development scale.
+- **Not verified:** the GDD base temperature, on which studies disagree from
+  0 to 10 °C, and any published degree-days per stage.
+
+The phenology engine counts degree-days (D017, D031), while the reliable
+bean data for the tropics is in days after sowing.
+
+**Decision.**
+- The bean is **not** added with stage thresholds converted from days to
+  degree-days. That conversion would be a project convention presented as
+  crop data, and it would set the moisture targets and Kc that steer
+  irrigation.
+- The next step is a days-based phenology model. A crop declares whether
+  its stages count degree-days or days after sowing. The bean follows it,
+  with the FAO-56 and CIAT values as published.
+
+**Consequences.** The catalogue keeps one standard: every crop value has a
+source. Multi-crop support is shown by the configuration (D077), not by a
+crop with converted data. The research stays in the repository, so it is
+not lost.
+
+
+---
+
+## D079 — Stage 1: a crop planner trained during the hackathon
+
+- **Date:** 2026-11-02
+- **Status:** Accepted (2026-11-02), chosen by Edwin.
+
+**Context.** FieldPilot is one product in three stages: plan what to sow
+(stage 1), automate the crop that was sown (stage 2, built in steps 1–11),
+and sell the harvest directly to buyers with a traceability record
+(stage 3, future). Edwin wants stage 1 in the demo: a model that recommends
+what to sow and when, from the climate, the soil and the season ahead.
+
+Two facts constrain the design:
+- **No labelled data exists** of "crop *c* sown on date *d* here yielded *y*".
+- **The deadline is 2026-11-04.**
+
+**Decision.**
+- **A `planner/` folder holds stage 1:** data download, cleaning, labels,
+  training and export. Every dataset is public, downloaded by its scripts,
+  and recorded in a manifest with its date and SHA-256.
+- **Labels come from an oracle of published FAO models** run on the weather
+  that actually happened, 1981–2025:
+  - a FAO-56 daily water balance;
+  - the FAO-33 yield response, with Ky;
+  - ECOCROP temperature and pH ranges.
+
+  Stage lengths are days after sowing, as published (as in D078).
+- **The model is a neural network (CropPlannerNet)**, trained on the
+  RTX 5060 Ti:
+  - it reads the past 365 days of weather, the climatology ahead, the soil,
+    the site, ENSO and the crop's card;
+  - it predicts the rainfed relative yield (p10/p50/p90), the probability
+    of success, the irrigation need and the stress days.
+- **It must beat the climatology oracle (B0) on 2018–2025.** Otherwise the
+  backend serves B0 and says so. Both sit behind one `CropRecommender` port.
+- **The planner advises; it never acts.**
+  - Starting a cycle is a farmer action.
+  - Only crops with a FieldPilot YAML can be automated by stage 2; the
+    others are shown as advice only.
+  - Each recommendation shown is logged as a new event kind,
+    `planting_plan_served`.
+- **One feature builder** (`fieldpilot_planner.features`) is shared by
+  training and serving. The backend imports it through a path dependency
+  and adds `onnxruntime`. PyTorch never enters the backend.
+
+**Consequences.**
+- Stage 1 is reproducible from public data and scripts in this repository.
+- The recommendations inherit the published crop parameters, which are not
+  calibrated locally. The EVA yield check and the model card say how far
+  they can be trusted, and the dashboard shows that limit.
+- If time runs out before the network wins, the demo still has an honest
+  planner (B0), and the network stays an experiment.
+
+---
+
+## D080 — Stage 3: a direct market with per-lot traceability and a shopping agent
+
+- **Date:** 2026-11-02
+- **Status:** Proposed
+
+**Context.** Stage 3 sells the harvest directly to the people who eat it,
+with no intermediaries (D079 names the three stages). Edwin wants:
+- each product's traceability, from the farm through the warehouses;
+- a store for final customers;
+- an AI agent that helps customers shop from their purchase history;
+- a purchase record for each customer.
+
+`product_listing` and `price_change` already exist as action types that
+always need approval (D005). The API has no authentication, and the
+deadline is 2026-11-04.
+
+**Decision.** The full design is [`docs/market.md`](market.md).
+- **A modular monolith.** A new package, `app/market/`, has its own domain,
+  ports and tables, and an import rule keeps the farm side from depending
+  on it. There are no microservices and no blockchain.
+- **One hash chain per lot** (SHA-256), named with the GS1 EPCIS 2.0
+  vocabulary. The commissioning event seals a digest of the stage-2 events
+  behind the passport. A split lot starts its chain from the parent's head
+  hash.
+- **Quantities are integer grams and are conserved per lot.** Stock is an
+  append-only ledger and is allocated FEFO.
+- **A listing and a price change go through the existing gate.** An
+  `ActuatorRouter` sends them to a `ListingActuator`. `Actuator` is split
+  from `ValveControl`, and `ExecutionResult` gains a `reference`.
+- **The recommender is a set of deterministic, explainable scorers:**
+  replenishment, co-purchase, fresh harvest and popularity. The `shopper`
+  subagent explains their results and proposes a cart. It never places an
+  order, and its tools are bound to the session's customer.
+- **Edwin's answers (2026-11-03):**
+  - **Buyers:** any customer, households or businesses, with one catalogue
+    and the same prices in the demo.
+  - **Warehouses:** one in the demo, in a multi-warehouse model.
+  - **The farmer's name on the passport:** opt-in, with revocable consent
+    (Ley 1581 de 2012).
+  - **Fees:** low example values (`demo_value`): COP 300 per kg for
+    logistics and 5 % for the platform, with a guard that keeps the
+    farmer's share at 80 % or more.
+- **Hackathon scope:** the thin slice of `market.md` §12, in mock mode,
+  after the stage 1 integration.
+
+**Consequences.**
+- The passport can be verified on its own, and the forward trace answers a
+  recall.
+- No new path to execution exists, and the farmer approves every sale.
+- Demo authentication is a persona switcher under `APP_PROFILE=demo`, not
+  real authentication.
+- PostgreSQL and OIDC are required before real users.
+- `architecture.md` gets §4.12 to §4.15 when this is accepted.
+
+---
+
+## D081 — The planner serves from a site snapshot per plot
+
+- **Date:** 2026-11-03
+- **Status:** Accepted (2026-11-03)
+
+**Context.** §4.11 (D079) gave the backend a `ClimateSource` with only the
+recent daily weather. The trained network needs more for each plot:
+- the soil profile;
+- the 1991-2020 climatology ahead;
+- the ONI;
+- the B0 prior, which is the oracle run on that climatology.
+
+Fetching all of it per request means a thirty-year NASA POWER series and
+SoilGrids rasters, which take minutes, and network access in mock mode.
+
+**Decision.**
+- **One `SiteSnapshot` per plot.** It is built once by
+  `make planner-site`, saved as JSON under `data/fixtures/planner/`, and
+  read by `FixtureSiteSource`. `SiteSource` replaces `ClimateSource`.
+- **`fieldpilot_planner.serving` builds the inputs** with the same cleaning,
+  climatology, features and oracle code that training used. That includes
+  B0, computed at request time.
+- **A sowing after the snapshot's latest day** uses the latest 365 days of
+  history and the latest published ONI. The planner says so in the
+  response.
+- **`OnnxRecommender` checks the bundle's manifest SHA-256** when it loads.
+  A bundle that does not match is refused, and the app does not start.
+
+**Consequences.**
+- The planner works offline and in CI.
+- Refreshing a plot's data is one command.
+- A plan sowed weeks after the snapshot is less informed, and the event
+  records the snapshot's SHA-256, so each plan can be traced to its data.
+
+---
+
+## D082 — Login and register: phone and password, short JWT, rotating refresh tokens
+
+- **Date:** 2026-11-03
+- **Status:** Accepted (2026-11-03), chosen by Edwin.
+
+**Context.** The API had no authentication: every request came from the
+farmer's dashboard. Stage 3 (D080) has farmers, customers, warehouse
+operators and admins. Edwin asked for login and register in the backend
+now, with every route protected, and chose the phone number as the login,
+because many farmers do not use email.
+
+**Decision.** The contract is architecture.md §4.12.
+- **Login with a Colombian mobile number and a password.** Passwords are
+  hashed with Argon2id.
+- **Short access tokens and long refresh tokens.** Access tokens are JWT
+  (HS256) for 15 minutes. Refresh tokens are opaque, stored as SHA-256,
+  rotated on every use, and a reused one revokes its family.
+- **The same 401** for an unknown phone and a wrong password, with a dummy
+  hash, and a 15-minute lockout after 5 failures.
+- **Consent.** Registration records the accepted privacy policy version
+  (Ley 1581 de 2012).
+- **Roles.** Farmers and customers register themselves. Operators and
+  admins are created on the server with `scripts/create_user.py`. Plot
+  access is a `PlotMember` row.
+- **Every route needs a token**, except `/health` and the public auth
+  routes. `AUTH_REQUIRED=0` is allowed only under `APP_PROFILE=demo`, so
+  the current dashboard keeps working for the demo until it has a login
+  screen.
+- **Auth uses the wall clock**, never the simulated one: an accelerated
+  clock must not expire sessions.
+- **Events carry the real actor.** Farm events record `farmer:<id>`
+  instead of the fixed `farmer:dashboard`.
+
+**Consequences.**
+- New dependencies: `argon2-cffi` and `pyjwt`.
+- Tasks, cycles and events stay global to the deployment (one farm) until
+  the multi-farm step. Plot routes already check membership.
+- There is no rate limit per IP yet, only the per-account lockout. A
+  reverse proxy limit is needed before going public.
+- Moving to OIDC later replaces `AccessTokens` and the register route; the
+  roles and the `Principal` stay.

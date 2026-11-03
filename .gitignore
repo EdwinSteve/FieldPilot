@@ -29,3 +29,6 @@ dist/
 .vscode/
 .idea/
 .DS_Store
+
+# Planner data caches (raw API responses and cleaned series; rebuilt by make)
+data/planner/
