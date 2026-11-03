@@ -1,6 +1,8 @@
 BACKEND  := backend
 FRONTEND := frontend
 UV       := uv --directory $(BACKEND)
+PLANNER  := planner
+UVP      := uv --directory $(PLANNER)
 # Extra ruff options; CI passes --output-format=github for inline PR annotations.
 RUFF_ARGS ?=
 # Backend port for `make dev`; the frontend proxy follows it (make dev BACKEND_PORT=8001).
@@ -9,7 +11,8 @@ BACKEND_PORT ?= 8000
 .PHONY: help install install-backend install-frontend dev dev-backend dev-frontend \
 	seed record-demo test lint lint-backend lint-rules-backend format-check-backend format \
 	typecheck typecheck-backend typecheck-frontend build-frontend lint-frontend test-frontend \
-	check check-backend check-frontend check-repo preflight clean
+	check check-backend check-frontend check-repo preflight clean \
+	install-planner check-planner planner
 
 help: ## List available targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-22s %s\n", $$1, $$2}'
@@ -80,10 +83,24 @@ check-repo: ## Fail if a secret, database file or database backup is tracked by 
 	if [ -n "$$tracked" ]; then echo "Tracked files that must never be committed:"; echo "$$tracked"; exit 1; fi; \
 	echo "No .env or database files are tracked."
 
-check: check-repo check-backend check-frontend ## Everything CI runs
+install-planner: ## Install the planner's checks (no torch: training runs on the GPU machine, D079)
+	$(UVP) sync --locked
+
+check-planner: ## Planner checks, as run by CI: ruff, mypy, pytest (no network, no GPU)
+	$(UVP) run ruff check . $(RUFF_ARGS)
+	$(UVP) run ruff format --check .
+	$(UVP) run mypy fieldpilot_planner tests
+	$(UVP) run pytest
+
+planner: ## Run planner stages here (STAGES="clean labels"); Windows uses planner/train_windows.ps1
+	$(UVP) sync --locked --extra data --extra train
+	$(UVP) run python -m fieldpilot_planner $(or $(STAGES),all)
+
+check: check-repo check-backend check-frontend check-planner ## Everything CI runs
 
 preflight: ## Check that MUSE_API_KEY can use the configured models (network; not in CI)
 	$(UV) run python -m app.agent.llm.preflight
 
 clean: ## Remove caches and build output
-	rm -rf $(BACKEND)/.pytest_cache $(BACKEND)/.mypy_cache $(BACKEND)/.ruff_cache $(FRONTEND)/dist
+	rm -rf $(BACKEND)/.pytest_cache $(BACKEND)/.mypy_cache $(BACKEND)/.ruff_cache $(FRONTEND)/dist \
+		$(PLANNER)/.pytest_cache $(PLANNER)/.mypy_cache $(PLANNER)/.ruff_cache

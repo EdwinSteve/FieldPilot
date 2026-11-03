@@ -1,0 +1,34 @@
+# Data pipeline settings (planner/README.md §4–§6).
+
+points:
+  max_points: 260          # cap after one-point-per-POWER-cell; stratified by thermal floor
+  seed: 7
+  floors_m: [1000, 2000]   # < 1000, 1000–2000, > 2000
+
+weather:
+  first_day: 1981-01-01
+  last_day: 2025-12-31     # closed years only: recent POWER days are provisional
+  lapse_rate_c_per_km: -6.5
+  max_gap_days: 3          # longer gaps stay masked
+  max_masked_fraction: 0.02
+
+soil:
+  # SoilGrids has no value in towns (municipal centroids often are): a point
+  # takes the nearest 1 km pixel with every layer, within this radius.
+  search_radius_km: 10
+
+labels:
+  first_sowing: 1982-01-04 # needs 365 days of history from first_day
+  sowing_step_days: 7
+  spinup_days: 30          # water balance before sowing, at Kc ini
+  success_rel_yield: 0.6   # project convention (README §2)
+
+climatology:
+  baseline_years: [1991, 2020]
+  smoothing_days: 31
+
+splits:                    # by sowing year
+  train: [1982, 2012]
+  validation: [2013, 2017]
+  test: [2018, 2025]
+  holdout_departments: ["41"]   # Huila, for the spatial holdout run
