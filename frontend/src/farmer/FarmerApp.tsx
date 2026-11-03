@@ -3,12 +3,15 @@ import { BackTarget } from "./components/backTarget";
 import { BigButton } from "./components/BigButton";
 import { StateView } from "./components/StateView";
 import { TabBar } from "./components/TabBar";
+import { useAccount, type AccountControl } from "./hooks/useAccount";
 import { useFarm } from "./hooks/useFarm";
 import { useFarmRoute } from "./hooks/useFarmRoute";
 import { useFocusHeading } from "./hooks/useFocusHeading";
 import { useOnline } from "./hooks/useOnline";
 import { en } from "./i18n/en";
-import { hrefOf, tabOf, type Route } from "./lib/route";
+import { gatedRoute, startRoute } from "./lib/accountGate";
+import { hrefOf, isEntryScreen, tabOf, type Route } from "./lib/route";
+import { LogInScreen, SignUpScreen } from "./screens/AccountScreens";
 import { DecideScreen } from "./screens/DecideScreen";
 import { FieldScreen } from "./screens/FieldScreen";
 import { PlanScreen } from "./screens/PlanScreen";
@@ -21,11 +24,19 @@ import { WelcomeScreen } from "./screens/WelcomeScreen";
 import { ZoneScreen } from "./screens/ZoneScreen";
 import type { Farm, FarmState } from "./view-models/types";
 
-function screenFor(route: Route, farm: Farm, age: string | null): ReactNode {
-  const today = <TodayScreen view={farm.today} age={age} />;
+function screenFor(
+  route: Route,
+  farm: Farm,
+  age: string | null,
+  onSignOut: () => void,
+): ReactNode {
+  const today = <TodayScreen view={farm.today} age={age} onSignOut={onSignOut} />;
   switch (route.screen) {
+    // Entry screens never wait for the farm: `contentFor` shows them first.
     case "welcome":
-      return <WelcomeScreen />;
+    case "login":
+    case "signup":
+      return null;
     case "today":
       return today;
     case "talk":
@@ -51,7 +62,7 @@ function screenFor(route: Route, farm: Farm, age: string | null): ReactNode {
       );
     }
     case "field":
-      return <FieldScreen view={farm.field} />;
+      return <FieldScreen view={farm.field} onAsk={farm.talk.setDraft} />;
     case "zone": {
       const view = farm.zone(route.zoneId);
       return view === null ? today : <ZoneScreen view={view} />;
@@ -84,8 +95,53 @@ function connectionNotice(online: boolean, stale: boolean, age: string | null): 
   return en.state.stale(age ?? en.freshness.justNow);
 }
 
-function contentFor(route: Route, state: FarmState, online: boolean): ReactNode {
-  if (route.screen === "welcome") return <WelcomeScreen />;
+/** Signing in or up from an entry screen goes on to Today; from a farm screen, it stays. */
+function goOnFrom(route: Route): void {
+  if (isEntryScreen(route)) window.location.hash = hrefOf({ screen: "today" });
+}
+
+function entryFor(route: Route, shown: Route, account: AccountControl): ReactNode {
+  switch (shown.screen) {
+    case "welcome":
+      return (
+        <WelcomeScreen
+          startHref={hrefOf(startRoute(account.signedIn, account.account !== null))}
+        />
+      );
+    case "login":
+      return (
+        <LogInScreen
+          account={account.account}
+          onLogIn={(phone, pin) => {
+            const result = account.logIn(phone, pin);
+            if (result === "ok") goOnFrom(route);
+            return result;
+          }}
+        />
+      );
+    case "signup":
+      return (
+        <SignUpScreen
+          existing={account.account}
+          onSignUp={(name, phone, pin) => {
+            account.signUp(name, phone, pin);
+            goOnFrom(route);
+          }}
+        />
+      );
+    default:
+      return null;
+  }
+}
+
+function contentFor(
+  route: Route,
+  shown: Route,
+  state: FarmState,
+  online: boolean,
+  account: AccountControl,
+): ReactNode {
+  if (isEntryScreen(shown)) return entryFor(route, shown, account);
   switch (state.status) {
     case "loading":
       return <StateView icon="hourglass" title={en.state.loading} />;
@@ -119,7 +175,7 @@ function contentFor(route: Route, state: FarmState, online: boolean): ReactNode 
           <div inert={state.farm.busy} className="contents">
             {/* The key plays the entrance on a change of screen, never on a data refresh. */}
             <div key={hrefOf(route)} className="flex min-h-0 flex-1 animate-screen-in flex-col">
-              {screenFor(route, state.farm, state.age)}
+              {screenFor(shown, state.farm, state.age, account.signOut)}
             </div>
           </div>
         </>
@@ -153,23 +209,33 @@ export function FarmerApp() {
   const { route, back } = useFarmRoute();
   const state = useFarm();
   const online = useOnline();
-  const tab = tabOf(route);
+  const account = useAccount();
+  // Signed out, the log-in stands in front of the screen the URL asks for.
+  const shown = gatedRoute(route, account.signedIn, account.account !== null);
+  const tab = tabOf(shown);
   const shell = useRef<HTMLDivElement>(null);
   const farm = state.status === "ready" ? state.farm : null;
 
   useEffect(() => {
-    const name = en.titles.screens[route.screen];
-    document.title = route.screen === "welcome" ? en.titles.app : en.titles.page(name);
-  }, [route.screen]);
+    const name = en.titles.screens[shown.screen];
+    document.title = shown.screen === "welcome" ? en.titles.app : en.titles.page(name);
+  }, [shown.screen]);
 
-  useFocusHeading(hrefOf(route), shell);
+  // A signed-in farmer sent to the log-in sees Today: the URL says so too.
+  useEffect(() => {
+    if (account.signedIn && route.screen === "login") {
+      window.location.replace(hrefOf({ screen: "today" }));
+    }
+  }, [account.signedIn, route.screen]);
+
+  useFocusHeading(hrefOf(shown), shell);
 
   return (
     <div
       ref={shell}
       className="relative mx-auto flex h-dvh w-full max-w-[430px] flex-col overflow-hidden bg-ground pt-[env(safe-area-inset-top)]"
     >
-      <BackTarget value={back}>{contentFor(route, state, online)}</BackTarget>
+      <BackTarget value={back}>{contentFor(route, shown, state, online, account)}</BackTarget>
       {tab === null ? null : (
         <TabBar
           active={tab}

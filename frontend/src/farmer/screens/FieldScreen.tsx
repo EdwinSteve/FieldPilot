@@ -9,7 +9,13 @@ import { en } from "../i18n/en";
 import { hrefOf } from "../lib/route";
 import type { FieldView } from "../view-models/types";
 
-export function FieldScreen({ view }: { view: FieldView | null }) {
+interface FieldScreenProps {
+  view: FieldView | null;
+  /** Puts the question in the Talk box; the link then opens Talk. */
+  onAsk: (question: string) => void;
+}
+
+export function FieldScreen({ view, onAsk }: FieldScreenProps) {
   if (view === null) {
     return <StateView icon="satellite" title={en.field.emptyTitle} detail={en.field.emptyDetail} />;
   }
@@ -47,7 +53,12 @@ export function FieldScreen({ view }: { view: FieldView | null }) {
           zoneArea={view.zoneArea}
           spots={view.spots}
         />
-        <BigLink variant="primary" size="compact" href={hrefOf({ screen: "talk" })}>
+        <BigLink
+          variant="primary"
+          size="compact"
+          href={hrefOf({ screen: "talk" })}
+          onClick={() => onAsk(view.question)}
+        >
           <Icon name="mic" />
           {en.field.askAboutThis}
         </BigLink>

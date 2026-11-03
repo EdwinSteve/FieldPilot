@@ -159,9 +159,10 @@ interface TodayScreenProps {
   view: TodayView;
   /** How old the farm on screen is; null when unknown. */
   age: string | null;
+  onSignOut: () => void;
 }
 
-export function TodayScreen({ view, age }: TodayScreenProps) {
+export function TodayScreen({ view, age, onSignOut }: TodayScreenProps) {
   const [wordsOpen, setWordsOpen] = useState(false);
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-4.5 pt-6 pb-4.5">
@@ -178,6 +179,13 @@ export function TodayScreen({ view, age }: TodayScreenProps) {
       >
         <Icon name="info" size={20} />
         {en.today.wordsLink}
+      </button>
+      <button
+        type="button"
+        onClick={onSignOut}
+        className="press -mt-2 inline-flex min-h-12 items-center justify-center self-center border-0 bg-transparent px-3 text-small font-bold text-ink-2 underline"
+      >
+        {en.auth.signOut}
       </button>
       {wordsOpen ? <WordsSheet view={view} onClose={() => setWordsOpen(false)} /> : null}
     </main>

@@ -2,9 +2,9 @@ import logo from "../assets/logo.webp";
 import { Icon } from "../components/Icon";
 import { IconCircle } from "../components/IconCircle";
 import { en } from "../i18n/en";
-import { hrefOf } from "../lib/route";
 
-export function WelcomeScreen() {
+/** `startHref` is where Start leads: the farm, the log-in or a first account. */
+export function WelcomeScreen({ startHref }: { startHref: string }) {
   return (
     <main className="flex h-full flex-col items-center gap-6 bg-ground-welcome px-6 pt-14 pb-10">
       <img src={logo} alt={en.welcome.logoAlt} className="h-auto w-75" />
@@ -25,7 +25,7 @@ export function WelcomeScreen() {
         </IconCircle>
       </div>
       <a
-        href={hrefOf({ screen: "today" })}
+        href={startHref}
         className="mt-auto flex min-h-19 items-center justify-center gap-2.5 self-stretch rounded-start bg-primary text-key-lg font-extrabold text-surface no-underline hover:bg-primary-hover"
       >
         {en.welcome.start}
