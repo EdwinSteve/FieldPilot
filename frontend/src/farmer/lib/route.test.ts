@@ -29,6 +29,7 @@ describe("hrefOf", () => {
     [{ screen: "today" }],
     [{ screen: "stop" }],
     [{ screen: "settings" }],
+    [{ screen: "sales" }],
     [{ screen: "decide", taskId: 7 }],
     [{ screen: "zone", zoneId: 1 }],
     [{ screen: "report", reportId: 2 }],

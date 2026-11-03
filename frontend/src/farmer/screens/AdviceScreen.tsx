@@ -11,6 +11,7 @@ import {
 } from "../api/lifecycle";
 import { BigButton } from "../components/BigButton";
 import { CropCard } from "../components/CropCard";
+import { SalesCard } from "../components/SalesCard";
 import { SettingsLink } from "../components/SettingsLink";
 import type { HarvestNote } from "../components/HarvestSheet";
 import { Icon } from "../components/Icon";
@@ -269,6 +270,7 @@ function Advice({ plot, plan, harvested, justReady, onPlanted }: AdviceProps) {
       </header>
       {justReady ? <ReadyNote /> : null}
       {harvested === null ? null : <SavedNote note={harvested} />}
+      <SalesCard plotId={plot.id} />
       <WeekPicker plan={plan} chosen={weekIndex} onChoose={setWeekIndex} />
       {poor ? (
         <div role="note" className="flex gap-3 rounded-card bg-bad-tint px-4.5 py-4 text-bad-text">

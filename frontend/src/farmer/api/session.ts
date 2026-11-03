@@ -62,6 +62,15 @@ class SessionKeeper implements Session {
     return this.access === null ? {} : { Authorization: `Bearer ${this.access}` };
   }
 
+  /**
+   * Waits for an access token when a login is saved but none is in memory yet, as after a reload.
+   * With AUTH_REQUIRED=0 the backend never answers 401, so a 401-driven renewal alone would leave
+   * calls running as the anonymous demo farmer, which the market refuses (D082, D085).
+   */
+  async ensureAccess(): Promise<void> {
+    if (this.access === null && this.stored !== null) await this.renew();
+  }
+
   /** One refresh for every call that got a 401: a refresh token sent twice ends every session. */
   renew(): Promise<boolean> {
     if (this.stored === null) return Promise.resolve(false);

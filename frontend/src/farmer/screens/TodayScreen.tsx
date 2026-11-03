@@ -9,6 +9,7 @@ import { MoistureDrop } from "../components/MoistureDrop";
 import { NeedsYouCard } from "../components/NeedsYouCard";
 import { RainLevelIcon } from "../components/RainLevelIcon";
 import { RecentUpdates } from "../components/RecentUpdates";
+import { SalesCard } from "../components/SalesCard";
 import { SettingsLink } from "../components/SettingsLink";
 import { Sheet } from "../components/Sheet";
 import { StatusTile } from "../components/StatusTile";
@@ -256,9 +257,10 @@ interface TodayScreenProps {
   /** Decisions answered without signal, waiting to be sent. */
   savedAnswers: readonly number[];
   onHarvested: (note: HarvestNote) => void;
+  plotId: number;
 }
 
-export function TodayScreen({ view, age, planted, onPlantedSeen, savedAnswers, onHarvested }: TodayScreenProps) {
+export function TodayScreen({ view, age, planted, onPlantedSeen, savedAnswers, onHarvested, plotId }: TodayScreenProps) {
   const [wordsOpen, setWordsOpen] = useState(false);
   const [harvesting, setHarvesting] = useState(false);
   const harvest = view.harvest;
@@ -275,6 +277,7 @@ export function TodayScreen({ view, age, planted, onPlantedSeen, savedAnswers, o
       <StatusCard view={view} />
       <WeekStrip week={view.week} />
       {harvest?.kind === "record" ? <HarvestCard harvest={harvest} onOpen={() => setHarvesting(true)} /> : null}
+      <SalesCard plotId={plotId} />
       <RecentUpdates items={view.recent} />
       <button
         type="button"

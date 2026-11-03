@@ -15,7 +15,8 @@ export type Route =
   | { screen: "report"; reportId: number }
   | { screen: "plan" }
   | { screen: "stop" }
-  | { screen: "settings" };
+  | { screen: "settings" }
+  | { screen: "sales" };
 
 export type Tab = "today" | "talk" | "updates";
 
@@ -31,6 +32,7 @@ const PLAIN: Record<string, Route> = {
   plan: { screen: "plan" },
   stop: { screen: "stop" },
   settings: { screen: "settings" },
+  sales: { screen: "sales" },
 };
 
 /** "#/decide/3" as a route. An empty hash is Welcome; anything unknown is Today. */

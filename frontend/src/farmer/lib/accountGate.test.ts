@@ -42,6 +42,13 @@ describe("gatedRoute signed in", () => {
     expect(gatedRoute({ screen: "signup" }, true, true, "no_plot")).toEqual({ screen: "setup" });
   });
 
+  it("opens Your sales once the farm exists, sown or not", () => {
+    const sales: Route = { screen: "sales" };
+    expect(gatedRoute(sales, true, true, "no_cycle")).toEqual(sales);
+    expect(gatedRoute(sales, true, true, "farming")).toEqual(sales);
+    expect(gatedRoute(sales, true, true, "no_plot")).toEqual({ screen: "setup" });
+  });
+
   it("opens Settings once the farm exists, sown or not", () => {
     const settings: Route = { screen: "settings" };
     expect(gatedRoute(settings, true, true, "no_cycle")).toEqual(settings);

@@ -5,6 +5,8 @@ import type { AuthFailure } from "../lib/authFailure";
 import type { Cause, Chance, HarvestSize, Verdict, WaterNeed } from "../lib/cropAdvice";
 import type { OutlineProblem } from "../lib/farmOutline";
 import type { Goal } from "../lib/goals";
+import type { KgProblem, OfferProblem, PriceProblem, SaleStep } from "../lib/listing";
+import type { MarketFailure } from "../lib/marketFailure";
 import type { TextSize, ThemeChoice } from "../lib/look";
 import type { AmountProblem, DateProblem, Grade, HarvestFailure } from "../lib/harvest";
 import type { UnitDefault } from "../lib/harvestDefaults";
@@ -17,6 +19,8 @@ import type { TrendDirection } from "../lib/soilTrend";
 import type { Level } from "../lib/statusLevel";
 import type { SoilStatus } from "../lib/soilStatus";
 import type { TalkFailure } from "../lib/talkFailure";
+
+type JourneyStepName = "commissioning" | "shipping" | "receiving" | "retail_selling";
 
 function zoneIs(zone: string, status: string): string {
   return `${zone} is ${status === "OK" ? status : status.toLowerCase()}`;
@@ -108,6 +112,7 @@ export const en = {
       plan: "Plan",
       stop: "Stop",
       settings: "Settings",
+      sales: "Your sales",
     } satisfies Record<Route["screen"], string>,
   },
   tabs: {
@@ -134,6 +139,7 @@ export const en = {
     plan: "Back to the plan",
     stop: "Back to Stop",
     settings: "Back to Settings",
+    sales: "Back to your sales",
   } satisfies Record<Route["screen"], string>,
   soil: {
     fullAt: (fieldCapacity: number) => `Full ${fieldCapacity}%`,
@@ -781,6 +787,128 @@ export const en = {
         ? `Next watering: ${day} ${time}, after your OK`
         : `Next watering: ${day} ${time}`,
     nothingNext: "Nothing is planned. The next morning check decides.",
+  },
+  sales: {
+    title: "Your sales",
+    lead: "Sell your harvest to shoppers in Bogotá. You set the price.",
+    card: {
+      title: "Your sales",
+      ready: (count: number) => (count === 1 ? "1 harvest ready to sell" : `${count} harvests ready to sell`),
+      onSale: (count: number) => (count === 1 ? "1 on sale" : `${count} on sale`),
+      earned: (amount: string) => `${amount} earned`,
+      none: "Sell your harvest straight to shoppers",
+    },
+    readyTitle: "Ready to sell",
+    onSaleTitle: "On sale",
+    emptyTitle: "Nothing to sell yet",
+    emptyDetail: "When you save a harvest, you can sell it here.",
+    harvestRow: (kg: string, grade: string, date: string) => `${kg} kg · ${grade} · ${date}`,
+    sell: "Sell this harvest",
+    perKg: (price: string) => `${price} per kg`,
+    listingLine: (kg: string, price: string) => `${kg} kg at ${price} per kg`,
+    steps: {
+      listed: "On sale",
+      on_the_way: "On the way",
+      in_warehouse: "In the warehouse",
+      sold_out: "Sold out",
+    } satisfies Record<SaleStep, string>,
+    stepOf: (step: number, total: number) => `Step ${step} of ${total}`,
+    inStock: "In stock",
+    sold: "Sold",
+    earned: "Earned",
+    youKeep: (pct: string) => `You keep ${pct}%`,
+    shoppersPay: (price: string) => `Shoppers pay ${price} per kg`,
+    nextAwaiting: (warehouse: string) => `Take it to the ${warehouse}. Shoppers can buy it once it arrives.`,
+    nextTransit: (id: number) => `On its way. Delivery #${id}. The warehouse weighs it when it arrives.`,
+    nextActive: "In the warehouse. Shoppers in Bogotá can buy it now.",
+    lostOnTheWay: (kg: string) => `${kg} kg lost on the way.`,
+    soldOut: "All sold. Well done.",
+    withdrawn: "Taken off sale.",
+    dispatch: "I’ve taken it to the warehouse",
+    withdraw: "Take it off sale",
+    offer: "Offer of the day",
+    journey: "Where your harvest went",
+    form: {
+      title: (crop: string) => `Sell your ${crop}`,
+      harvested: (kg: string, grade: string) => `${kg} kg harvested · ${grade}`,
+      price: "Your price per kilo",
+      priceHint: (lowest: string) => `At least ${lowest}, so you keep 80% or more.`,
+      kg: "How many kilos to sell",
+      kgHint: (kg: string) => `Up to ${kg} kg. Whole kilos.`,
+      all: "All of it",
+      warehouse: "Warehouse",
+      cold: "Cold storage",
+      preview: "What shoppers see",
+      fees: (logistics: string, platform: number) => `Your price + ${logistics} per kg transport + ${platform}% FieldPilot fee`,
+      submit: "Put it on sale",
+      submitting: "Putting it on sale…",
+      cancel: "Cancel",
+      problems: {
+        price: {
+          missing: "Write your price per kilo.",
+          too_low: "That price is too low: you would keep under 80%. Ask a little more.",
+        } satisfies Record<PriceProblem, string>,
+        kg: {
+          missing: "Write how many kilos to sell.",
+          too_much: "That is more than you harvested.",
+        } satisfies Record<KgProblem, string>,
+      },
+    },
+    dispatchSheet: {
+      title: "Taken it to the warehouse?",
+      detail: (kg: string, warehouse: string, place: string) => `${kg} kg to the ${warehouse}, ${place}.`,
+      after: "The warehouse weighs it on arrival. Then shoppers can buy it.",
+      confirm: "Yes, it’s on its way",
+      busy: "Saving…",
+    },
+    withdrawSheet: {
+      title: "Take it off sale?",
+      detail: "Shoppers won’t see it any more. You can sell this harvest again later.",
+      confirm: "Yes, take it off sale",
+      busy: "Taking it off…",
+    },
+    offerSheet: {
+      title: "Offer of the day",
+      lead: "A lower price for a few days, so it sells faster.",
+      discount: "How much off your price?",
+      days: "For how long?",
+      dayCount: (days: number) => (days === 1 ? "Today" : `${days} days`),
+      preview: (price: string, pct: string) => `Shoppers pay ${price} per kg · You keep ${pct}%`,
+      confirm: "Start the offer",
+      busy: "Starting…",
+      problems: {
+        missing: "Choose how much off.",
+        too_big: "The most is 30% off.",
+        too_low: "That would leave you under 80%. Choose a smaller offer.",
+      } satisfies Record<OfferProblem, string>,
+      started: "Offer started. Shoppers see the new price now.",
+    },
+    journeySheet: {
+      title: "Where your harvest went",
+      verified: "Verified: nobody changed these records",
+      broken: "Warning: these records were changed after the harvest",
+      steps: {
+        commissioning: "Harvested",
+        shipping: "Taken to the warehouse",
+        receiving: "Received at the warehouse",
+        retail_selling: "Sold to a shopper",
+      } satisfies Record<JourneyStepName, string>,
+      kg: (kg: string) => `${kg} kg`,
+      loading: "Loading…",
+      failed: "This didn’t load. Please try again.",
+      close: "Close",
+    },
+    failures: {
+      too_low: "FieldPilot didn’t accept this price: you would keep under 80%.",
+      already: "This harvest is already on sale.",
+      bad_offer: "FieldPilot didn’t accept this offer. It works only while the harvest is in the warehouse, for up to 7 days.",
+      not_yours: "This harvest isn’t on your farm.",
+      offline: "No signal. Try again when you have signal.",
+      other: "That didn’t work. Please try again.",
+    } satisfies Record<MarketFailure, string>,
+    loading: "Loading your sales…",
+    loadFailed: "Your sales didn’t load. Please try again.",
+    retry: "Try again",
   },
   harvestPrompt: {
     readyTitle: (crop: string) => `Your ${crop} looks ready to harvest`,

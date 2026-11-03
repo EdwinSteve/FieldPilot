@@ -21,6 +21,7 @@ import { DecideScreen } from "./screens/DecideScreen";
 import { FieldScreen } from "./screens/FieldScreen";
 import { PlanScreen } from "./screens/PlanScreen";
 import { ReportScreen } from "./screens/ReportScreen";
+import { SalesScreen } from "./screens/SalesScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { SetupScreen } from "./screens/SetupScreen";
 import { StopScreen } from "./screens/StopScreen";
@@ -36,6 +37,8 @@ interface ShellActions {
   onHarvested: (note: HarvestNote) => void;
   planted: PlantedNote | null;
   onPlantedSeen: () => void;
+  /** The farm on screen, for what it sells. */
+  plotId: number;
 }
 
 function screenFor(route: Route, farm: Farm, age: string | null, shell: ShellActions): ReactNode {
@@ -47,6 +50,7 @@ function screenFor(route: Route, farm: Farm, age: string | null, shell: ShellAct
       onPlantedSeen={shell.onPlantedSeen}
       savedAnswers={farm.savedAnswers}
       onHarvested={shell.onHarvested}
+      plotId={shell.plotId}
     />
   );
   switch (route.screen) {
@@ -57,6 +61,7 @@ function screenFor(route: Route, farm: Farm, age: string | null, shell: ShellAct
     case "setup":
     case "advice":
     case "settings":
+    case "sales":
       return null;
     case "today":
       return today;
@@ -239,7 +244,7 @@ function signedInContent(
   session: SessionControl,
   farm: FarmProgress,
   online: boolean,
-  shell: ShellActions & { harvested: HarvestNote | null; onPlanted: (cycle: StartedCycle) => void },
+  shell: Omit<ShellActions, "plotId"> & { harvested: HarvestNote | null; onPlanted: (cycle: StartedCycle) => void },
 ): ReactNode {
   if (farm.failed) {
     return (
@@ -259,6 +264,9 @@ function signedInContent(
   const stage = farm.stage;
   if (stage === null) return <StateView icon="hourglass" title={en.state.loading} />;
   const farmer = session.farmer;
+  if (shown.screen === "sales" && stage.stage !== "no_plot") {
+    return <SalesScreen key={stage.plot.id} plot={stage.plot} />;
+  }
   if (shown.screen === "settings" && farmer !== null) {
     return (
       <SettingsScreen
@@ -277,7 +285,7 @@ function signedInContent(
       route={route}
       shown={shown}
       online={online}
-      shell={shell}
+      shell={{ ...shell, plotId: stage.plot.id }}
     />
   );
 }

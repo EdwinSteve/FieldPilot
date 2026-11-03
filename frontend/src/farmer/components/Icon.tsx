@@ -117,6 +117,12 @@ const PATHS = {
     </>
   ),
   scale: <path d="M5 9h14l-2 11H7zM9 9a3 3 0 0 1 6 0M12 13v3" />,
+  search: (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-4-4" />
+    </>
+  ),
   send: <path d="M12 19V5M6 11l6-6 6 6" />,
   sensor: (
     <>
