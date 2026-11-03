@@ -45,17 +45,17 @@ export function TaskCard({ task, plot, clock, verdict, failure, refresh }: TaskC
       </div>
 
       <div className="task-step">
-        <span className="task-step__label">1 · Propuso el modelo</span>
+        <span className="task-step__label">1 · The model proposed</span>
         <p className="task-card__rationale">{task.rationale}</p>
       </div>
 
       <div className="task-step">
-        <span className="task-step__label">2 · Decidió el gate</span>
-        {parsed === null ? <p className="muted">Sin veredicto registrado.</p> : <VerdictFlow verdict={parsed} />}
+        <span className="task-step__label">2 · The gate decided</span>
+        {parsed === null ? <p className="muted">No verdict recorded.</p> : <VerdictFlow verdict={parsed} />}
       </div>
 
       <div className="task-step">
-        <span className="task-step__label">3 · Resultado</span>
+        <span className="task-step__label">3 · Outcome</span>
         <Outcome
           task={task}
           failureRule={failure?.rule ?? null}
@@ -74,7 +74,7 @@ export function TaskCard({ task, plot, clock, verdict, failure, refresh }: TaskC
               disabled={!card.buttonEnabled || action.busy}
               onClick={() => action.run(() => api.revert(task.id))}
             >
-              Revertir
+              Revert
             </button>
             {card.disabledReason ? <span className="muted">{card.disabledReason}</span> : null}
           </div>
@@ -104,7 +104,7 @@ function VerdictFlow({ verdict }: { verdict: ParsedVerdict }) {
         </>
       ) : null}
       {verdict.violations.length === 0 ? (
-        <span className="muted">Dentro de los límites: ninguna regla se activó.</span>
+        <span className="muted">Within the limits: no rule fired.</span>
       ) : (
         <ul className="verdict-flow__rules">
           {verdict.violations.map((code) => (
@@ -130,26 +130,26 @@ function Outcome({ task, failureRule, reason, setReason, busy, approve, reject }
   if (task.status === "pending_approval") {
     return (
       <div>
-        {task.reason_es ? <p className="task-card__reason">{task.reason_es}</p> : null}
+        {task.reason ? <p className="task-card__reason">{task.reason}</p> : null}
         <div className="button-row">
           <button className="button--primary" disabled={busy} onClick={approve}>
-            Aprobar
+            Approve
           </button>
           <input
-            aria-label="Motivo del rechazo"
-            placeholder="Motivo (opcional)"
+            aria-label="Reason for rejecting"
+            placeholder="Reason (optional)"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
           />
           <button disabled={busy} onClick={reject}>
-            Rechazar
+            Reject
           </button>
         </div>
       </div>
     );
   }
-  if (task.status === "scheduled") return <p>En el calendario, esperando su hora.</p>;
-  if (task.status === "executed") return <p>Completada.</p>;
-  if (task.status === "rejected") return <p>El agricultor la rechazó.</p>;
-  return <p>{failureRule ? `No se ejecutó: ${RULE_LABELS[failureRule] ?? failureRule}.` : "No se ejecutó."}</p>;
+  if (task.status === "scheduled") return <p>On the calendar, waiting for its time.</p>;
+  if (task.status === "executed") return <p>Completed.</p>;
+  if (task.status === "rejected") return <p>The farmer rejected it.</p>;
+  return <p>{failureRule ? `Not executed: ${RULE_LABELS[failureRule] ?? failureRule}.` : "Not executed."}</p>;
 }

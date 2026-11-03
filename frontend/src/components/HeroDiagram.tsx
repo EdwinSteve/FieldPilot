@@ -12,11 +12,11 @@ export function HeroDiagram({ lastCycle }: HeroDiagramProps) {
   const turns = stepTurns(lastCycle);
   return (
     <details className="hero" open>
-      <summary>Cómo funciona FieldPilot</summary>
+      <summary>How FieldPilot works</summary>
       <svg className="hero-diagram" viewBox="0 0 480 470">
         <title>
-          El agente lee sensores y satélite, propone, el gate de autonomía decide, y la válvula o el
-          agricultor actúan. Todo queda registrado.
+          The agent reads sensors and satellite and proposes; the autonomy gate decides; the valve
+          or the farmer acts. Everything is recorded.
         </title>
         <defs>
           <marker
@@ -35,10 +35,10 @@ export function HeroDiagram({ lastCycle }: HeroDiagramProps) {
         <g>
           <rect x="40" y="8" width="400" height="54" rx="12" className="hero-node" />
           <text x="240" y="30" textAnchor="middle" className="hero-title">
-            Sensores y satélite
+            Sensors and satellite
           </text>
           <text x="240" y="50" textAnchor="middle" className="hero-sub">
-            humedad · pronóstico de lluvia · NDVI · imagen
+            moisture · rain forecast · NDVI · imagery
           </text>
         </g>
         <line x1="240" y1="62" x2="240" y2="76" className="hero-wire" markerEnd="url(#hero-arrow)" />
@@ -46,7 +46,7 @@ export function HeroDiagram({ lastCycle }: HeroDiagramProps) {
         <g>
           <rect x="40" y="78" width="400" height="180" rx="12" className="hero-node hero-node--agent" />
           <text x="240" y="100" textAnchor="middle" className="hero-title">
-            Agente: ciclo diario
+            Agent: daily cycle
           </text>
           {CYCLE_STEPS.map((step, i) => (
             <StepRow key={step} step={step} y={110 + i * 36} state={states[step]} turns={turns[step]} />
@@ -64,13 +64,13 @@ export function HeroDiagram({ lastCycle }: HeroDiagramProps) {
         <g>
           <rect x="40" y="274" width="400" height="92" rx="12" className="hero-node hero-node--gate" />
           <text x="240" y="296" textAnchor="middle" className="hero-title">
-            Gate de autonomía
+            Autonomy gate
           </text>
           <text x="240" y="318" textAnchor="middle" className="hero-sub">
-            autónoma · con aviso · con aprobación
+            autonomous · with notice · with approval
           </text>
           <text x="240" y="340" textAnchor="middle" className="hero-sub">
-            y siempre las reglas de seguridad
+            and always the safety rules
           </text>
         </g>
         <line
@@ -85,22 +85,22 @@ export function HeroDiagram({ lastCycle }: HeroDiagramProps) {
         <g>
           <rect x="40" y="382" width="192" height="52" rx="12" className="hero-node" />
           <text x="136" y="404" textAnchor="middle" className="hero-title">
-            Válvula
+            Valve
           </text>
           <text x="136" y="424" textAnchor="middle" className="hero-sub">
-            riega lo aprobado
+            irrigates what was approved
           </text>
           <rect x="248" y="382" width="192" height="52" rx="12" className="hero-node" />
           <text x="344" y="404" textAnchor="middle" className="hero-title">
-            Agricultor
+            Farmer
           </text>
           <text x="344" y="424" textAnchor="middle" className="hero-sub">
-            aprueba y revierte
+            approves and reverts
           </text>
         </g>
 
         <text x="240" y="458" textAnchor="middle" className="hero-foot">
-          Todo queda registrado en el libro de eventos.
+          Everything is recorded in the event log.
         </text>
       </svg>
     </details>
@@ -116,7 +116,7 @@ interface StepRowProps {
 
 function StepRow({ step, y, state, turns }: StepRowProps) {
   const caption =
-    turns === null ? "" : state === "stopped" ? `${turns} turnos · se detuvo` : `${turns} turnos`;
+    turns === null ? "" : state === "stopped" ? `${turns} turns · stopped` : `${turns} turns`;
   return (
     <g>
       <rect x="56" y={y} width="368" height="30" rx="9" className={`hero-step hero-step--${state}`} />

@@ -192,9 +192,9 @@ def _read_crop_stage(ctx: ReadContext) -> Callable[[NoArgs], JsonObject]:
         ]
         crop, root_depth, stage_obs, gdd, kc = (ctx.ledger.add(fact) for fact in facts)
         return {
-            "crop": {**cite(crop), "display_es": stage.crop_display_es},
+            "crop": {**cite(crop), "display": stage.crop_display},
             "root_depth": cite(root_depth),
-            "stage": {**cite(stage_obs), "display_es": stage.stage_display_es},
+            "stage": {**cite(stage_obs), "display": stage.stage_display},
             "accumulated_gdd": cite(gdd),
             "kc": cite(kc),
         }

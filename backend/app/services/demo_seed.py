@@ -26,15 +26,24 @@ class SeedSummary:
     cycle_id: int
 
 
-def seed_demo_farm(database_url: str) -> SeedSummary:
+# The names the farmer reads, per language (D084). The recordings of each
+# language name the zone as its seed does.
+DEMO_NAMES = {
+    "en": ("Demo farm, Neiva", "Zone 2"),
+    "es": ("Finca demo, Neiva", "Zona 2"),
+}
+
+
+def seed_demo_farm(database_url: str, language: str = "en") -> SeedSummary:
     """Write the demo farm into a fresh database."""
+    plot_name, zone_name = DEMO_NAMES[language]
     engine = create_db_engine(database_url)
     init_schema(engine)
     with SqlUnitOfWork(engine) as u:
         u.sim_clock.save(SimClockState(START, START, speed_factor=1.0, paused=True))
         plot = u.plots.add(
             Plot(
-                "Finca demo, Neiva",
+                plot_name,
                 2.93,
                 -75.28,
                 2.0,
@@ -45,7 +54,9 @@ def seed_demo_farm(database_url: str) -> SeedSummary:
             )
         )
         plot_id = _stored(plot.id, "plot")
-        zone_id = _stored(u.zones.add(Zone(plot_id, "Zona 2", 0.5, 32.0, valve_id="v2")).id, "zone")
+        zone_id = _stored(
+            u.zones.add(Zone(plot_id, zone_name, 0.5, 32.0, valve_id="v2")).id, "zone"
+        )
         sensor = u.sensors.add(Sensor(zone_id, SensorKind.SOIL_MOISTURE, "%"))
         u.readings.add_many([Reading(_stored(sensor.id, "sensor"), 20.0, START)])
         cycle_id = _stored(u.cycles.add(CropCycle(plot_id, "maize", date(2026, 10, 1))).id, "cycle")

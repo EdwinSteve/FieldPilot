@@ -10,7 +10,8 @@ class CropOutlook:
     """One crop sown on one date, rainfed, as the planner sees it."""
 
     crop: str
-    name_es: str
+    name: str  # in APP_LANGUAGE (D084)
+    name_es: str  # always Spanish, kept for clients that read it
     sowing_date: date
     harvest_date: date
     rel_yield_p10: float  # fraction of the crop's potential yield
@@ -56,7 +57,7 @@ class SiteJob:
     status: SiteStatus  # pending or failed; a finished job leaves the file behind
     requested_at: datetime
     finished_at: datetime | None = None
-    message: str | None = None
+    message: str | None = None  # a key of site_jobs.SITE_MESSAGES
 
 
 @dataclass(frozen=True)

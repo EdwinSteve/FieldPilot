@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.agent.llm.recording import RecordingLLMClient
-from app.container import MOCK_CYCLE_DIR, Container
+from app.container import MOCK_CYCLE_DIRS, Container
 from app.domain.enums import TaskStatus
 from app.main import create_app
 from app.services.demo_seed import seed_demo_farm
@@ -30,7 +30,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as work:
         recordings = Path(work) / "recordings"
         url = f"sqlite:///{Path(work) / 'demo.db'}"
-        plot_id = seed_demo_farm(url).plot_id
+        plot_id = seed_demo_farm(url, settings.app_language).plot_id
         container = create_app(settings.model_copy(update={"database_url": url})).state.container
 
         day1 = record_day(container, plot_id, recordings)
@@ -46,7 +46,7 @@ def main() -> None:
         if str(TaskStatus.SCHEDULED) not in statuses:
             fail("day 2 scheduled nothing to revert: the story needs the extra irrigation.")
 
-        target = settings.data_dir.joinpath(*MOCK_CYCLE_DIR)
+        target = settings.data_dir.joinpath(*MOCK_CYCLE_DIRS[settings.app_language])
         target.mkdir(parents=True, exist_ok=True)
         for recording in sorted(recordings.glob("*.json")):
             shutil.copy2(recording, target / recording.name)

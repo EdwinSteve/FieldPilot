@@ -1,4 +1,4 @@
-// Spanish formatting for the farmer. Pure functions only.
+// English formatting for the farmer (D084). Pure functions only.
 
 /** "45 s", "12 min", "1 h 05 min", "2 d 3 h". Negative or NaN count as zero. */
 export function formatDuration(totalSeconds: number): string {
@@ -12,12 +12,12 @@ export function formatDuration(totalSeconds: number): string {
   return `${seconds} s`;
 }
 
-/** Decimal comma and at most `decimals` decimals, as the backend's catalogue writes: 20.5 -> "20,5". */
+/** Decimal point and at most `decimals` decimals, as the backend's catalogue writes: 20.5 -> "20.5". */
 export function formatNumber(value: number, decimals = 1): string {
-  return new Intl.NumberFormat("es-CO", { maximumFractionDigits: decimals }).format(value);
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: decimals }).format(value);
 }
 
-/** A calendar date as day and month: "2026-10-20" -> "20 oct". */
+/** A calendar date as day and month: "2026-10-20" -> "20 Oct". */
 export function formatDayMonth(isoDate: string): string {
   const [year, month, day] = isoDate.split("-").map(Number);
   if (year === undefined || month === undefined || day === undefined) return isoDate;
@@ -25,7 +25,7 @@ export function formatDayMonth(isoDate: string): string {
   return `${day} ${MONTHS[month - 1]}`;
 }
 
-/** A UTC instant as local date and time in the plot's offset: "28 oct, 06:00". */
+/** A UTC instant as local date and time in the plot's offset: "28 Oct, 06:00". */
 export function formatPlotTime(iso: string, utcOffsetHours: number): string {
   const shifted = new Date(Date.parse(iso) + utcOffsetHours * 3_600_000);
   const day = shifted.getUTCDate();
@@ -35,7 +35,7 @@ export function formatPlotTime(iso: string, utcOffsetHours: number): string {
   return `${day} ${month}, ${hh}:${mm}`;
 }
 
-const MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** The plot's local calendar day of a UTC instant, as "YYYY-MM-DD" (D018). */
 export function plotDay(iso: string, utcOffsetHours: number): string {

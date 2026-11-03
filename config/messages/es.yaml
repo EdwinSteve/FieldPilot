@@ -2,7 +2,11 @@
 # rules and the gate never contain Spanish text. Every RuleCode must have an
 # entry under `rules`, or the app refuses to start.
 #
-# Placeholders in {braces} are filled from the violation's params.
+# Placeholders in {braces} are filled from the violation's or error's params.
+# English is the default (APP_LANGUAGE=en, D084); APP_LANGUAGE=es uses this file.
+
+language: es
+decimal_separator: ","
 
 rules:
   emergency_stop_active: "Pendiente de aprobación: parada de emergencia activa"
@@ -46,6 +50,9 @@ labels:
   irrigation_interrupted: >-
     El riego de {requested_mm} mm en la zona {zone} pudo haber seguido después
     del reinicio del sistema. La cantidad de agua aplicada se desconoce
+  # D083: the public passport never names a person.
+  producer_of: "Productor de {place}"
+  producer_unknown: "Productor de FieldPilot"
 
 # Agent pipeline texts (D051, D052), addressed in code as "cycle.<key>" and
 # "report.<key>".
@@ -63,3 +70,56 @@ report:
   escalated_unverified: >-
     El informe del día no pasó la verificación de datos y no se guardó.
     Revisa el registro de eventos
+
+# Crop names shown to people (D079, D083).
+crops:
+  maize: Maíz
+  common_bean: Fríjol
+  sorghum: Sorgo
+  soybean: Soya
+  groundnut: Maní
+  cotton: Algodón
+  tomato: Tomate
+  potato: Papa
+
+# API error messages, keyed by error (D084). The code's English text is shown
+# for a key not listed here.
+errors:
+  not_found: "No se encontró {entity} {entity_id}."
+  invalid_credentials: "El celular o la contraseña no son correctos."
+  account_locked: "La cuenta está bloqueada por intentos fallidos. Intenta más tarde."
+  invalid_session: "La sesión no es válida. Inicia sesión de nuevo."
+  invalid_phone: "El celular debe ser un móvil colombiano de 10 dígitos."
+  weak_password_length: "La contraseña debe tener entre {min_length} y {max_length} caracteres."
+  weak_password_phone: "La contraseña no puede contener el número de celular."
+  consent_required: "Debes aceptar la política de tratamiento de datos."
+  stale_policy: "La política de datos cambió. Vuelve a leerla y acéptala."
+  phone_taken: "Ya existe una cuenta con ese celular."
+  register_role: "Solo agricultores y clientes pueden registrarse."
+  farm_role: "Esta sección es solo para agricultores."
+  plot_member: "No tienes acceso a esta parcela."
+  admin_only: "Solo un administrador puede hacer esto."
+  active_cycle_exists: "La parcela ya tiene un ciclo activo. Confirma su cosecha primero."
+  invalid_sowing_date: "La siembra se confirma cuando ya ocurrió: entre hace {max_days} días y hoy."
+  own_risk_required: >-
+    {crop} no está entre los recomendados para esa semana ({top}). Para
+    sembrarlo, confirma que lo haces bajo tu propio riesgo.
+  own_risk_required_no_plan: >-
+    El planificador no puede evaluar {crop} en esta parcela todavía. Para
+    sembrar, confirma que lo haces bajo tu propio riesgo.
+  cycle_already_harvested: "Este ciclo ya fue cosechado."
+  invalid_harvest_date: "La fecha de cosecha debe ser posterior a la siembra y no puede ser futura."
+  invalid_harvest_quantity: "La cantidad debe ser mayor que 0 y como máximo {max_kg_per_ha} kg por hectárea."
+  open_tasks: "Hay tareas pendientes o programadas en este ciclo. Apruébalas o recházalas antes de cosechar."
+  site_missing: "La parcela {plot_id} todavía no tiene datos de clima y suelo para el planificador."
+  site_job_pending: "Los datos de esta parcela ya se están preparando."
+  site_build_failed: "No se pudo descargar los datos de la parcela (clima o suelo). Intenta de nuevo."
+  site_build_off: "La descarga de datos de sitio está desactivada en este servidor."
+  site_build_interrupted: "Se interrumpió por un reinicio del servidor. Intenta de nuevo."
+
+# 503 answers: one fixed, safe message per error (§7).
+unavailable:
+  llm_unavailable: "El modelo no respondió. Intenta de nuevo en un momento."
+  speech_unavailable: "El servicio de transcripción no respondió."
+  chat_unavailable: "El chat necesita MOCK_LLM=0 y una clave de API."
+  fixture_exhausted: "La respuesta grabada no corresponde a esta granja (MOCK_LLM=1)."

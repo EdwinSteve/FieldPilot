@@ -11,8 +11,10 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from app.agent.llm.ports import FixtureExhaustedError, LLMUnavailableError
+from app.autonomy.messages import MessageCatalog
 from app.domain.errors import (
     ActiveCycleExistsError,
+    DomainError,
     InvalidHarvestError,
     InvalidSowingDateError,
     InvalidTransitionError,
@@ -72,34 +74,42 @@ _CLIENT_ERRORS: dict[type[Exception], HTTPStatus] = {
     NothingHeardError: HTTPStatus.UNPROCESSABLE_ENTITY,
 }
 
-# 5xx: a fixed, safe message per error.
+# 5xx: a fixed, safe message per error, from the catalogue's `unavailable` section.
 _UNAVAILABLE: dict[type[Exception], str] = {
-    LLMUnavailableError: "El modelo no respondió. Intenta de nuevo en un momento.",
-    SpeechUnavailableError: "El servicio de transcripción no respondió.",
-    ChatUnavailableError: "El chat necesita MOCK_LLM=0 y una clave de API.",
-    FixtureExhaustedError: "La respuesta grabada no corresponde a esta granja (MOCK_LLM=1).",
+    LLMUnavailableError: "llm_unavailable",
+    SpeechUnavailableError: "speech_unavailable",
+    ChatUnavailableError: "chat_unavailable",
+    FixtureExhaustedError: "fixture_exhausted",
 }
 
 
-def install_error_handlers(app: FastAPI) -> None:
+def install_error_handlers(app: FastAPI, messages: MessageCatalog) -> None:
+    """Every message the client sees is in the catalogue's language (D084)."""
     for error, status in _CLIENT_ERRORS.items():
-        app.add_exception_handler(error, _client_handler(status))
-    for error, message in _UNAVAILABLE.items():
-        app.add_exception_handler(error, _unavailable_handler(message))
+        app.add_exception_handler(error, _client_handler(status, messages))
+    for error, key in _UNAVAILABLE.items():
+        app.add_exception_handler(error, _unavailable_handler(messages.unavailable[key]))
 
 
-def _client_handler(status: HTTPStatus) -> Handler:
+def _client_handler(status: HTTPStatus, messages: MessageCatalog) -> Handler:
     # RFC 6750: a 401 tells the client which scheme to use.
     headers = {"WWW-Authenticate": "Bearer"} if status is HTTPStatus.UNAUTHORIZED else None
 
     async def handler(_request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(
             status_code=status,
-            content={"error": type(exc).__name__, "message": str(exc)},
+            content={"error": type(exc).__name__, "message": _message(exc, messages)},
             headers=headers,
         )
 
     return handler
+
+
+def _message(exc: Exception, messages: MessageCatalog) -> str:
+    """The catalogue's text for the error's key; the code's English text otherwise."""
+    if isinstance(exc, DomainError) and exc.key is not None:
+        return messages.error(exc.key, exc.params, str(exc))
+    return str(exc)
 
 
 def _unavailable_handler(message: str) -> Handler:

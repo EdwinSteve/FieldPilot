@@ -77,6 +77,7 @@ export interface Task {
   revert_open: boolean | null;
   revert_remaining_seconds: number | null;
   /** D067: why it is held, in the farmer's words. */
+  reason: string | null; // why it is held, in APP_LANGUAGE (D084)
   reason_es: string | null;
 }
 
@@ -217,7 +218,8 @@ export type ScenarioRequest =
 /** A crop of the catalogue, its stages in order (D077). */
 export interface Crop {
   name: string;
+  display_name: string; // in APP_LANGUAGE, English by default (D084)
   display_es: string;
   maturity_gdd: number;
-  stages: { name: string; display_es: string; gdd_start: number }[];
+  stages: { name: string; display_name: string; display_es: string; gdd_start: number }[];
 }

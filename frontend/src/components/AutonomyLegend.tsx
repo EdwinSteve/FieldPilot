@@ -11,9 +11,9 @@ interface AutonomyLegendProps {
 }
 
 const LEVEL_DESCRIPTIONS: Record<string, string> = {
-  autonomous: "Se ejecutan solas y quedan registradas.",
-  notify: "Se ejecutan, te avisan y se pueden revertir.",
-  approval: "Esperan tu decisión.",
+  autonomous: "They run on their own and are recorded.",
+  notify: "They run, you are told, and you can revert them.",
+  approval: "They wait for your decision.",
 };
 
 /** What the gate may do on its own, what it announces, and what waits for the farmer. */
@@ -23,7 +23,7 @@ export function AutonomyLegend({ version, stopActive }: AutonomyLegendProps) {
   const always = (policy.data?.always_approval ?? []).map((a) => ACTION_LABELS[a] ?? a);
 
   return (
-    <Panel title="Autonomía: quién decide" error={policy.error} icon="shield" loading={policy.loading}>
+    <Panel title="Autonomy: who decides" error={policy.error} icon="shield" loading={policy.loading}>
       {(["autonomous", "notify", "approval"] as const).map((level) => (
         <div key={level} className="legend-block">
           <span className="badge">{LEVEL_LABELS[level]}</span>
@@ -37,12 +37,12 @@ export function AutonomyLegend({ version, stopActive }: AutonomyLegendProps) {
           </ul>
         </div>
       ))}
-      {always.length > 0 ? <p>Siempre con aprobación: {always.join(", ")}.</p> : null}
-      <p className="muted">En alguna etapa el cultivo puede pedir más control.</p>
+      {always.length > 0 ? <p>Always with approval: {always.join(", ")}.</p> : null}
+      <p className="muted">At some stages the crop may ask for more control.</p>
       <p>
-        Parada de emergencia:{" "}
+        Emergency stop:{" "}
         {stopActive ? (
-          <strong>activa, ninguna acción que agregue agua se ejecuta.</strong>
+          <strong>active: no action that adds water runs.</strong>
         ) : (
           "inactiva."
         )}

@@ -61,7 +61,7 @@ def planting_plan(
 
 @router.get("/crops/{crop}")
 def get_crop(crop: str, container: ContainerDep) -> CropOut:
-    return CropOut.of(container.queries.crop(crop))
+    return CropOut.of(container.queries.crop(crop), container.config.messages.language)
 
 
 @router.get("/cycles")

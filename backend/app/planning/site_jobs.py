@@ -22,8 +22,20 @@ Runner = Callable[[Callable[[], None]], None]
 BUILD_TIMEOUT_S = 900  # NASA POWER from 1991 and the SoilGrids rasters: about 1 to 3 minutes
 
 
+# What a finished job says, stored by key and shown in APP_LANGUAGE (D084).
+SITE_MESSAGES = {
+    "site_build_failed": "The plot's data (climate or soil) could not be downloaded. Try again.",
+    "site_build_off": "Downloading site data is turned off on this server.",
+    "site_build_interrupted": "A server restart interrupted it. Try again.",
+}
+
+
 class SiteBuildError(Exception):
-    """The snapshot could not be built; the message is safe to show."""
+    """The snapshot could not be built; `key` is one of SITE_MESSAGES."""
+
+    def __init__(self, key: str = "site_build_failed") -> None:
+        super().__init__(SITE_MESSAGES[key])
+        self.key = key
 
 
 class SiteBuilder(Protocol):
@@ -48,11 +60,9 @@ class SubprocessSiteBuilder:
                 command, capture_output=True, text=True, timeout=BUILD_TIMEOUT_S, check=False
             )
         except (OSError, subprocess.TimeoutExpired) as error:
-            raise SiteBuildError("No se pudo descargar los datos de la parcela.") from error
+            raise SiteBuildError() from error
         if result.returncode != 0 or not partial.is_file():
-            raise SiteBuildError(
-                "No se pudo descargar los datos de la parcela (clima o suelo). Intenta de nuevo."
-            )
+            raise SiteBuildError()
         partial.replace(out)
 
 
@@ -60,7 +70,7 @@ class DisabledSiteBuilder:
     """PLANNER_SITE_BUILDER=off: CI and tests never reach the network."""
 
     def build(self, *args: object, **kwargs: object) -> None:
-        raise SiteBuildError("La descarga de datos de sitio está desactivada en este servidor.")
+        raise SiteBuildError("site_build_off")
 
 
 class SiteJobs:
@@ -87,7 +97,9 @@ class SiteJobs:
         with self._uow() as uow:
             current = uow.plot_sites.get(plot_id)
             if current is not None and current.status is SiteStatus.PENDING:
-                raise SiteJobPendingError("Los datos de esta parcela ya se están preparando.")
+                raise SiteJobPendingError(
+                    "This plot's data is already being prepared.", key="site_job_pending"
+                )
             job = SiteJob(plot_id, SiteStatus.PENDING, self._wall())
             uow.plot_sites.save(job)
             uow.commit()
@@ -100,7 +112,7 @@ class SiteJobs:
             for job in uow.plot_sites.pending():
                 uow.plot_sites.save(
                     SiteJob(job.plot_id, SiteStatus.FAILED, job.requested_at, self._wall(),
-                            "Se interrumpió por un reinicio del servidor. Intenta de nuevo.")
+                            "site_build_interrupted")
                 )  # fmt: skip
             uow.commit()
 
@@ -110,7 +122,7 @@ class SiteJobs:
             self._builder.build(plot.latitude, plot.longitude, self.path_for(job.plot_id))
         except SiteBuildError as error:
             finished = SiteJob(job.plot_id, SiteStatus.FAILED, job.requested_at, self._wall(),
-                               str(error))  # fmt: skip
+                               error.key)  # fmt: skip
         else:
             finished = SiteJob(job.plot_id, SiteStatus.READY, job.requested_at, self._wall())
         with self._uow() as uow:

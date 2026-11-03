@@ -69,10 +69,10 @@ function asString(value: Json | undefined): string | null {
 
 /** The subagent's name for the farmer. */
 export const SUBAGENT_LABELS: Record<string, string> = {
-  monitoring: "Monitoreo",
-  imaging: "Imágenes",
-  irrigation: "Riego",
-  reporting: "Informe",
+  monitoring: "Monitoring",
+  imaging: "Imaging",
+  irrigation: "Irrigation",
+  reporting: "Report",
   orchestrator: "Chat",
 };
 

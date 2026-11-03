@@ -61,24 +61,24 @@ export function ControlBar({
       <div className="control-bar__clock">
         <span className="control-bar__label">
           <Icon name="clock" size={14} />
-          Reloj simulado
+          Simulated clock
         </span>
         <strong>{now ? formatPlotTime(now.now, plot.utc_offset_hours) : "…"}</strong>
         <span className="control-bar__speed">
-          {now ? (now.paused ? "en pausa" : `×${now.speed_factor}`) : ""}
+          {now ? (now.paused ? "paused" : `×${now.speed_factor}`) : ""}
         </span>
         {autoTickOn ? (
-          <output className="control-bar__autotick">Actualización automática cada 5 s</output>
+          <output className="control-bar__autotick">Auto-refresh every 5 s</output>
         ) : null}
       </div>
       <div className="control-bar__buttons">
         {now?.paused ? (
           <button disabled={action.busy} onClick={() => action.run(() => api.changeClock({ action: "resume" }))}>
-            Reanudar
+            Resume
           </button>
         ) : (
           <button disabled={action.busy} onClick={() => action.run(() => api.changeClock({ action: "pause" }))}>
-            Pausar
+            Pause
           </button>
         )}
         {SPEEDS.map((factor) => (
@@ -94,27 +94,27 @@ export function ControlBar({
           +1 h
         </button>
         <button disabled={action.busy} onClick={() => action.run(() => advanceAndTick(86_400))}>
-          +1 día
+          +1 day
         </button>
         <button disabled={action.busy} onClick={() => action.run(() => api.tick())}>
-          Actualizar simulación
+          Update simulation
         </button>
         <button
           className="button--primary"
           disabled={action.busy || demoUsed}
           onClick={() => action.run(runCycleOnce)}
         >
-          Ejecutar ciclo diario
+          Run daily cycle
         </button>
         <button
           className={stopActive ? "button--stop button--stop-active" : "button--stop"}
           disabled={action.busy}
           onClick={() => action.run(() => api.setEmergencyStop(!stopActive))}
         >
-          {stopActive ? "Desactivar parada de emergencia" : "Parada de emergencia"}
+          {stopActive ? "Turn off emergency stop" : "Emergency stop"}
         </button>
       </div>
-      {action.busy ? <p className="control-bar__status">Procesando…</p> : null}
+      {action.busy ? <p className="control-bar__status">Working…</p> : null}
       {action.error ?? tickError ? (
         <p className="panel__error" role="alert">
           {action.error ?? tickError}
@@ -122,18 +122,18 @@ export function ControlBar({
       ) : null}
       {demoUsed ? (
         <p className="notice">
-          El ciclo grabado de hoy ya se ejecutó. Avanza al día siguiente con «+1 día», o
-          recarga la demo con <code>make seed</code> para repetirla.
+          Today's recorded cycle already ran. Move to the next day with «+1 day», or
+          reload the demo with <code>make seed</code> to repeat it.
         </p>
       ) : null}
       {exhausted && !demoUsed ? (
         <p className="notice">
-          Recarga la demo con <code>make seed</code> y ejecuta el ciclo de nuevo.
+          Reload the demo with <code>make seed</code> and run the cycle again.
         </p>
       ) : null}
       {stopActive ? (
         <output className="control-bar__stop">
-          Parada de emergencia activa: ninguna acción que agregue agua se ejecuta.
+          Emergency stop active: no action that adds water runs.
         </output>
       ) : null}
     </header>

@@ -22,8 +22,8 @@ export function CalendarPanel({ plot, version, clock, verdicts, failures, refres
   const days = groupByDay(tasks.data ?? [], plot.utc_offset_hours);
 
   return (
-    <Panel title="Calendario" error={tasks.error} icon="clock" loading={tasks.loading}>
-      {days.length === 0 ? <p className="muted">Todavía no hay tareas.</p> : null}
+    <Panel title="Calendar" error={tasks.error} icon="clock" loading={tasks.loading}>
+      {days.length === 0 ? <p className="muted">No tasks yet.</p> : null}
       {days.map(([day, dayTasks]) => (
         <div key={day} className="calendar-day">
           <h3>{day}</h3>

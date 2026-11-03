@@ -46,15 +46,19 @@ class RuntimeConfig:
     policy: AutonomyPolicy
     limits: SafetyLimits
     crops: CropCatalog
-    messages: MessageCatalog
+    messages: MessageCatalog  # in APP_LANGUAGE
+    messages_es: MessageCatalog  # always Spanish, for the API's `_es` fields
     actuation: ActuationConfig
     imaging: ImagingConfig
     subagents: tuple[Subagent, ...]
     identity: IdentityConfig
 
 
-def load_runtime_config(config_dir: Path) -> RuntimeConfig:
-    """Load autonomy, safety, crop, message and actuation configuration from `config_dir`."""
+def load_runtime_config(config_dir: Path, language: str = "en") -> RuntimeConfig:
+    """Load autonomy, safety, crop, message and actuation configuration from `config_dir`.
+
+    `language` picks the message catalogue and the agent prompts (D084).
+    """
     policy = load_autonomy_policy(config_dir / "autonomy.yaml")
     limits = load_safety_limits(config_dir / "safety.yaml")
     try:
@@ -63,16 +67,21 @@ def load_runtime_config(config_dir: Path) -> RuntimeConfig:
     except CatalogError as error:
         raise ConfigError(str(error)) from error
     validate_stage_overrides(policy, crops)
-    messages = load_message_catalog(config_dir / "messages" / "es.yaml")
+    messages = load_message_catalog(config_dir / "messages" / f"{language}.yaml")
+    # The `_es` fields of the API stay Spanish whatever the language (D084).
+    messages_es = (
+        messages if language == "es" else load_message_catalog(config_dir / "messages" / "es.yaml")
+    )
     actuation = load_actuation_config(config_dir / "actuation.yaml")
     return RuntimeConfig(
         policy=policy,
         limits=limits,
         crops=crops,
         messages=messages,
+        messages_es=messages_es,
         actuation=actuation,
         imaging=load_imaging_config(config_dir / "imaging.yaml"),
-        subagents=load_agent_catalog(config_dir / "agents"),  # D053, D055
+        subagents=load_agent_catalog(config_dir / "agents", language=language),  # D053, D055, D084
         identity=load_identity_config(config_dir / "identity.yaml"),  # D082
     )
 

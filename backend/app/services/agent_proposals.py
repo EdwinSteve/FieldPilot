@@ -43,6 +43,6 @@ class GateProposer:
             status=str(result.task.status),
             outcome=str(verdict.outcome),
             effective_level=str(verdict.effective_level),
-            reason_es=self._messages.render(verdict.violations[0]) if verdict.violations else None,
+            reason=self._messages.render(verdict.violations[0]) if verdict.violations else None,
             already_decided=result.already_decided_at is not None,
         )

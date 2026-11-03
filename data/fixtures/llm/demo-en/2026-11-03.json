@@ -1,0 +1,248 @@
+{
+  "responses": [
+    {
+      "text": "Starting assessment — listing every zone in the plot.",
+      "usage": {
+        "input_tokens": 1400,
+        "output_tokens": 118
+      },
+      "tool_call": {
+        "name": "list_zones",
+        "arguments": {}
+      }
+    },
+    {
+      "text": "Found 1 zone — now reading its status.",
+      "usage": {
+        "input_tokens": 1492,
+        "output_tokens": 151
+      },
+      "tool_call": {
+        "name": "read_zone",
+        "arguments": {
+          "zone_id": 1
+        }
+      }
+    },
+    {
+      "text": "Zone reading complete — now checking forecast and crop stage.",
+      "usage": {
+        "input_tokens": 1692,
+        "output_tokens": 193
+      },
+      "tool_call": {
+        "name": "read_forecast",
+        "arguments": {}
+      }
+    },
+    {
+      "text": "Forecast is in — now getting the crop stage to finish the context.",
+      "usage": {
+        "input_tokens": 1836,
+        "output_tokens": 66
+      },
+      "tool_call": {
+        "name": "read_crop_stage",
+        "arguments": {}
+      }
+    },
+    {
+      "text": "Assessment is ready — submitting the zone classification.",
+      "usage": {
+        "input_tokens": 2090,
+        "output_tokens": 1323
+      },
+      "tool_call": {
+        "name": "submit_assessment",
+        "arguments": {
+          "summary": "Zone 1 maize at sowing stage is dry: soil moisture 16.737354753268832% well below field capacity 32.0%, with rain forecast 0.0 mm, accumulated 0.0 GDD, root depth 300.0 mm.",
+          "zones": [
+            {
+              "cited": [
+                "reading-2",
+                "zone-1-field-capacity",
+                "forecast-plot-1-2026-11-03T11:00Z",
+                "crop-cycle-1",
+                "root-depth-cycle-1",
+                "stage-cycle-1",
+                "gdd-cycle-1",
+                "kc-cycle-1"
+              ],
+              "moisture_pct": 16.737354753268832,
+              "status": "dry",
+              "zone_id": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "text": "Your satellite brief is in — pulling the latest scene for plot 1.",
+      "usage": {
+        "input_tokens": 1396,
+        "output_tokens": 93
+      },
+      "tool_call": {
+        "name": "read_imagery",
+        "arguments": {}
+      }
+    },
+    {
+      "text": "Scene received — submitting the zone report with exact values.",
+      "usage": {
+        "input_tokens": 1672,
+        "output_tokens": 474
+      },
+      "tool_call": {
+        "name": "submit_imaging",
+        "arguments": {
+          "zones": [
+            {
+              "bare_soil_pct": 25.3,
+              "cited": [
+                "ndvi-neiva-2026-10-28-zone-1",
+                "low-ndvi-neiva-2026-10-28-zone-1",
+                "bare-soil-neiva-2026-10-28-zone-1"
+              ],
+              "low_ndvi_pct": 21.2,
+              "low_vigor": true,
+              "ndvi_mean": 0.378,
+              "zone_id": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "text": "I see dry soil; I prepare today's irrigation.",
+      "usage": {
+        "input_tokens": 2233,
+        "output_tokens": 508
+      },
+      "tool_call": {
+        "name": "read_crop_stage",
+        "arguments": {}
+      }
+    },
+    {
+      "text": "Root depth of 300 mm confirmed; I check the dry zone before proposing.",
+      "usage": {
+        "input_tokens": 2485,
+        "output_tokens": 785
+      },
+      "tool_call": {
+        "name": "read_zone",
+        "arguments": {
+          "zone_id": 1
+        }
+      }
+    },
+    {
+      "text": "Zone 2 is dry and shows low vigour; I propose today's irrigation.",
+      "usage": {
+        "input_tokens": 2694,
+        "output_tokens": 1476
+      },
+      "tool_call": {
+        "name": "propose_action",
+        "arguments": {
+          "action_type": "irrigation",
+          "cited": [
+            "reading-2",
+            "zone-1-field-capacity",
+            "forecast-plot-1-2026-11-03T11:00Z",
+            "root-depth-cycle-1",
+            "crop-cycle-1",
+            "stage-cycle-1",
+            "low-ndvi-neiva-2026-10-28-zone-1"
+          ],
+          "rationale": "Zone 2 is dry at 16.7 % against a capacity of 32.0 %, with 0.0 mm of forecast rain, in maize at sowing with a 300 mm root depth. Low vigour was also seen in the image. I propose 20 mm today to bring it closer to capacity without exceeding it.",
+          "scheduled_for": "now",
+          "volume_mm": 20.0,
+          "zone_id": 1
+        }
+      }
+    },
+    {
+      "text": "Today's irrigation was executed; I schedule the second part to complete the deficit.",
+      "usage": {
+        "input_tokens": 3053,
+        "output_tokens": 1849
+      },
+      "tool_call": {
+        "name": "propose_action",
+        "arguments": {
+          "action_type": "extra_irrigation",
+          "cited": [
+            "reading-2",
+            "zone-1-field-capacity",
+            "forecast-plot-1-2026-11-03T11:00Z",
+            "root-depth-cycle-1",
+            "crop-cycle-1",
+            "stage-cycle-1",
+            "low-ndvi-neiva-2026-10-28-zone-1"
+          ],
+          "rationale": "Zone 2 is still at 16.7 % against 32.0 %, with 0.0 mm of forecast rain and a 300 mm root depth, and it showed low vigour in the image. I propose 20 mm tomorrow to complete the deficit without exceeding capacity; the farmer can revert it, and whatever is missing will wait for the next cycle.",
+          "scheduled_for": "2026-11-04T11:00:00+00:00",
+          "volume_mm": 20.0,
+          "zone_id": 1
+        }
+      }
+    },
+    {
+      "text": "Irrigations proposed and accepted; I close with the summary.",
+      "usage": {
+        "input_tokens": 3434,
+        "output_tokens": 492
+      },
+      "tool_call": {
+        "name": "finish",
+        "arguments": {
+          "summary": "Zone 2 dry (16.7% vs 32.0%, rain 0.0 mm, maize at sowing, root 300 mm, low vigour): I proposed 20 mm today, executed, and an extra 20 mm tomorrow, scheduled to complete the deficit; the rest waits for the next cycle."
+        }
+      }
+    },
+    {
+      "text": "I write your daily report: I gather the plot's data.",
+      "usage": {
+        "input_tokens": 1911,
+        "output_tokens": 747
+      },
+      "tool_call": {
+        "name": "list_zones",
+        "arguments": {}
+      }
+    },
+    {
+      "text": "I have the zone's official name; I prepare today's report.",
+      "usage": {
+        "input_tokens": 2007,
+        "output_tokens": 2698
+      },
+      "tool_call": {
+        "name": "submit_report",
+        "arguments": {
+          "actions": [
+            {
+              "status": "executed",
+              "task_id": 2
+            },
+            {
+              "status": "scheduled",
+              "task_id": 3
+            }
+          ],
+          "cited": [
+            "reading-2",
+            "zone-1-field-capacity",
+            "forecast-plot-1-2026-11-03T11:00Z",
+            "ndvi-neiva-2026-10-28-zone-1",
+            "low-ndvi-neiva-2026-10-28-zone-1",
+            "bare-soil-neiva-2026-10-28-zone-1"
+          ],
+          "text_es": "Zone 2 is dry, with 16.7 % moisture, below its field capacity of 32.0 %, and no rain forecast (0 mm). The planned irrigation was executed and an extra irrigation was scheduled. In the image of 28 October, Zone 2 shows low vigour, with 21.2 % of low NDVI and about 25.3 % of bare soil."
+        }
+      }
+    }
+  ]
+}

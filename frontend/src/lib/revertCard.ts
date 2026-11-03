@@ -1,9 +1,9 @@
 // The revert card of D011. The backend decides; this only words what it sent.
 import { formatDuration } from "./format";
 
-export const WINDOW_LABEL = "Ventana en reloj simulado";
-export const PAUSED_TEXT = "Reloj simulado en pausa: la ventana no avanza";
-export const CLOSED_TEXT = "Ventana cerrada";
+export const WINDOW_LABEL = "Window on the simulated clock";
+export const PAUSED_TEXT = "Simulated clock paused: the window does not move";
+export const CLOSED_TEXT = "Window closed";
 
 export interface RevertInput {
   /** From the backend: the only thing that enables the button. */
@@ -38,7 +38,7 @@ export function revertCard(input: RevertInput): RevertCard | null {
     };
   }
   const remaining = input.remainingSeconds ?? 0;
-  const simulated = `Quedan ${formatDuration(remaining)} de reloj simulado`;
+  const simulated = `${formatDuration(remaining)} of simulated clock left`;
   if (input.clockPaused) {
     return {
       label: WINDOW_LABEL,
@@ -57,9 +57,9 @@ export function revertCard(input: RevertInput): RevertCard | null {
   };
 }
 
-/** "≈ 52 s reales a ×360 (estimación)": remaining ÷ speed, labelled as an estimate (D011). */
+/** "≈ 52 s real at ×360 (estimate)": remaining ÷ speed, labelled as an estimate (D011). */
 export function realEstimate(remainingSeconds: number, speedFactor: number): string | null {
   if (!(speedFactor > 0)) return null;
   const real = Math.round(remainingSeconds / speedFactor);
-  return `≈ ${formatDuration(real)} reales a ×${speedFactor} (estimación)`;
+  return `≈ ${formatDuration(real)} real at ×${speedFactor} (estimate)`;
 }

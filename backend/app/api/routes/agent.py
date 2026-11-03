@@ -27,7 +27,7 @@ def chat(body: ChatIn, farmer: FarmerDep, container: ContainerDep) -> ChatOut | 
     if container.chat is None:
         raise ChatUnavailableError
     run = container.chat.ask(body.plot_id, body.question)
-    return _paused_or(run, ChatOut.of(run))
+    return _paused_or(run, ChatOut.of(run), container)
 
 
 @router.post("/chat/voice", response_model=VoiceOut)
@@ -40,20 +40,22 @@ def chat_voice(
     if container.voice is None:
         raise ChatUnavailableError
     if len(audio) > MAX_AUDIO_BYTES:
-        raise HTTPException(status_code=413, detail="El audio supera 32 MB.")
+        raise HTTPException(status_code=413, detail="The audio is larger than 32 MB.")
     answer = container.voice.ask(plot_id, audio)
     out = VoiceOut(**ChatOut.of(answer.run).model_dump(), transcript=answer.transcript)
-    return _paused_or(answer.run, out)
+    return _paused_or(answer.run, out, container)
 
 
-def _paused_or[Out: ChatOut](run: AgentRun, out: Out) -> Out | JSONResponse:
+def _paused_or[Out: ChatOut](
+    run: AgentRun, out: Out, container: ContainerDep
+) -> Out | JSONResponse:
     """A paused run means the model did not answer: 503, with the run for the trace."""
     if run.status is RunStatus.PAUSED:
         return JSONResponse(
             status_code=503,
             content={
                 "error": "LLMUnavailableError",
-                "message": "El modelo no respondió. Intenta de nuevo en un momento.",
+                "message": container.config.messages.unavailable["llm_unavailable"],
                 "run_id": run.run_id,
             },
         )

@@ -1,6 +1,6 @@
 """Create an account on the server: the only way to create operators and admins (D082).
 
-Run: make user PHONE=3001234567 NAME="Ana Pérez" ROLE=admin [PLOTS="1 2"]
+Run: make user PHONE=3001234567 NAME="Ana Perez" ROLE=admin [PLOTS="1 2"]
 The password is typed twice and never echoed, logged or passed on the command line.
 """
 
@@ -30,15 +30,13 @@ def main() -> None:
     args = parse_args()
     settings = Settings()
     config = load_identity_config(settings.config_dir / "identity.yaml")
-    answer = input(
-        f"¿La persona aceptó la política de datos {config.privacy_policy_version}? [s/N] "
-    )
-    if answer.strip().lower() not in {"s", "si", "sí"}:
-        print("Sin consentimiento no se crea la cuenta (Ley 1581 de 2012).")
+    answer = input(f"Did the person accept data policy {config.privacy_policy_version}? [y/N] ")
+    if answer.strip().lower() not in {"y", "yes", "s", "si", "sí"}:
+        print("Without consent no account is created (Ley 1581 de 2012).")
         raise SystemExit(1)
-    password = getpass.getpass("Contraseña: ")
-    if getpass.getpass("Repite la contraseña: ") != password:
-        print("Las contraseñas no coinciden.")
+    password = getpass.getpass("Password: ")
+    if getpass.getpass("Repeat the password: ") != password:
+        print("The passwords do not match.")
         raise SystemExit(1)
     engine = create_db_engine(settings.database_url)
     init_schema(engine)
@@ -54,7 +52,7 @@ def main() -> None:
     except DomainError as error:
         print(error)
         raise SystemExit(1) from error
-    print(f"Cuenta {user.id} creada: {user.role.value}, parcelas {args.plot or 'ninguna'}.")
+    print(f"Account {user.id} created: {user.role.value}, plots {args.plot or 'none'}.")
 
 
 def parse_args() -> argparse.Namespace:

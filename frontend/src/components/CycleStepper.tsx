@@ -33,14 +33,14 @@ const OUTCOME_BADGES: Record<string, string> = {
 /** The daily pipeline as six nodes, and what the last cycle found and proposed. */
 export function CycleStepper({ plotId, version, running, lastCycle }: CycleStepperProps) {
   const zones = useResource(useCallback(() => api.zones(plotId), [plotId]), version);
-  const nameOf = (zoneId: number) => zones.data?.find((z) => z.id === zoneId)?.name ?? `Zona ${zoneId}`;
+  const nameOf = (zoneId: number) => zones.data?.find((z) => z.id === zoneId)?.name ?? `Zone ${zoneId}`;
   const states = stepStates(lastCycle);
   const turns = stepTurns(lastCycle);
   const context = contextStates(lastCycle);
   const brief = lastCycle === null ? null : parseBrief(lastCycle.brief);
 
   const nodes: { key: string; label: string; caption: string; state: StepState | ContextState }[] = [
-    { key: "sources", label: "Sensores y satélite", caption: "", state: context.sources },
+    { key: "sources", label: "Sensors and satellite", caption: "", state: context.sources },
     ...CYCLE_STEPS.map((step: CycleStep) => ({
       key: step,
       label: SUBAGENT_LABELS[step] ?? step,
@@ -51,7 +51,7 @@ export function CycleStepper({ plotId, version, running, lastCycle }: CycleStepp
   ];
 
   return (
-    <Panel title="Ciclo diario" icon="leaf">
+    <Panel title="Daily cycle" icon="leaf">
       <ol className={`stepper ${running ? "stepper--running" : ""}`}>
         {nodes.map((node, i) => (
           <li key={node.key} className="stepper__item" style={{ animationDelay: `${i * 0.15}s` }}>
@@ -67,44 +67,44 @@ export function CycleStepper({ plotId, version, running, lastCycle }: CycleStepp
         ))}
       </ol>
       {running ? (
-        <output className="muted">El agente está recorriendo la parcela…</output>
+        <output className="muted">The agent is walking the plot…</output>
       ) : null}
       {brief === null && !running ? (
-        <p className="muted">Todavía no hay un ciclo hoy. Pulsa «Ejecutar ciclo diario».</p>
+        <p className="muted">No cycle today yet. Press «Run daily cycle».</p>
       ) : null}
       {brief === null ? null : (
         <div className="brief-grid">
           <div className="brief-block">
-            <h3>Lectura de zonas</h3>
-            {brief.zones.length === 0 ? <p className="muted">Sin lectura.</p> : null}
+            <h3>Zone readings</h3>
+            {brief.zones.length === 0 ? <p className="muted">No reading.</p> : null}
             <ul>
               {brief.zones.map((zone) => (
                 <li key={zone.zoneId}>
                   <strong>{nameOf(zone.zoneId)}</strong>: {ZONE_STATUS_LABELS[zone.status] ?? zone.status}
-                  {zone.moisturePct === null ? "" : ` · humedad ${formatNumber(zone.moisturePct)} %`}
+                  {zone.moisturePct === null ? "" : ` · moisture ${formatNumber(zone.moisturePct)} %`}
                 </li>
               ))}
             </ul>
           </div>
           <div className="brief-block">
-            <h3>Imagen</h3>
-            {brief.imaging.length === 0 ? <p className="muted">Sin imagen para este día.</p> : null}
+            <h3>Imagery</h3>
+            {brief.imaging.length === 0 ? <p className="muted">No image for this day.</p> : null}
             <ul>
               {brief.imaging.map((zone) => (
                 <li key={zone.zoneId}>
                   <strong>{nameOf(zone.zoneId)}</strong>: NDVI{" "}
-                  {zone.ndviMean === null ? "desconocido" : formatNumber(zone.ndviMean, 3)}
-                  {zone.lowVigor ? " · vigor bajo" : ""} · suelo desnudo{" "}
+                  {zone.ndviMean === null ? "unknown" : formatNumber(zone.ndviMean, 3)}
+                  {zone.lowVigor ? " · low vigour" : ""} · bare soil{" "}
                   {zone.bareSoilPct === null
-                    ? "desconocido"
-                    : `aproximadamente ${formatNumber(zone.bareSoilPct, 0)} %`}
+                    ? "unknown"
+                    : `about ${formatNumber(zone.bareSoilPct, 0)} %`}
                 </li>
               ))}
             </ul>
           </div>
           <div className="brief-block">
-            <h3>Propuestas y gate</h3>
-            {brief.proposals.length === 0 ? <p className="muted">Sin propuestas en este ciclo.</p> : null}
+            <h3>Proposals and gate</h3>
+            {brief.proposals.length === 0 ? <p className="muted">No proposals in this cycle.</p> : null}
             <ul>
               {brief.proposals.map((proposal) => (
                 <li key={proposal.taskId}>
@@ -126,6 +126,6 @@ export function CycleStepper({ plotId, version, running, lastCycle }: CycleStepp
 
 function captionFor(state: StepState, turns: number | null): string {
   if (turns === null) return "";
-  if (state === "stopped") return `${turns} turnos · se detuvo`;
-  return `${turns} turnos`;
+  if (state === "stopped") return `${turns} turns · stopped`;
+  return `${turns} turns`;
 }

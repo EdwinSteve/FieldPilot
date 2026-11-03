@@ -88,7 +88,7 @@ def test_a_valid_proposal_goes_to_the_proposer_and_into_the_brief(
         "status": "executed",
         "outcome": "execute",
         "effective_level": "autonomous",
-        "reason_es": None,
+        "reason": None,
         "already_decided": False,
     }
     assert [p.task_id for p in draft.proposals] == [21]
@@ -114,7 +114,7 @@ def test_a_held_proposal_returns_the_reason_in_spanish(
 
     outcome = _propose(registry)
 
-    assert outcome.result is not None and outcome.result["reason_es"] == "Pendiente por lluvia"
+    assert outcome.result is not None and outcome.result["reason"] == "Pendiente por lluvia"
     assert draft.proposals[0].outcome == "await_approval"
 
 

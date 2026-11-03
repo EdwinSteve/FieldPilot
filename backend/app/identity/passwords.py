@@ -39,7 +39,11 @@ def check_password(password: str, phone: Phone, min_length: int) -> None:
     """Length within bounds, and the phone number is not part of it."""
     if not min_length <= len(password) <= MAX_PASSWORD_LENGTH:
         raise WeakPasswordError(
-            f"La contraseña debe tener entre {min_length} y {MAX_PASSWORD_LENGTH} caracteres."
+            f"The password must have between {min_length} and {MAX_PASSWORD_LENGTH} characters.",
+            key="weak_password_length",
+            params={"min_length": min_length, "max_length": MAX_PASSWORD_LENGTH},
         )
     if phone.national in password:
-        raise WeakPasswordError("La contraseña no puede contener el número de celular.")
+        raise WeakPasswordError(
+            "The password must not contain the phone number.", key="weak_password_phone"
+        )
