@@ -1,6 +1,5 @@
 """Stage `export`: the model bundle the backend serves (README §8.4)."""
 
-import hashlib
 import json
 from collections.abc import Sequence
 from pathlib import Path
@@ -17,6 +16,7 @@ from fieldpilot_planner.features import (
     WEATHER_CHANNELS,
     Normalization,
 )
+from fieldpilot_planner.manifest import file_digest
 
 OPSET = 17
 PARITY_TOLERANCE = 1e-4
@@ -56,10 +56,6 @@ def parity(model: torch.nn.Module, sample: tuple[torch.Tensor, ...], path: Path)
     return float(np.abs(expected - got).max())
 
 
-def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def write_bundle(
     out_dir: Path,
     model: torch.nn.Module,
@@ -77,12 +73,18 @@ def write_bundle(
     if difference > PARITY_TOLERANCE:
         raise RuntimeError(f"ONNX parity failed: max difference {difference:.2e}")
     norm.save(out_dir / "normalization.json")
-    (out_dir / "crops.yaml").write_bytes(crops_yaml.read_bytes())
-    (out_dir / "metrics.json").write_text(json.dumps(metrics, indent=1), encoding="utf-8")
-    (out_dir / "MODEL_CARD.md").write_text(model_card(metrics, crops, difference), encoding="utf-8")
+    # Text is written with LF on every platform; the digests normalise it anyway (manifest.py).
+    crops_text = crops_yaml.read_bytes().replace(b"\r\n", b"\n")
+    (out_dir / "crops.yaml").write_bytes(crops_text)
+    (out_dir / "metrics.json").write_text(
+        json.dumps(metrics, indent=1), encoding="utf-8", newline="\n"
+    )
+    (out_dir / "MODEL_CARD.md").write_text(
+        model_card(metrics, crops, difference), encoding="utf-8", newline="\n"
+    )
     manifest = {
         "files": {
-            p.name: sha256(p) for p in sorted(out_dir.iterdir()) if p.name != "manifest.json"
+            p.name: file_digest(p) for p in sorted(out_dir.iterdir()) if p.name != "manifest.json"
         },
         "inputs": {
             "weather": list(WEATHER_CHANNELS),
@@ -93,7 +95,9 @@ def write_bundle(
         "data": data_manifest,
         "onnx_parity_max_abs": difference,
     }
-    (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=1), encoding="utf-8")
+    (out_dir / "manifest.json").write_text(
+        json.dumps(manifest, indent=1), encoding="utf-8", newline="\n"
+    )
     return manifest
 
 

@@ -97,11 +97,29 @@ class PointResult:
     report: dict[str, object]
 
 
+def profile_array(profile: SoilProfile) -> npt.NDArray[np.float64]:
+    """[layers, PROPERTIES] from a SoilGrids profile."""
+    return np.array(
+        [[profile.layers[p][layer] for p in PROPERTIES] for layer in range(6)], dtype=np.float64
+    )
+
+
+def site_vector(
+    lat: float, lon: float, elevation_m: float, cell_elevation_m: float,
+    profile: npt.NDArray[np.float64],
+) -> F32:  # fmt: skip
+    """The site features in features.SITE_FEATURES order."""
+    return np.concatenate([
+        [lat, lon, elevation_m, elevation_m - cell_elevation_m],
+        mean_between(profile, 0, 30), mean_between(profile, 30, 60),
+    ]).astype(np.float32)  # fmt: skip
+
+
 def _load_profile(paths: Paths, point: Point) -> SoilProfile | None:
     return load_profile(paths.raw / "soil" / f"{point.id}.json")
 
 
-def _weather_channels(
+def weather_channels(
     series: PowerSeries, point: Point, config: PipelineConfig, doy: npt.NDArray[np.float64]
 ) -> tuple[F32, dict[str, object]]:
     values = {k: v.copy() for k, v in series.values.items()}
@@ -148,19 +166,16 @@ def clean_point(
     if profile is None:
         return "no SoilGrids pixel with every layer within the search radius"
     doy = np.array([d.timetuple().tm_yday for d in series.days], dtype=np.float64)
-    weather, report = _weather_channels(series, point, config, doy)
+    weather, report = weather_channels(series, point, config, doy)
     index = {c: i for i, c in enumerate(WEATHER_CHANNELS)}
     valid = np.all(np.isfinite(weather[:, [index[c] for c in REQUIRED]]), axis=1)
     masked = 1 - float(valid.mean())
     if masked > config.max_masked_fraction:
         return f"{masked:.1%} of days masked (limit {config.max_masked_fraction:.0%})"
-    profile_arr = np.array(
-        [[profile.layers[p][layer] for p in PROPERTIES] for layer in range(6)], dtype=np.float64
+    profile_arr = profile_array(profile)
+    site = site_vector(
+        point.lat, point.lon, point.elevation_m, series.cell_elevation_m, profile_arr
     )
-    site = np.concatenate([
-        [point.lat, point.lon, point.elevation_m, point.elevation_m - series.cell_elevation_m],
-        mean_between(profile_arr, 0, 30), mean_between(profile_arr, 30, 60),
-    ]).astype(np.float32)  # fmt: skip
 
     def col(channel: str) -> npt.NDArray[np.float64]:
         return weather[:, index[channel]].astype(np.float64)

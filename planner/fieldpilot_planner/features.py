@@ -124,7 +124,7 @@ class Normalization:
             "clim": list(CLIM_CHANNELS),
             "static": list(STATIC_FEATURES),
         }
-        path.write_text(json.dumps(payload, indent=1), encoding="utf-8")
+        path.write_text(json.dumps(payload, indent=1), encoding="utf-8", newline="\n")
 
     @classmethod
     def load(cls, path: Path) -> "Normalization":
