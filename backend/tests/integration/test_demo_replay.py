@@ -6,8 +6,9 @@ so this test fails if the seed, the recordings or the API drift apart.
 
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
@@ -15,12 +16,23 @@ from app.services.demo_seed import seed_demo_farm
 from app.settings import Settings
 from scripts.demo_script import DROUGHT, ONE_DAY, REJECT_REASON
 
+# What each language's run shows the farmer (D084): English by default, Spanish kept.
+EXPECTED = {
+    "en": {"held": "forecast rain", "zone": "Zone 2", "language": "en"},
+    "es": {"held": "lluvia prevista", "zone": "Zona 2", "language": "es"},
+}
 
-def _demo(tmp_path: Path) -> tuple[TestClient, int]:
+
+def _demo(tmp_path: Path, language: Literal["en", "es"] = "en") -> tuple[TestClient, int]:
     url = f"sqlite:///{tmp_path / 'demo.db'}"
-    plot_id = seed_demo_farm(url).plot_id
+    plot_id = seed_demo_farm(url, language).plot_id
     settings = Settings(
-        _env_file=None, database_url=url, mock_llm=True, app_profile="demo", auth_required=False
+        _env_file=None,
+        database_url=url,
+        mock_llm=True,
+        app_profile="demo",
+        auth_required=False,
+        app_language=language,
     )
     app = create_app(settings)
     return TestClient(app), plot_id
@@ -38,18 +50,21 @@ def _tasks(client: TestClient) -> dict[str, dict[str, Any]]:
     return {f"{t['action_type']}:{t['status']}": t for t in client.get("/tasks").json()}
 
 
-def test_the_two_day_demo_replays_offline(tmp_path: Path) -> None:
-    client, plot_id = _demo(tmp_path)
+@pytest.mark.parametrize("language", ["en", "es"])
+def test_the_two_day_demo_replays_offline(tmp_path: Path, language: Literal["en", "es"]) -> None:
+    client, plot_id = _demo(tmp_path, language)
+    expected = EXPECTED[language]
 
     # Day 1, 2 Nov: 12 mm of rain coming; the gate holds the irrigation.
     _cycle(client, plot_id)
     [held] = client.get("/tasks", params={"status": "pending_approval"}).json()
     assert held["action_type"] == "irrigation"
-    assert "lluvia prevista" in held["reason_es"]
+    assert expected["held"] in held["reason"]
+    assert "lluvia prevista" in held["reason_es"]  # the Spanish field stays Spanish
     rejected = client.post(f"/tasks/{held['id']}/reject", json={"reason": REJECT_REASON})
     assert rejected.json()["status"] == "rejected"
 
-    # Between days: "Inyectar sequía (48 h)", then "+1 día" (advance and tick).
+    # Between days: "Inject drought (48 h)", then "+1 day" (advance and tick).
     now = datetime.fromisoformat(client.get("/clock").json()["now"])
     drought = {"name": "drought", "start": now.isoformat(), "end": (now + DROUGHT).isoformat()}
     assert client.post("/simulation/scenarios", json=drought).status_code == 200
@@ -75,7 +90,8 @@ def test_the_two_day_demo_replays_offline(tmp_path: Path) -> None:
 
     reports = client.get("/reports").json()
     assert len(reports) == 2
-    assert all("Zona 2" in report["content"] for report in reports)
+    assert all(expected["zone"] in report["content"] for report in reports)
+    assert {report["language"] for report in reports} == {expected["language"]}
 
 
 def test_a_day_without_a_recording_answers_503(tmp_path: Path) -> None:

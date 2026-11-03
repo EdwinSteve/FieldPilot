@@ -63,8 +63,9 @@ from app.simulator.clock import system_wall_clock
 from app.voice.muse import MuseVoiceTranscribe
 from app.weather.fixture import FixtureForecast
 
-# One recorded daily cycle per local day of the plot (D076).
-MOCK_CYCLE_DIR = ("fixtures", "llm", "demo")
+# One recorded daily cycle per local day of the plot (D076), per language (D084):
+# demo/ holds the Spanish recordings, demo-en/ the same runs with English texts.
+MOCK_CYCLE_DIRS = {"es": ("fixtures", "llm", "demo"), "en": ("fixtures", "llm", "demo-en")}
 
 
 @dataclass(frozen=True)
@@ -121,7 +122,7 @@ def build_container(
     def agent_deps(llm: LLMClient) -> AgentDeps:
         return AgentDeps(
             llm=llm,
-            reader=StoredFieldReader(uow, forecast, config.crops, clock),
+            reader=StoredFieldReader(uow, forecast, config.crops, clock, config.messages.language),
             proposer=GateProposer(uow, proposals, config.messages),
             outbox=StoredOutbox(uow, clock, config.messages),
             trace=EventLogTraceSink(uow, clock),
@@ -133,8 +134,10 @@ def build_container(
         )
 
     live = None if settings.mock_llm else agent_deps(MuseClient.from_settings(settings))
-    recordings = settings.data_dir.joinpath(*MOCK_CYCLE_DIR)
-    queries = FarmQueries(uow, clock, revert, config.messages, imagery, config.crops)
+    recordings = settings.data_dir.joinpath(*MOCK_CYCLE_DIRS[settings.app_language])
+    queries = FarmQueries(
+        uow, clock, revert, config.messages, imagery, config.crops, config.messages_es
+    )
 
     def cycle_llm(day: date) -> LLMClient:
         """A fresh replay of that day's recording; a day never recorded replays nothing,
@@ -152,13 +155,15 @@ def build_container(
     voice = (
         None
         if chat is None
-        else VoiceChatService(chat, MuseVoiceTranscribe.from_settings(settings))
+        else VoiceChatService(
+            chat, MuseVoiceTranscribe.from_settings(settings), settings.app_language
+        )
     )
     recommender = build_recommender(settings.planner_dir, settings.planner_bundle)
     sites = FileSiteSource([settings.data_dir / "fixtures" / "planner", _sites_dir(settings)])
-    planning = PlanningService(uow, clock, sites, recommender, config.crops)
-    site_jobs = _site_jobs(settings, runtime)
     crop_names = _crop_names(recommender, config)
+    planning = PlanningService(uow, clock, sites, recommender, config.crops, crop_names)
+    site_jobs = _site_jobs(settings, runtime)
     return Container(
         runtime=runtime,
         config=config,
@@ -180,9 +185,9 @@ def build_container(
         auth=_auth_service(runtime, config, auth),
         access=AccessPolicy(uow),
         planning=planning,
-        plots=PlotService(uow, clock, sites, site_jobs),
+        plots=PlotService(uow, clock, sites, site_jobs, config.messages),
         cycles=CycleService(uow, clock, planning, config.crops, crop_names),
-        passports=PassportService(uow, crop_names),
+        passports=PassportService(uow, config.messages, config.messages_es),
     )
 
 
@@ -203,10 +208,11 @@ def _sites_dir(settings: Settings) -> Path:
 
 
 def _crop_names(recommender: CropRecommender, config: RuntimeConfig) -> dict[str, str]:
-    """Spanish crop names for messages and passports: the planner's, then the catalogue's."""
-    names = {card.crop: card.name_es for card in recommender.crops}
+    """Crop names in APP_LANGUAGE (D084): the message catalogue, then each crop's YAML."""
+    language = config.messages.language
+    names = {card.crop: config.messages.crop_name(card.crop) for card in recommender.crops}
     for name, spec in config.crops.items():
-        names.setdefault(name, spec.display_name.get("es", name))
+        names.setdefault(name, spec.display_name.get(language, name))
     return names
 
 

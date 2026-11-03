@@ -174,7 +174,8 @@ class TaskOut(BaseModel):
     revert_deadline: datetime | None
     revert_open: bool | None
     revert_remaining_seconds: float | None
-    reason_es: str | None  # why it is held, from the message catalogue (D067)
+    reason: str | None  # why it is held, in APP_LANGUAGE (D067, D084)
+    reason_es: str | None  # the same, always in Spanish (kept for clients)
 
     @classmethod
     def of(cls, view: TaskView) -> "TaskOut":
@@ -195,6 +196,7 @@ class TaskOut(BaseModel):
             revert_deadline=task.revert_deadline,
             revert_open=view.revert_open,
             revert_remaining_seconds=None if remaining is None else remaining.total_seconds(),
+            reason=view.reason,
             reason_es=view.reason_es,
         )
 
@@ -468,7 +470,7 @@ class PolicyOut(BaseModel):
 class ScenarioStatusOut(BaseModel):
     active: list[dict[str, JsonValue]]
     upcoming: list[dict[str, JsonValue]]
-    lost: list[dict[str, JsonValue]]  # D014: show "El simulador se reinició..." for each
+    lost: list[dict[str, JsonValue]]  # D014: show "The simulator restarted..." for each
 
     @classmethod
     def of(cls, status: ScenarioStatus) -> "ScenarioStatusOut":
@@ -512,7 +514,8 @@ ScenarioIn = Annotated[DroughtIn | HeavyRainIn, Field(discriminator="name")]
 
 class CropStageOut(BaseModel):
     name: str
-    display_es: str
+    display_name: str  # in APP_LANGUAGE (D084)
+    display_es: str  # always Spanish, kept for clients that read it
     gdd_start: float
 
 
@@ -520,19 +523,22 @@ class CropOut(BaseModel):
     """A crop of the catalogue, its stages in order (D077)."""
 
     name: str
+    display_name: str  # in APP_LANGUAGE (D084)
     display_es: str
     maturity_gdd: float
     stages: list[CropStageOut]
 
     @classmethod
-    def of(cls, crop: CropSpec) -> "CropOut":
+    def of(cls, crop: CropSpec, language: str) -> "CropOut":
         return cls(
             name=crop.name,
+            display_name=crop.display_name.get(language, crop.name),
             display_es=crop.display_name.get("es", crop.name),
             maturity_gdd=crop.maturity_gdd,
             stages=[
                 CropStageOut(
                     name=stage.name,
+                    display_name=stage.display_name.get(language, stage.name),
                     display_es=stage.display_name.get("es", stage.name),
                     gdd_start=stage.gdd_start,
                 )
@@ -543,6 +549,7 @@ class CropOut(BaseModel):
 
 class CropOutlookOut(BaseModel):
     crop: str
+    name: str  # in APP_LANGUAGE (D084)
     name_es: str
     sowing_date: date
     harvest_date: date
@@ -670,6 +677,7 @@ class PassportOut(BaseModel):
 
     lot_code: str
     crop: str
+    crop_name: str  # in APP_LANGUAGE (D084)
     crop_name_es: str
     producer: str
     municipality: str
@@ -688,6 +696,7 @@ class PassportOut(BaseModel):
         return cls(
             lot_code=passport.lot_code,
             crop=passport.crop,
+            crop_name=passport.crop_name,
             crop_name_es=passport.crop_name_es,
             producer=passport.producer,
             municipality=passport.municipality,

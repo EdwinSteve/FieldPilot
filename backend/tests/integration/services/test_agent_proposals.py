@@ -32,7 +32,7 @@ def test_an_allowed_irrigation_executes(uow: UowFactory) -> None:
         "execute",
         "autonomous",
     )
-    assert view.reason_es is None and view.already_decided is False
+    assert view.reason is None and view.already_decided is False
     assert world.task(view.task_id).params == {"volume_mm": 15.0}
 
 
@@ -43,7 +43,7 @@ def test_a_held_irrigation_carries_the_farmer_reason(uow: UowFactory) -> None:
     view = GateProposer(uow, world.proposals, MESSAGES).propose(_request(world))
 
     assert (view.status, view.outcome) == ("pending_approval", "await_approval")
-    assert view.reason_es == "Pendiente de aprobación por lluvia prevista (8 mm > 5 mm)"
+    assert view.reason == "Pendiente de aprobación por lluvia prevista (8 mm > 5 mm)"
 
 
 def test_the_same_request_twice_is_one_task(uow: UowFactory) -> None:

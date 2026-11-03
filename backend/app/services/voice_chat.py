@@ -6,8 +6,6 @@ from app.agent.loop import AgentRun
 from app.services.chat import ChatService
 from app.voice.speech import NothingHeardError, SpeechToText
 
-LANGUAGE = "es"
-
 
 @dataclass(frozen=True)
 class VoiceAnswer:
@@ -16,13 +14,14 @@ class VoiceAnswer:
 
 
 class VoiceChatService:
-    def __init__(self, chat: ChatService, speech: SpeechToText) -> None:
+    def __init__(self, chat: ChatService, speech: SpeechToText, language: str = "en") -> None:
         self._chat = chat
         self._speech = speech
+        self._language = language  # the farmer speaks APP_LANGUAGE (D084)
 
     def ask(self, plot_id: int, audio: bytes) -> VoiceAnswer:
         """Raises NothingHeardError on silence: the model is never asked an empty question."""
-        transcript = self._speech.transcribe(audio, LANGUAGE)
+        transcript = self._speech.transcribe(audio, self._language)
         if not transcript:
             raise NothingHeardError("the recording has no speech")
         return VoiceAnswer(transcript, self._chat.ask(plot_id, transcript))

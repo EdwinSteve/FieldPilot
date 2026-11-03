@@ -30,7 +30,10 @@ class DeclaredAction(BaseModel):
 class ReportInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    text_es: str = Field(min_length=1, description="The day's report for the farmer, in Spanish.")
+    # `text_es` is the recorded wire name (D076); it holds APP_LANGUAGE (D084).
+    text_es: str = Field(
+        min_length=1, description="The day's report for the farmer, in the farmer's language."
+    )
     cited: list[str] = Field(description="observation_ids behind every number in the text")
     actions: list[DeclaredAction] = Field(description="Every task the text talks about.")
 

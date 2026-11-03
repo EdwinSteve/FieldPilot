@@ -25,7 +25,7 @@ def test_the_seed_writes_the_rows_the_recordings_cite(tmp_path: Path) -> None:
         cycle = u.cycles.get(summary.cycle_id)
     assert START == RAINY_MORNING
     assert clock is not None and (clock.sim_anchor, clock.paused) == (RAINY_MORNING, True)
-    assert (zone.name, zone.field_capacity_pct) == ("Zona 2", 32.0)
+    assert (zone.name, zone.field_capacity_pct) == ("Zone 2", 32.0)  # APP_LANGUAGE=en (D084)
     assert sensor.kind is SensorKind.SOIL_MOISTURE
     assert reading is not None and (reading.id, reading.value) == (1, 20.0)
     assert (cycle.crop, cycle.sowing_date) == ("maize", date(2026, 10, 1))

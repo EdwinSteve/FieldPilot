@@ -40,10 +40,10 @@ class ZoneView:
 class StageView:
     cycle_id: int
     crop: str  # the catalogue key, e.g. "maize" (D077)
-    crop_display_es: str
+    crop_display: str
     root_depth_mm: float  # to size irrigation (D077)
     stage: str
-    stage_display_es: str
+    stage_display: str
     accumulated_gdd: float
     kc: float
 
@@ -77,7 +77,7 @@ class ProposalView:
     status: str
     outcome: str
     effective_level: str
-    reason_es: str | None  # the leading rule, in the farmer's words; None when allowed
+    reason: str | None  # the leading rule, in the farmer's words; None when allowed
     already_decided: bool
 
 

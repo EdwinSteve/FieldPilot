@@ -34,20 +34,30 @@ SUBAGENTS: tuple[SubagentSpec, ...] = (
 
 
 def load_agent_catalog(
-    prompts_dir: Path, specs: Sequence[SubagentSpec] = SUBAGENTS
+    prompts_dir: Path, specs: Sequence[SubagentSpec] = SUBAGENTS, *, language: str = "en"
 ) -> tuple[Subagent, ...]:
-    """Every spec with its prompt file. Refuses a missing prompt or closing tool."""
+    """Every spec with its prompt file. Refuses a missing prompt or closing tool.
+
+    `<language>/<name>.md` wins over `<name>.md`, so a prompt that sets the
+    farmer's language has one file per language and the others are shared (D084).
+    """
     problems = [
         f"{spec.name}: no closing tool (D053)" for spec in specs if spec.closing_tool is None
     ]
+    files = {spec.name: _prompt_file(prompts_dir, spec.name, language) for spec in specs}
     problems += [
-        f"{spec.name}: missing prompt {prompts_dir / f'{spec.name}.md'} (D055)"
-        for spec in specs
-        if not (prompts_dir / f"{spec.name}.md").is_file()
+        f"{name}: missing prompt {path} (D055)"
+        for name, path in files.items()
+        if not path.is_file()
     ]
     if problems:
         raise ConfigError("agent catalogue: " + "; ".join(problems))
-    return tuple(_subagent(spec, prompts_dir / f"{spec.name}.md") for spec in specs)
+    return tuple(_subagent(spec, files[spec.name]) for spec in specs)
+
+
+def _prompt_file(prompts_dir: Path, name: str, language: str) -> Path:
+    localised = prompts_dir / language / f"{name}.md"
+    return localised if localised.is_file() else prompts_dir / f"{name}.md"
 
 
 def _subagent(spec: SubagentSpec, prompt_file: Path) -> Subagent:

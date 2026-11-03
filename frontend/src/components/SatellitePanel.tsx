@@ -17,30 +17,30 @@ export function SatellitePanel({ plot, version }: SatellitePanelProps) {
   const imagery = useResource(useCallback(() => api.imagery(plot.id), [plot.id]), version);
   const [imageFailed, setImageFailed] = useState(false);
   const scene = imagery.data?.scene;
-  const nameOf = (zoneId: number) => zones.data?.find((z) => z.id === zoneId)?.name ?? `Zona ${zoneId}`;
+  const nameOf = (zoneId: number) => zones.data?.find((z) => z.id === zoneId)?.name ?? `Zone ${zoneId}`;
 
   return (
     <Panel
-      title="Vista satelital"
+      title="Satellite view"
       error={zones.error ?? imagery.error}
       icon="satellite"
       loading={zones.loading || imagery.loading}
     >
       {scene ? (
         <p className="muted">
-          Imagen del {scene.acquired_on}
-          {scene.synthetic ? " (sintética)" : ""}. Vigor bajo: NDVI medio menor que{" "}
+          Image of {scene.acquired_on}
+          {scene.synthetic ? " (synthetic)" : ""}. Low vigour: mean NDVI below{" "}
           {formatNumber(scene.low_ndvi_threshold, 2)}.
           {scene.segmentation_note ? ` ${scene.segmentation_note}` : ""}
         </p>
       ) : (
-        <p className="muted">No hay imagen satelital para esta parcela.</p>
+        <p className="muted">There is no satellite image for this plot.</p>
       )}
       {scene && !imageFailed ? (
         <div className="satellite-frame">
           <img
             src={api.imageryImageUrl(plot.id)}
-            alt={`Imagen satelital de ${plot.name} del ${scene.acquired_on}`}
+            alt={`${plot.name} from orbit on ${scene.acquired_on}`}
             className="satellite-frame__img"
             onError={() => setImageFailed(true)}
           />
@@ -73,19 +73,19 @@ export function SatellitePanel({ plot, version }: SatellitePanelProps) {
           ))}
         </div>
       ) : null}
-      {scene && imageFailed ? <p className="muted">No se pudo cargar la imagen.</p> : null}
+      {scene && imageFailed ? <p className="muted">The image could not be loaded.</p> : null}
       <ul className="ndvi-list">
         {(imagery.data?.zones ?? []).map((zone) => (
           <li key={zone.zone_id} className="ndvi-list__item">
             <strong>{nameOf(zone.zone_id)}</strong>
             <NdviScale zone={zone} />
             <span>
-              Suelo desnudo:{" "}
+              Bare soil:{" "}
               {zone.bare_soil_pct === null
-                ? "desconocido"
-                : `aproximadamente ${formatNumber(zone.bare_soil_pct, 0)} %`}
+                ? "unknown"
+                : `about ${formatNumber(zone.bare_soil_pct, 0)} %`}
             </span>
-            {zone.low_vigor ? <span className="badge badge--warn">Vigor bajo</span> : null}
+            {zone.low_vigor ? <span className="badge badge--warn">Low vigour</span> : null}
           </li>
         ))}
       </ul>
@@ -113,7 +113,7 @@ function NdviScale({ zone }: { zone: ZoneImagery }) {
         )}
       </span>
       <span>
-        NDVI {zone.ndvi_mean === null ? "desconocido" : formatNumber(zone.ndvi_mean, 3)}
+        NDVI {zone.ndvi_mean === null ? "unknown" : formatNumber(zone.ndvi_mean, 3)}
       </span>
     </span>
   );

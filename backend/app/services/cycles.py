@@ -68,24 +68,25 @@ class CycleService:
     def start(self, principal: Principal, plot_id: int, form: NewCycle) -> CropCycle:
         """The sowing confirmation: one active cycle per plot, a date that already happened."""
         if not CROP_SLUG.fullmatch(form.crop):
-            raise InvalidSowingDateError(
-                "El cultivo debe ser un nombre en minúsculas, sin espacios."
-            )
+            raise ValueError(f"crop must match {CROP_SLUG.pattern}")  # the API validates it first
         with self._uow() as uow:
             plot = uow.plots.get(plot_id)
             if any(c.status is CycleStatus.ACTIVE for c in uow.cycles.list_by_plot(plot_id)):
                 raise ActiveCycleExistsError(
-                    "La parcela ya tiene un ciclo activo. Cosecha primero."
+                    "The plot already has an active cycle. Confirm its harvest first.",
+                    key="active_cycle_exists",
                 )
         today = local_day(self._clock.now(), plot)
         if not today - timedelta(days=MAX_BACKDATE_DAYS) <= form.sowing_date <= today:
             raise InvalidSowingDateError(
-                "La siembra se confirma cuando ya ocurrió: "
-                f"entre hace {MAX_BACKDATE_DAYS} días y hoy."
+                "A sowing is confirmed once it happened: "
+                f"between {MAX_BACKDATE_DAYS} days ago and today.",
+                key="invalid_sowing_date",
+                params={"max_days": MAX_BACKDATE_DAYS},
             )
         advice = self._planning.advice(plot, form.sowing_date, form.crop)
         if not advice.recommended and not form.accept_own_risk:
-            raise OwnRiskRequiredError(self._risk_message(form.crop, advice.top))
+            raise self._own_risk_error(form.crop, advice.top)
         cycle = CropCycle(
             plot_id=plot_id,
             crop=form.crop,
@@ -110,8 +111,9 @@ class CycleService:
             tasks = uow.tasks.list(cycle_id=cycle_id)
             if any(t.status in _OPEN for t in tasks):
                 raise OpenTasksError(
-                    "Hay tareas pendientes o programadas en este ciclo. "
-                    "Apruébalas o recházalas antes de cosechar."
+                    "This cycle has tasks awaiting approval or scheduled. "
+                    "Approve or reject them before the harvest.",
+                    key="open_tasks",
                 )
             events = uow.events.list()
             known = any(
@@ -149,36 +151,45 @@ class CycleService:
 
     def _check_harvest(self, cycle: CropCycle, plot: Plot, form: Harvest, today: date) -> None:
         if cycle.status is not CycleStatus.ACTIVE:
-            raise InvalidTransitionError("Este ciclo ya fue cosechado.")
+            raise InvalidTransitionError(
+                "This cycle was already harvested.", key="cycle_already_harvested"
+            )
         if not cycle.sowing_date < form.harvested_on <= today:
             raise InvalidHarvestError(
-                "La fecha de cosecha debe ser posterior a la siembra y no puede ser futura."
+                "The harvest date must be after the sowing and cannot be in the future.",
+                key="invalid_harvest_date",
             )
         if not 0 < form.quantity_kg <= MAX_KG_PER_HA * plot.area_ha:
             raise InvalidHarvestError(
-                f"La cantidad debe ser mayor que 0 y como máximo {MAX_KG_PER_HA:,} kg por hectárea."
+                f"The quantity must be above 0 and at most {MAX_KG_PER_HA:,} kg per hectare.",
+                key="invalid_harvest_quantity",
+                params={"max_kg_per_ha": MAX_KG_PER_HA},
             )
 
-    def _risk_message(self, crop: str, top: tuple[str, ...]) -> str:
+    def _own_risk_error(self, crop: str, top: tuple[str, ...]) -> OwnRiskRequiredError:
         name = self._crop_names.get(crop, crop)
         if not top:
-            return (
-                f"El planificador no puede evaluar {name} en esta parcela todavía. "
-                "Para sembrar, confirma que lo haces bajo tu propio riesgo."
+            return OwnRiskRequiredError(
+                f"The planner cannot assess {name} on this plot yet. "
+                "To sow it, confirm that you do so at your own risk.",
+                key="own_risk_required_no_plan",
+                params={"crop": name},
             )
-        return (
-            f"{name} no está entre los recomendados para esa semana ({', '.join(top)}). "
-            "Para sembrarlo, confirma que lo haces bajo tu propio riesgo."
+        return OwnRiskRequiredError(
+            f"{name} is not among the recommended crops for that week ({', '.join(top)}). "
+            "To sow it, confirm that you do so at your own risk.",
+            key="own_risk_required",
+            params={"crop": name, "top": ", ".join(top)},
         )
 
     def _started_event(self, cycle: CropCycle, principal: Principal) -> Event:
         plan = cycle.plan
-        mode = "automatizado" if cycle.automated else "manual"
-        choice = "bajo su propio riesgo" if cycle.own_risk else "según la recomendación"
+        mode = "automated" if cycle.automated else "manual"
+        choice = "at the farmer's own risk" if cycle.own_risk else "following the recommendation"
         return Event(
             kind=EventKind.CYCLE_STARTED,
             actor=principal.actor,
-            reason=f"Siembra confirmada: {cycle.crop} el {cycle.sowing_date}, {mode}, {choice}.",
+            reason=f"Sowing confirmed: {cycle.crop} on {cycle.sowing_date}, {mode}, {choice}.",
             occurred_at=self._clock.now(),
             inputs={
                 "cycle_id": cycle.id,
@@ -198,7 +209,7 @@ class CycleService:
         return Event(
             kind=EventKind.HARVEST_CONFIRMED,
             actor=principal.actor,
-            reason=f"Cosecha confirmada: {lot.quantity_kg:g} kg de {lot.crop} ({lot.grade}).",
+            reason=f"Harvest confirmed: {lot.quantity_kg:g} kg of {lot.crop} ({lot.grade}).",
             occurred_at=lot.created_at,
             inputs={
                 "cycle_id": lot.cycle_id,
@@ -213,7 +224,7 @@ class CycleService:
         return Event(
             kind=EventKind.LOT_COMMISSIONED,
             actor=principal.actor,
-            reason=f"Lote {lot.code} creado con su pasaporte.",
+            reason=f"Lot {lot.code} created with its passport.",
             occurred_at=lot.created_at,
             inputs={"lot_code": lot.code, "cycle_id": lot.cycle_id, "chain_head": head},
         )

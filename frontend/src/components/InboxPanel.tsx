@@ -21,23 +21,23 @@ export function InboxPanel({ plot, version, refresh }: InboxPanelProps) {
 
   return (
     <>
-      <Panel title="Avisos" error={notes.error ?? action.error} icon="alert" loading={notes.loading}>
-        {notes.data?.length === 0 ? <p className="muted">Sin avisos.</p> : null}
+      <Panel title="Notices" error={notes.error ?? action.error} icon="alert" loading={notes.loading}>
+        {notes.data?.length === 0 ? <p className="muted">No notices.</p> : null}
         <ul className="inbox">
           {notes.data?.toReversed().map((note) => (
             <li key={note.id} className={note.read_at ? "inbox__item" : "inbox__item inbox__item--unread"}>
               <span className="muted">{time(note.created_at)}</span> {note.message}
               {note.read_at ? null : (
                 <button disabled={action.busy} onClick={() => action.run(() => api.markRead(note.id))}>
-                  Marcar como leído
+                  Mark as read
                 </button>
               )}
             </li>
           ))}
         </ul>
       </Panel>
-      <Panel title="Informes del día" error={reports.error} icon="leaf" loading={reports.loading}>
-        {reports.data?.length === 0 ? <p className="muted">Todavía no hay informes.</p> : null}
+      <Panel title="Daily reports" error={reports.error} icon="leaf" loading={reports.loading}>
+        {reports.data?.length === 0 ? <p className="muted">No reports yet.</p> : null}
         {reports.data?.toReversed().map((report) => (
           <article key={report.id} className="report">
             <span className="muted">{time(report.created_at)}</span>

@@ -9,6 +9,7 @@ from pydantic import SecretStr
 
 from app.agent.llm.mock import MockLLMClient
 from app.agent.llm.ports import FixtureExhaustedError
+from app.container import MOCK_CYCLE_DIRS
 from app.domain.enums import SensorKind
 from app.domain.models import Plot, Reading, Sensor, Zone
 from app.main import create_app
@@ -99,21 +100,24 @@ def test_startup_rebuilds_the_simulator_from_stored_readings(tmp_path: Path) -> 
 
 
 def test_mock_mode_replays_the_recording_of_the_plots_local_day(tmp_path: Path) -> None:
-    """D076: one recording per local day; a day never recorded replays nothing."""
+    """D076: one recording per local day; a day never recorded replays nothing.
+
+    The English recordings are replayed by default (D084).
+    """
     data = tmp_path / "data"
     shutil.copytree(Settings(_env_file=None).data_dir, data)
-    recordings = data / "fixtures" / "llm" / "demo"
+    recordings = data.joinpath(*MOCK_CYCLE_DIRS["en"])
     shutil.rmtree(recordings, ignore_errors=True)
     recordings.mkdir(parents=True)
     (recordings / "2026-11-02.json").write_text(
-        '{"responses": [{"text": "día uno"}]}', encoding="utf-8"
+        '{"responses": [{"text": "day one"}]}', encoding="utf-8"
     )
     container = create_app(_settings(data_dir=data)).state.container
 
     recorded = container.cycle_llm(DEMO_DAY_1)
     missing = container.cycle_llm(DEMO_DAY_2)
 
-    assert recorded.complete("s", [], []).text == "día uno"
+    assert recorded.complete("s", [], []).text == "day one"
     with pytest.raises(FixtureExhaustedError):
         missing.complete("s", [], [])
 

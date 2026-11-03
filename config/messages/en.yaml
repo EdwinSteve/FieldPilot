@@ -1,0 +1,95 @@
+# Farmer-facing messages in English, the default language (APP_LANGUAGE=en,
+# D084). Keys are the codes used in code; rules and the gate never contain
+# text. Every RuleCode must have an entry under `rules`, or the app refuses to
+# start. es.yaml holds the same keys in Spanish.
+#
+# Placeholders in {braces} are filled from the violation's or error's params.
+
+language: en
+decimal_separator: "."
+
+rules:
+  emergency_stop_active: "Awaiting approval: the emergency stop is active"
+  always_approval_type: "Awaiting approval: this action always needs your confirmation"
+  daily_irrigation_cap_exceeded: >-
+    Awaiting approval: today's irrigation would add up to {total_mm} mm, above
+    the maximum of {limit_mm} mm
+  rain_forecast_above_limit: "Awaiting approval because of forecast rain ({forecast_mm} mm > {limit_mm} mm)"
+  irrigation_interval_too_short: >-
+    Awaiting approval: only {hours_since_last} h would have passed since the
+    last irrigation (minimum {min_hours} h)
+  moisture_above_limit: >-
+    Awaiting approval: the soil is already at {moisture_pct_fc} % of its field
+    capacity (maximum {limit_pct_fc} %)
+  calendar_shift_too_large: >-
+    Awaiting approval: moving the date by {shift_days} days exceeds the maximum
+    of {limit_days} days
+  missing_input: "Awaiting approval: a value needed to decide safely is missing ({input})"
+
+# Names shown for `missing_input`, keyed by the input identifier.
+inputs:
+  rain_forecast_mm_24h: rain forecast
+  soil_moisture_vwc: soil moisture
+  field_capacity_vwc: the zone's field capacity
+  volume_mm: irrigation volume
+  shift_days: days of date change
+
+labels:
+  already_decided: "Already decided on {decided_at}"
+  notify_committed: >-
+    Action under way with notice: you can revert it while the window is open
+    (simulated clock)
+  # D033: the farmer saw this task as scheduled, so name the rule that changed.
+  scheduled_not_executed: "The scheduled task was not executed: {rule}. It needs a new decision"
+  execution_failed: "Task {task_id} could not be executed and will not be retried"
+  # D013: no actuator record after a restart.
+  execution_not_confirmed: >-
+    The execution of task {task_id} was not confirmed after a system restart.
+    It will not be retried: it needs a new decision
+  # D032: never a bare "irrigation closed"; the farmer must know the amount is unknown.
+  irrigation_interrupted: >-
+    The {requested_mm} mm irrigation in zone {zone} may have continued after
+    the system restart. The amount of water applied is unknown
+  # D083: the public passport never names a person.
+  producer_of: "Producer from {place}"
+  producer_unknown: "FieldPilot producer"
+
+# Agent pipeline texts (D051, D052), addressed in code as "cycle.<key>" and
+# "report.<key>".
+cycle:
+  # D051: a subagent ran out of turns. A real failure: the farmer is told.
+  failed_turn_limit: >-
+    The daily cycle stopped before finishing: the assistant ran out of turns.
+    No new action was proposed; check the log
+  # D051: the model service was unavailable. Written to the log, never an alert.
+  paused_retry_next_run: >-
+    Daily cycle paused: the model service did not answer. It will be retried
+    on the next run
+report:
+  # D052: the third refused report. Nothing unverified is saved.
+  escalated_unverified: >-
+    The day's report failed the data check and was not saved. Check the event
+    log
+
+# Crop names shown to people, by the crop identifiers of the planner and of
+# config/crops (D079, D083). A crop without an entry is shown by its identifier.
+crops:
+  maize: Maize
+  common_bean: Common bean
+  sorghum: Sorghum
+  soybean: Soybean
+  groundnut: Groundnut
+  cotton: Cotton
+  tomato: Tomato
+  potato: Potato
+
+# API error messages, keyed by error (D084). English is written at the raise
+# site, so this section may stay empty: a missing key shows the code's text.
+errors: {}
+
+# 503 answers: one fixed, safe message per error (§7).
+unavailable:
+  llm_unavailable: "The model did not answer. Try again in a moment."
+  speech_unavailable: "The transcription service did not answer."
+  chat_unavailable: "The chat needs MOCK_LLM=0 and an API key."
+  fixture_exhausted: "The recorded answer does not match this farm (MOCK_LLM=1)."

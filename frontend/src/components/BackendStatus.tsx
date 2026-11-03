@@ -4,9 +4,9 @@ import { fetchHealth } from "../api/health";
 type Status = "checking" | "online" | "offline";
 
 const LABELS: Record<Status, string> = {
-  checking: "Conectando…",
-  online: "Backend en línea",
-  offline: "Backend sin conexión",
+  checking: "Connecting…",
+  online: "Backend online",
+  offline: "Backend offline",
 };
 
 export function BackendStatus() {

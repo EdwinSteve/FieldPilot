@@ -22,23 +22,23 @@ describe("formatDuration", () => {
 
 describe("formatNumber", () => {
   it("uses a decimal comma, like the backend catalogue", () => {
-    expect(formatNumber(20.5)).toBe("20,5");
-    expect(formatNumber(0.378, 3)).toBe("0,378");
+    expect(formatNumber(20.5)).toBe("20.5");
+    expect(formatNumber(0.378, 3)).toBe("0.378");
     expect(formatNumber(15)).toBe("15");
   });
 });
 
 describe("formatPlotTime", () => {
   it("shows the plot's local time, not the browser's", () => {
-    expect(formatPlotTime("2026-10-28T11:00:00Z", -5)).toBe("28 oct, 06:00");
-    expect(formatPlotTime("2026-10-28T03:30:00Z", -5)).toBe("27 oct, 22:30");
+    expect(formatPlotTime("2026-10-28T11:00:00Z", -5)).toBe("28 Oct, 06:00");
+    expect(formatPlotTime("2026-10-28T03:30:00Z", -5)).toBe("27 Oct, 22:30");
   });
 });
 
 describe("formatDayMonth", () => {
   it("reads the day and short month", () => {
-    expect(formatDayMonth("2026-10-20")).toBe("20 oct");
-    expect(formatDayMonth("2026-01-05")).toBe("5 ene");
+    expect(formatDayMonth("2026-10-20")).toBe("20 Oct");
+    expect(formatDayMonth("2026-01-05")).toBe("5 Jan");
   });
 
   it("leaves bad input alone", () => {

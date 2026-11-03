@@ -24,7 +24,7 @@ describe("toApiError", () => {
     const error = await toApiError(response(502, "<html>Bad gateway</html>", "text/html"), "GET /plots");
 
     expect(error.code).toBe("HttpError");
-    expect(error.message).toBe("GET /plots falló (HTTP 502)");
+    expect(error.message).toBe("GET /plots failed (HTTP 502)");
   });
 
   it("ignores a validation detail without a message", async () => {
@@ -32,6 +32,6 @@ describe("toApiError", () => {
 
     const error = await toApiError(response(422, body), "POST /agent/chat");
 
-    expect(error.message).toBe("POST /agent/chat falló (HTTP 422)");
+    expect(error.message).toBe("POST /agent/chat failed (HTTP 422)");
   });
 });

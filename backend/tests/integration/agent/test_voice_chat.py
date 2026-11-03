@@ -35,7 +35,7 @@ def test_the_transcript_becomes_the_question(uow: UowFactory) -> None:
     assert answer.transcript == QUESTION
     assert answer.run.status is RunStatus.COMPLETED
     assert llm.requests[0].messages[0] == UserMessage(QUESTION)
-    assert speech.calls == [(audio, "es")]
+    assert speech.calls == [(audio, "en")]  # APP_LANGUAGE, English by default (D084)
 
 
 def test_silence_never_reaches_the_model(uow: UowFactory) -> None:

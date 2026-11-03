@@ -17,9 +17,9 @@ from app.simulator.scenarios import DroughtScenario
 
 FARMER = Principal.demo_farmer().actor  # the demo runs as the dashboard did (D082)
 
-REJECT_REASON = "Esperaré la lluvia"  # the farmer's answer to the rain hold on day 1
-DROUGHT = timedelta(hours=48)  # the dashboard's "Inyectar sequía (48 h)"
-ONE_DAY = timedelta(days=1)  # the dashboard's "+1 día"
+REJECT_REASON = "I'll wait for the rain"  # the farmer's answer to the rain hold on day 1
+DROUGHT = timedelta(hours=48)  # the dashboard's "Inject drought (48 h)"
+ONE_DAY = timedelta(days=1)  # the dashboard's "+1 day"
 
 
 @dataclass(frozen=True)
@@ -45,7 +45,7 @@ def reject_held(container: Container) -> list[int]:
 
 
 def between_days(container: Container) -> None:
-    """ "Inyectar sequía (48 h)", then "+1 día", which advances and ticks."""
+    """ "Inject drought (48 h)", then "+1 day", which advances and ticks."""
     now = container.runtime.clock.now()
     container.scenarios.inject(DroughtScenario(now, now + DROUGHT), FARMER)
     container.clock_service.advance(FARMER, ONE_DAY)

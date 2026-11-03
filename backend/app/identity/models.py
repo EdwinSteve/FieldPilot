@@ -35,7 +35,9 @@ class Phone:
         digits = re.sub(r"[\s\-().]", "", raw)
         match = _MOBILE.fullmatch(digits)
         if match is None:
-            raise InvalidPhoneError("El celular debe ser un móvil colombiano de 10 dígitos.")
+            raise InvalidPhoneError(
+                "The phone must be a 10-digit Colombian mobile number.", key="invalid_phone"
+            )
         return cls(f"+57{match.group(1)}")
 
     @property

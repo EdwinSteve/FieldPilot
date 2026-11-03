@@ -63,6 +63,6 @@ export async function toApiError(response: Response, what: string): Promise<ApiE
     // Not JSON (a proxy error page, for example): fall back to the status.
   }
   const message =
-    typeof body.message === "string" ? body.message : `${what} falló (HTTP ${response.status})`;
+    typeof body.message === "string" ? body.message : `${what} failed (HTTP ${response.status})`;
   return new ApiError(response.status, body.error ?? "HttpError", message);
 }

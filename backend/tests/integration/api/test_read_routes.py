@@ -51,7 +51,7 @@ def test_a_crop_lists_its_stages_in_order(client: TestClient) -> None:
     """D077: the dashboard draws the stage bar from the catalogue, not from code."""
     body = client.get("/crops/maize").json()
 
-    assert (body["name"], body["display_es"]) == ("maize", "Maíz")
+    assert (body["name"], body["display_name"], body["display_es"]) == ("maize", "Maize", "Maíz")
     assert [s["name"] for s in body["stages"]] == [
         "sowing",
         "germination_emergence",
@@ -60,7 +60,12 @@ def test_a_crop_lists_its_stages_in_order(client: TestClient) -> None:
         "grain_fill",
         "maturity_harvest",
     ]
-    assert body["stages"][0] == {"name": "sowing", "display_es": "Siembra", "gdd_start": 0.0}
+    assert body["stages"][0] == {
+        "name": "sowing",
+        "display_name": "Sowing",
+        "display_es": "Siembra",
+        "gdd_start": 0.0,
+    }
     assert body["maturity_gdd"] == 1472.2
 
 

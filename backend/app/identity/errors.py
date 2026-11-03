@@ -1,4 +1,4 @@
-"""Identity errors. Messages are shown to the person, so they are in Spanish."""
+"""Identity errors. English here; the catalogue translates them by key (D084)."""
 
 from app.domain.errors import DomainError
 
@@ -27,21 +27,24 @@ class InvalidCredentialsError(DomainError):
     """Unknown phone or wrong password: one message for both (§4.12 rule 2)."""
 
     def __init__(self) -> None:
-        super().__init__("El celular o la contraseña no son correctos.")
+        super().__init__("The phone or the password is not correct.", key="invalid_credentials")
 
 
 class AccountLockedError(DomainError):
     """Too many failed logins in a row (§4.12 rule 3)."""
 
     def __init__(self) -> None:
-        super().__init__("La cuenta está bloqueada por intentos fallidos. Intenta más tarde.")
+        super().__init__(
+            "The account is locked after too many failed attempts. Try again later.",
+            key="account_locked",
+        )
 
 
 class InvalidSessionError(DomainError):
     """A missing, expired, revoked or forged token."""
 
     def __init__(self) -> None:
-        super().__init__("La sesión no es válida. Inicia sesión de nuevo.")
+        super().__init__("The session is not valid. Log in again.", key="invalid_session")
 
 
 class ForbiddenError(DomainError):

@@ -37,5 +37,5 @@ export function useResource<T>(load: () => Promise<T>, version: number): Resourc
 /** The backend's Spanish message when there is one. */
 export function describeError(error: unknown): string {
   if (error instanceof ApiError) return error.message;
-  return "No se pudo conectar con el backend.";
+  return "Could not connect to the backend.";
 }

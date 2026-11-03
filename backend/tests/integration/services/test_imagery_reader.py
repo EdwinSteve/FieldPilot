@@ -41,22 +41,18 @@ def _reader(
     )
 
 
-def test_zones_are_matched_by_name(uow: UowFactory, field: FieldIds) -> None:
-    """The conftest field has "Zone 2"; the scene has "Zona 1" and "Zona 2"."""
+def test_zones_are_matched_by_name_in_either_language(uow: UowFactory, field: FieldIds) -> None:
+    """The conftest field has "Zone 2"; the scene names it "Zone 2" and "Zona 2" (D084)."""
     with uow() as u:
         zona_2 = u.zones.add(Zone(field.plot_id, "Zona 2", 0.5, 32.0, valve_id="v9"))
+        u.zones.add(Zone(field.plot_id, "Zone 9", 0.5, 32.0, valve_id="v8"))  # not in the scene
         u.commit()
 
     view = _reader(uow).imagery(field.plot_id, DAY)
 
     assert view is not None and view.scene_id == "neiva-2026-10-28" and view.synthetic
-    [zone] = view.zones
-    assert (zone.zone_id, zone.ndvi_mean, zone.low_ndvi_pct, zone.bare_soil_pct) == (
-        zona_2.id,
-        0.378,
-        21.2,
-        25.3,
-    )
+    stats = {z.zone_id: (z.ndvi_mean, z.low_ndvi_pct, z.bare_soil_pct) for z in view.zones}
+    assert stats == {field.zone_id: (0.378, 21.2, 25.3), zona_2.id: (0.378, 21.2, 25.3)}
 
 
 def test_a_plot_without_a_scene_gets_none(uow: UowFactory) -> None:
@@ -82,9 +78,6 @@ def test_the_scene_is_segmented_once(uow: UowFactory, field: FieldIds) -> None:
 def test_an_outage_leaves_bare_soil_unknown_and_is_retried(
     uow: UowFactory, field: FieldIds
 ) -> None:
-    with uow() as u:
-        u.zones.add(Zone(field.plot_id, "Zona 1", 0.5, 32.0, valve_id="v8"))
-        u.commit()
     down = DownSegmentation()
     reader = _reader(uow, down)
 
@@ -93,16 +86,13 @@ def test_an_outage_leaves_bare_soil_unknown_and_is_retried(
 
     assert first is not None
     assert first.zones[0].bare_soil_pct is None
-    assert first.zones[0].ndvi_mean == 0.802  # NDVI does not depend on SAM
+    assert first.zones[0].ndvi_mean == 0.378  # NDVI does not depend on SAM
     assert first.segmentation_note is not None and "HTTP 503" in first.segmentation_note
     assert down.calls == 2  # an outage is not cached
 
 
 def test_low_vigour_uses_the_threshold_of_the_plots_crop(uow: UowFactory, field: FieldIds) -> None:
     """D077: the same NDVI is low for one crop and normal for another."""
-    with uow() as u:
-        u.zones.add(Zone(field.plot_id, "Zona 2", 0.5, 32.0, valve_id="v9"))
-        u.commit()
     tolerant = {"maize": replace(CROPS["maize"], low_ndvi_threshold=0.3)}
     reader = StoredImageryReader(
         uow,

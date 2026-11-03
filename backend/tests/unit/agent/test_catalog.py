@@ -30,7 +30,8 @@ def test_the_real_catalogue_loads_every_prompt_with_its_hash() -> None:
 
     assert [agent.name for agent in catalogue] == [spec.name for spec in SUBAGENTS]
     for agent in catalogue:
-        raw = (PROMPTS / f"{agent.name}.md").read_bytes()
+        english = PROMPTS / "en" / f"{agent.name}.md"  # D084: a language's file wins
+        raw = (english if english.is_file() else PROMPTS / f"{agent.name}.md").read_bytes()
         assert agent.system_prompt == raw.decode("utf-8")
         assert agent.prompt_sha256 == hashlib.sha256(raw).hexdigest()
 
@@ -104,3 +105,15 @@ def test_imaging_reads_only() -> None:
 
     assert imaging.closing_tool == "submit_imaging" and not imaging.may_write
     assert imaging.tool_names == {"list_zones", "read_imagery", "submit_imaging"}
+
+
+def test_spanish_keeps_the_original_prompts() -> None:
+    """D084: APP_LANGUAGE=es loads the Spanish-output prompts, untouched."""
+    for agent in load_agent_catalog(PROMPTS, language="es"):
+        assert agent.system_prompt == (PROMPTS / f"{agent.name}.md").read_text(encoding="utf-8")
+
+
+def test_english_prompts_never_ask_for_spanish() -> None:
+    for agent in load_agent_catalog(PROMPTS, language="en"):
+        assert "Spanish" not in agent.system_prompt
+        assert "decimal comma" not in agent.system_prompt

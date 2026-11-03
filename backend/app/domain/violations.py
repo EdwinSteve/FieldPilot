@@ -1,5 +1,5 @@
 """Rule codes and violations. Codes are English; farmer-facing text lives in
-the message catalog (config/messages/es.yaml), keyed by code."""
+the message catalog (config/messages/<language>.yaml, D084), keyed by code."""
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field

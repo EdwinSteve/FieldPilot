@@ -1,15 +1,37 @@
 """Domain errors. The API layer maps them to HTTP status codes in one place."""
 
+from collections.abc import Mapping
+
 
 class DomainError(Exception):
-    """Base class for expected, business-level failures."""
+    """Base class for expected, business-level failures.
+
+    The message is English, written at the raise site. `key` and `params` let
+    the API show it in APP_LANGUAGE from the message catalogue; a catalogue
+    without the key shows the English message (D084).
+    """
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        key: str | None = None,
+        params: Mapping[str, str | int | float] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.key = key
+        self.params: dict[str, str | int | float] = dict(params or {})
 
 
 class NotFoundError(DomainError):
     """The requested entity does not exist."""
 
     def __init__(self, entity: str, entity_id: int | str) -> None:
-        super().__init__(f"{entity} {entity_id} not found")
+        super().__init__(
+            f"{entity} {entity_id} not found",
+            key="not_found",
+            params={"entity": entity, "entity_id": entity_id},
+        )
         self.entity = entity
         self.entity_id = entity_id
 

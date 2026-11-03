@@ -4,6 +4,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
 
+from app.autonomy.messages import MessageCatalog
 from app.domain.models import JsonValue
 from app.market.trace.chain import verify_chain
 from app.market.trace.record import source_digest, source_events
@@ -26,7 +27,8 @@ class Passport:
 
     lot_code: str
     crop: str
-    crop_name_es: str
+    crop_name: str  # in APP_LANGUAGE (D084)
+    crop_name_es: str  # always Spanish, kept for clients that read it
     producer: str
     municipality: str
     department: str
@@ -41,9 +43,12 @@ class Passport:
 
 
 class PassportService:
-    def __init__(self, uow: UowFactory, crop_names: Mapping[str, str]) -> None:
+    def __init__(
+        self, uow: UowFactory, messages: MessageCatalog, messages_es: MessageCatalog
+    ) -> None:
         self._uow = uow
-        self._crop_names = crop_names
+        self._messages = messages
+        self._messages_es = messages_es
 
     def public(self, code: str) -> Passport:
         with self._uow() as uow:
@@ -60,8 +65,13 @@ class PassportService:
         return Passport(
             lot_code=lot.code,
             crop=lot.crop,
-            crop_name_es=self._crop_names.get(lot.crop, lot.crop),
-            producer=f"Productor de {place}" if place else "Productor de FieldPilot",
+            crop_name=self._messages.crop_name(lot.crop),
+            crop_name_es=self._messages_es.crop_name(lot.crop),
+            producer=(
+                self._messages.label("producer_of", place=place)
+                if place
+                else self._messages.label("producer_unknown")
+            ),
             municipality=plot.municipality,
             department=plot.department,
             area_ha=plot.area_ha,

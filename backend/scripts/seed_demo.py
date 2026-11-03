@@ -26,7 +26,7 @@ def main() -> None:
         raise SystemExit(1)
     if path.exists():
         path.unlink()
-    summary = seed_demo_farm(url)
+    summary = seed_demo_farm(url, Settings().app_language)  # names in APP_LANGUAGE (D084)
     print(f"Demo farm ready at {path}: plot {summary.plot_id}, zone {summary.zone_id}.")
     print("Run `make dev`, then execute the daily cycle once: the mock day replays on it.")
 

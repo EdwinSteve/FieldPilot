@@ -88,7 +88,7 @@ export function App() {
         </p>
       ) : null}
       {plots.data && !plot ? (
-        <p className="notice">No hay ninguna parcela todavía. Carga la granja de demostración con `make seed`.</p>
+        <p className="notice">There is no plot yet. Load the demo farm with `make seed`.</p>
       ) : null}
       <HeroDiagram lastCycle={lastCycle} />
       {plot ? (

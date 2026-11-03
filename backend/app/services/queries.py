@@ -39,7 +39,8 @@ class TaskView:
     task: Task
     revert_open: bool | None  # None: the task never had a revert window
     revert_remaining: timedelta | None
-    reason_es: str | None = None  # why it is held, in the farmer's words (D067)
+    reason: str | None = None  # why it is held, in APP_LANGUAGE (D067, D084)
+    reason_es: str | None = None  # the same, always in Spanish (kept for clients)
 
 
 @dataclass(frozen=True)
@@ -64,11 +65,13 @@ class FarmQueries:
         messages: MessageCatalog,
         imagery: ImageryReader,
         crops: CropCatalog,
+        messages_es: MessageCatalog | None = None,
     ) -> None:
         self._uow = uow
         self._clock = clock
         self._revert = revert
-        self._messages = messages
+        self._messages = messages  # APP_LANGUAGE
+        self._messages_es = messages_es or messages  # the API's `_es` fields (D084)
         self._imagery = imagery
         self._crops = crops
 
@@ -115,12 +118,13 @@ class FarmQueries:
 
     def task_view(self, task: Task) -> TaskView:
         """The backend decides whether the revert window is open; the UI only shows it."""
-        reason = self._held_reason(task)
+        reason = self._held_reason(task, self._messages)
+        reason_es = self._held_reason(task, self._messages_es)
         window = self._revert.window(task)
         if window is None:
-            return TaskView(task, None, None, reason)
+            return TaskView(task, None, None, reason, reason_es)
         open_now = window.open and task.status in _REVERTIBLE
-        return TaskView(task, open_now, window.remaining, reason)
+        return TaskView(task, open_now, window.remaining, reason, reason_es)
 
     def crop(self, name: str) -> CropSpec:
         """A crop of the catalogue, for the dashboard's stage bar (D077)."""
@@ -145,7 +149,7 @@ class FarmQueries:
             raise NotFoundError("scene", plot_id)
         return png
 
-    def _held_reason(self, task: Task) -> str | None:
+    def _held_reason(self, task: Task, messages: MessageCatalog) -> str | None:
         """The stored verdict's rules, rendered from the catalogue (D067)."""
         if task.status is not TaskStatus.PENDING_APPROVAL or task.id is None:
             return None
@@ -154,7 +158,7 @@ class FarmQueries:
         if not verdicts:
             return None
         violations = verdict_from_event(verdicts[-1]).violations
-        return "; ".join(self._messages.render(v) for v in violations) or None
+        return "; ".join(messages.render(v) for v in violations) or None
 
     def events(self, task_id: int | None, kind: EventKind | None, limit: int) -> Sequence[Event]:
         with self._uow() as u:

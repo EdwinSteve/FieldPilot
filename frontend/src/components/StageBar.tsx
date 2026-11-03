@@ -23,22 +23,22 @@ export function StageBar({ plot, version, clock }: StageBarProps) {
     version,
   );
   const order = crop.data?.stages.map((stage) => stage.name) ?? [];
-  const labels = new Map(crop.data?.stages.map((stage) => [stage.name, stage.display_es]) ?? []);
+  const labels = new Map(crop.data?.stages.map((stage) => [stage.name, stage.display_name]) ?? []);
   const steps = stageProgress(order, cycle?.stages ?? []);
   const days =
     cycle === null || clock === null
       ? null
       : daysSinceSowing(cycle.sowing_date, clock.now, plot.utc_offset_hours);
 
-  const cropLabel = cycle === null ? "—" : (crop.data?.display_es ?? cycle.crop);
+  const cropLabel = cycle === null ? "—" : (crop.data?.display_name ?? cycle.crop);
   return (
     <Panel
-      title={`Cultivo: ${cropLabel}`}
+      title={`Crop: ${cropLabel}`}
       error={cycles.error ?? crop.error}
       icon="leaf"
       loading={cycles.loading}
     >
-      {cycle === null ? <p className="muted">Todavía no hay un cultivo en esta parcela.</p> : null}
+      {cycle === null ? <p className="muted">There is no crop on this plot yet.</p> : null}
       {cycle === null ? null : (
         <>
           <ol className="stepper">
@@ -55,10 +55,10 @@ export function StageBar({ plot, version, clock }: StageBarProps) {
             ))}
           </ol>
           <p>
-            Acumulados: <strong>{formatNumber(cycle.accumulated_gdd, 0)} GDD</strong>
+            Accumulated: <strong>{formatNumber(cycle.accumulated_gdd, 0)} GDD</strong>
             {days === null ? "" : (
               <>
-                {" "}· {days} días desde la siembra ({formatDayMonth(cycle.sowing_date)})
+                {" "}· {days} days since sowing ({formatDayMonth(cycle.sowing_date)})
               </>
             )}
           </p>
