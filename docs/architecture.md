@@ -1687,7 +1687,7 @@ startup writes a `config_override` event with both values.
 | GET | `/events?task_id=&kind=` | event log, including the agent trace |
 | GET | `/notifications`, POST `/notifications/{id}/read` | notifications |
 | GET | `/reports` | reports |
-| POST | `/agent/chat` | `ChatService.ask` (JSON; 503 under `MOCK_LLM=1`, D063) |
+| POST | `/agent/chat` | `ChatService.ask` (JSON; 503 under `MOCK_LLM=1`, D063; answers only about the crop, `topic` in the response, D088) |
 | POST | `/agent/chat/voice?plot_id=` | `VoiceChatService.ask` (raw WAV body, `Content-Type: audio/wav`, D066) |
 | POST | `/agent/daily-cycle` | `DailyCycle.run` (D064) |
 | GET, POST | `/clock` | `ClockService`: pause, resume, speed, advance (D011, D064) |
