@@ -167,17 +167,24 @@ interface FarmAreaProps {
   shown: Route;
   online: boolean;
   shell: ShellActions;
+  /** Your sales or Settings: shown in place of the farm, which stays loaded behind it. */
+  aside: ReactNode;
 }
 
-/** The farm with a crop growing: its screens, kept fresh, and the tab bar. */
-function FarmArea({ plot, route, shown, online, shell }: FarmAreaProps) {
-  const state = useFarm(plot.id);
+/**
+ * The farm with a crop growing: its screens, kept fresh, and the tab bar. It stays mounted on
+ * Your sales and Settings, so Back opens Today at once and an answer on its way still lands.
+ */
+function FarmArea({ plot, route, shown, online, shell, aside }: FarmAreaProps) {
+  const away = aside !== null;
+  const state = useFarm(plot.id, away);
   const tab = tabOf(shown);
   const farm = state.status === "ready" ? state.farm : null;
   return (
     <>
-      {farmContent(route, shown, state, online, shell)}
-      {tab === null ? null : (
+      {away ? aside : farmContent(route, shown, state, online, shell)}
+      {/* Your sales and Settings are reached from Today and left by Back: no tab bar, as before. */}
+      {tab === null || away ? null : (
         <TabBar
           active={tab}
           unread={farm?.updates.unreadCount ?? 0}
@@ -268,11 +275,11 @@ function signedInContent(
   const stage = farm.stage;
   if (stage === null) return <StateView icon="hourglass" title={en.state.loading} />;
   const farmer = session.farmer;
+  let aside: ReactNode = null;
   if (shown.screen === "sales" && stage.stage !== "no_plot") {
-    return <SalesScreen key={stage.plot.id} plot={stage.plot} />;
-  }
-  if (shown.screen === "settings" && farmer !== null) {
-    return (
+    aside = <SalesScreen key={stage.plot.id} plot={stage.plot} />;
+  } else if (shown.screen === "settings" && farmer !== null) {
+    aside = (
       <SettingsScreen
         farmer={farmer}
         plot={stage.stage === "no_plot" ? null : stage.plot}
@@ -281,7 +288,9 @@ function signedInContent(
       />
     );
   }
-  if (stage.stage !== "farming") return setupFor(shown, session, farm, shell.harvested, shell.onPlanted);
+  if (stage.stage !== "farming") {
+    return aside ?? setupFor(shown, session, farm, shell.harvested, shell.onPlanted);
+  }
   return (
     <FarmArea
       key={stage.plot.id}
@@ -290,6 +299,7 @@ function signedInContent(
       shown={shown}
       online={online}
       shell={{ ...shell, plotId: stage.plot.id }}
+      aside={aside}
     />
   );
 }

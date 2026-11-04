@@ -95,9 +95,12 @@ function viewsOf(snapshot: FarmSnapshot, exchanges: ChatExchange[]): FarmViews {
   };
 }
 
-/** The farm as the screens see it: fresh views, and actions that report success. */
-export function useFarm(plotId: number): FarmState {
-  const { version, requestedAt, refresh } = useFarmRefresh();
+/**
+ * The farm as the screens see it: fresh views, and actions that report success.
+ * `paused` stops the re-reads while a screen without the farm is open; the farm and the talk stay.
+ */
+export function useFarm(plotId: number, paused = false): FarmState {
+  const { version, requestedAt, refresh } = useFarmRefresh(paused);
   const resource = useFarmSnapshot(version, plotId);
   const { data: fresh, error, loading } = resource;
   // A copy saved for another plot is not this farm.
