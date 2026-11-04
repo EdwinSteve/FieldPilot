@@ -251,6 +251,7 @@ make install
 make dev                    # backend :8000 · frontend :5173 (make dev BACKEND_PORT=8001 if 8000 is taken)
 make test                   # backend tests, mock mode, no network
 make e2e                    # the whole season over HTTP, fake Muse on localhost (D090)
+make e2e-live               # the same season against the real Muse (.env key, quota; D091)
 make check                  # what CI runs: hygiene, backend and frontend
 ```
 

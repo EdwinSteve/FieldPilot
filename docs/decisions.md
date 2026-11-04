@@ -2968,3 +2968,47 @@ and the chat answer 503, and the recorded days fit only the seed farm.
 - **A browser layer can come later on the same harness.** When the screens
   exist, Playwright (`pytest-playwright`) can drive the frontend against
   these two processes.
+
+## D091 — `make e2e-live`: the same season against the real Muse
+
+- **Date:** 2026-11-04
+- **Status:** Accepted (2026-11-04), asked for by Edwin. It extends D090.
+
+**Context.** `make e2e` proves the plumbing and the backend's checks with
+deterministic doubles. It does not prove that Muse Spark behaves well with
+FieldPilot's prompts and tools: that it reads the right zones, cites what it
+read, irrigates the dry zone and declines an off-topic question.
+
+**Decision.**
+- **`make e2e-live` runs the same ten steps against the real Meta Model
+  API** (`E2E_MUSE=live`).
+  - The backend leaves the Muse settings to the developer's `.env`. The
+    harness only checks that `MUSE_API_KEY`, `MUSE_AGENT_MODEL` and
+    `MUSE_SEGMENTATION_MODEL` are set, and never reads or prints a value.
+  - Each request may take up to 600 s.
+  - It costs quota and never runs in CI.
+- **What the backend guarantees is still checked exactly:**
+  - every zone assessed;
+  - both zones imaged;
+  - the chat and the shopper refusing an off-topic question with the fixed
+    text;
+  - the purchase, the delivery, the passport and the clearance markdown.
+- **What is the model's judgement is reported, not required:**
+  - the status it gives each zone;
+  - how many irrigations it proposes;
+  - the topic and the words of an in-scope answer;
+  - the cart it proposes.
+
+  To keep the stock and the payout exact, the customer's cart is set to
+  1 kg after accepting the proposal. A task the model scheduled beyond the
+  ticks is rejected, so the harvest can proceed.
+- **The last step prints the model's report card.** It comes from the agent
+  trace (`GET /events?kind=agent_tool_call`): turns, refusals with the
+  first reason, and tokens for each farm subagent. It also lists what the
+  model did on each step. The shopper keeps its turns out of the farm's log
+  (D085), so its line comes from its answer.
+
+**Consequences.**
+- Before a demo, one command shows whether the model and the prompts still
+  work together, and how often the checks had to correct it.
+- A live failure can be the model's: read the report card before the code.
