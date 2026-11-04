@@ -96,6 +96,8 @@ export interface ChatExchange {
   question: string;
   answer: string | null;
   lookedAt: LookedAt[];
+  /** The chat declined the question as off its subject (D088). Missing in talks saved before. */
+  offTopic?: boolean;
 }
 
 export interface TalkChip {
@@ -110,6 +112,8 @@ export interface TalkExchange {
   question: string;
   answer: string | null;
   chips: TalkChip[];
+  /** Under a declined question: where the farmer can look instead. */
+  elsewhere: { label: string; href: string } | null;
 }
 
 export interface TalkView {

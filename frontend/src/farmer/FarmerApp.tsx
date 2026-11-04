@@ -279,6 +279,17 @@ function signedInContent(
   let aside: ReactNode = null;
   if (shown.screen === "sales" && stage.stage !== "no_plot") {
     aside = <SalesScreen key={stage.plot.id} plot={stage.plot} />;
+  } else if (shown.screen === "advice" && stage.stage === "farming") {
+    // What to plant next, while this crop grows: read-only, so nothing is sown from it.
+    aside = (
+      <AdviceScreen
+        key={stage.plot.id}
+        plot={stage.plot}
+        harvested={null}
+        onPlanted={() => undefined}
+        growing={{ crop: stage.cycle.crop, sowingDate: stage.cycle.sowing_date }}
+      />
+    );
   } else if (shown.screen === "settings" && farmer !== null) {
     aside = (
       <SettingsScreen

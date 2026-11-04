@@ -364,6 +364,11 @@ export const en = {
     pastRow: (date: string, kg: string, grade: string) => `${date} · ${kg} kg · ${grade}`,
   },
   advice: {
+    nextTitle: "What to plant next",
+    nextLead: "For your next sowing. You can plant once this crop is harvested.",
+    growingNow: "Growing now",
+    growingSince: (crop: string, date: string, day: number) => `${crop} · sown ${date} · day ${day}`,
+    seeWhatToPlant: "See what to plant",
     preparingTitle: "Getting your farm’s data",
     preparingDetail:
       "Weather since 1991, the soil and El Niño, for your farm. It takes 1 to 3 minutes.",

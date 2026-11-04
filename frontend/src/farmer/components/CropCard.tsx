@@ -87,11 +87,14 @@ interface CropCardProps {
   grown: boolean;
   /** The farm's own last harvest of this crop: its result beside the forecast. */
   lastHarvest: Lot | null;
-  onPlanted: () => void;
+  /** Null while a crop grows: the card only informs, nothing is sown from it. */
+  onPlanted: (() => void) | null;
+  /** This is the crop growing on the farm now. */
+  growing?: boolean;
 }
 
 /** A crop for this sowing week: its picture and verdict first, the two facts that decide, then the rest. */
-export function CropCard({ outlook, recommended, bestFor, grown, lastHarvest, onPlanted }: CropCardProps) {
+export function CropCard({ outlook, recommended, bestFor, grown, lastHarvest, onPlanted, growing = false }: CropCardProps) {
   const name = cropLabel(outlook.crop);
   const judged = verdict(outlook);
   const tone = VERDICT_TONE[judged];
@@ -163,15 +166,24 @@ export function CropCard({ outlook, recommended, bestFor, grown, lastHarvest, on
           {bestFor === null ? null : (
             <Chip tone="undo">{en.advice.bestFor(en.setup.goals[bestFor])}</Chip>
           )}
-          {grown ? <Chip tone="neutral">{en.advice.youGrow}</Chip> : null}
+          {growing ? (
+            <Chip tone="good">
+              <Icon name="check" size={16} strokeWidth={2.6} />
+              {en.advice.growingNow}
+            </Chip>
+          ) : grown ? (
+            <Chip tone="neutral">{en.advice.youGrow}</Chip>
+          ) : null}
           <Chip tone="neutral">
             <Icon name={outlook.automatable ? "drop" : "info"} size={16} strokeWidth={2.4} />
             {outlook.automatable ? en.advice.automatic : en.advice.manual}
           </Chip>
         </div>
-        <BigButton variant="primary" size="compact" onClick={onPlanted}>
-          {en.advice.planted}
-        </BigButton>
+        {onPlanted === null ? null : (
+          <BigButton variant="primary" size="compact" onClick={onPlanted}>
+            {en.advice.planted}
+          </BigButton>
+        )}
         <details className="group">
           <summary className="flex min-h-12 cursor-pointer list-none items-center gap-1.5 text-small font-bold text-ink-2">
             {en.advice.moreDetails}

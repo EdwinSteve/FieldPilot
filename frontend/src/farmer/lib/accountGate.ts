@@ -34,5 +34,7 @@ export function gatedRoute(
   // Settings and sales open once the farm exists: from What to plant as from Today.
   if ((route.screen === "settings" || route.screen === "sales") && progress !== "no_plot") return route;
   if (progress !== "farming") return homeRoute(progress);
+  // While a crop grows, What to plant opens to look ahead: nothing can be sown from it.
+  if (route.screen === "advice") return route;
   return isEntryScreen(route) || isSetupScreen(route) ? homeRoute(progress) : route;
 }

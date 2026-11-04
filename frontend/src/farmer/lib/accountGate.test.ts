@@ -63,7 +63,9 @@ describe("gatedRoute signed in", () => {
 
   it("shows any farm screen once a crop grows, and setup is done", () => {
     expect(gatedRoute(PLAN, true, true, "farming")).toEqual(PLAN);
-    expect(gatedRoute({ screen: "advice" }, true, true, "farming")).toEqual({ screen: "today" });
+    // What to plant opens read-only while a crop grows (the next sowing); setup does not.
+    expect(gatedRoute({ screen: "advice" }, true, true, "farming")).toEqual({ screen: "advice" });
+    expect(gatedRoute({ screen: "setup" }, true, true, "farming")).toEqual({ screen: "today" });
     expect(gatedRoute({ screen: "login" }, true, true, "farming")).toEqual({ screen: "today" });
   });
 

@@ -1,5 +1,7 @@
 // The marketplace's building blocks: the product card, the price split, the kilo stepper and the journey.
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { BigButton } from "../farmer/components/BigButton";
+import { TextField } from "../farmer/components/TextField";
 import { CropArt } from "../farmer/components/CropArt";
 import { Icon, type IconName } from "../farmer/components/Icon";
 import { formatCalendarDate } from "../farmer/lib/farmTime";
@@ -9,7 +11,7 @@ import { cropLabel } from "../farmer/lib/names";
 import type { JourneyStep, Passport, Price, Product, Reason } from "./api/store";
 import { en } from "./i18n/en";
 import { hrefOf } from "./lib/route";
-import { kgFromText, kgProblem, priceSplit } from "./lib/shop";
+import { addressProblem, kgFromText, kgProblem, priceSplit } from "./lib/shop";
 import { dismissToast, useToast } from "./state";
 
 export function ReasonTag({ reason }: { reason: Reason }) {
@@ -246,6 +248,114 @@ export function Disclosure({
         </div>
       </div>
     </section>
+  );
+}
+
+interface AddressFieldProps {
+  label: string;
+  hint: string;
+  /** The address in use: shown as text with a Change button; empty opens the box at once. */
+  saved: string;
+  confirmLabel: string;
+  changeLabel: string;
+  /** Takes the typed address; false keeps the box open, as when a save failed. */
+  onConfirm: (address: string) => boolean | Promise<boolean>;
+  /** The text being typed, or null while the address shows as text. */
+  onDraft?: (draft: string | null) => void;
+  /** Say what is missing even before the shopper presses the button, as after Pay. */
+  showProblem?: boolean;
+  busy?: boolean;
+}
+
+/**
+ * An address that is kept unless the shopper asks to change it. Enter in the box confirms it,
+ * checks included; Cancel puts the saved one back. Nothing here pays or orders.
+ */
+export function AddressField({
+  label,
+  hint,
+  saved,
+  confirmLabel,
+  changeLabel,
+  onConfirm,
+  onDraft,
+  showProblem = false,
+  busy = false,
+}: AddressFieldProps) {
+  const [draft, setDraft] = useState<string | null>(() => (saved.trim() === "" ? saved : null));
+  const [tried, setTried] = useState(false);
+  const box = useRef<HTMLInputElement>(null);
+  /** Set by Change, so the box takes focus only when the shopper opened it. */
+  const opened = useRef(false);
+  useEffect(() => {
+    if (draft !== null && opened.current) {
+      opened.current = false;
+      box.current?.focus();
+    }
+  }, [draft]);
+  const set = (next: string | null) => {
+    setDraft(next);
+    onDraft?.(next);
+  };
+
+  if (draft === null) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <span className="text-body font-bold">{label}</span>
+        <div className="flex animate-fade-in items-center gap-3 rounded-control bg-ground py-1.5 pr-1.5 pl-4">
+          <Icon name="pin" size={20} className="shrink-0 text-primary" />
+          <span className="flex-1 text-body leading-snug">{saved}</span>
+          <button
+            type="button"
+            onClick={() => {
+              opened.current = true;
+              setTried(false);
+              set(saved);
+            }}
+            className="press flex min-h-12 shrink-0 items-center rounded-control border-2 border-border bg-surface px-4 text-small font-extrabold text-ink"
+          >
+            {changeLabel}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const problem = addressProblem(draft);
+  const confirm = async () => {
+    setTried(true);
+    if (problem !== null) return;
+    if (await onConfirm(draft.trim())) set(null);
+  };
+  return (
+    <form
+      noValidate
+      className="flex animate-fade-in flex-col gap-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void confirm();
+      }}
+    >
+      <TextField
+        ref={box}
+        label={label}
+        hint={hint}
+        value={draft}
+        onChange={set}
+        problem={(tried || showProblem) && problem !== null ? en.cart.addressProblem : null}
+        autoComplete="street-address"
+      />
+      <div className="flex gap-2">
+        <BigButton type="submit" variant="outline" size="compact" disabled={busy}>
+          <span className="px-3">{confirmLabel}</span>
+        </BigButton>
+        {saved.trim() === "" ? null : (
+          <BigButton variant="outline" size="compact" onClick={() => set(null)}>
+            <span className="px-3">{en.account.cancelChange}</span>
+          </BigButton>
+        )}
+      </div>
+    </form>
   );
 }
 

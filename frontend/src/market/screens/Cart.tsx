@@ -2,10 +2,9 @@ import { useEffect, useState } from "react";
 import { ApiError } from "../../api/client";
 import { BigButton, BigLink } from "../../farmer/components/BigButton";
 import { Icon } from "../../farmer/components/Icon";
-import { TextField } from "../../farmer/components/TextField";
 import { cop } from "../../farmer/lib/listing";
 import { store, type CartLine } from "../api/store";
-import { Empty, KgStepper, Notice } from "../components";
+import { AddressField, Empty, KgStepper, Notice } from "../components";
 import { en } from "../i18n/en";
 import { hrefOf } from "../lib/route";
 import { addressProblem, kgProblem, labelOfName } from "../lib/shop";
@@ -45,6 +44,8 @@ export function CartPage() {
   const user = useUser();
   const cart = useCart();
   const [address, setAddress] = useState<string | null>(null);
+  /** The address being typed, while its box is open: Pay uses it as typed. */
+  const [draft, setDraft] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -138,7 +139,7 @@ export function CartPage() {
       mark(listingId, "failed");
     }
   };
-  const text = address ?? "";
+  const text = draft ?? address ?? "";
   const problem = addressProblem(text);
   const pay = async () => {
     setTried(true);
@@ -207,14 +208,24 @@ export function CartPage() {
           <span className="text-lead font-bold">{en.cart.total}</span>
           <span className="text-[32px] font-extrabold tracking-key">{cop(cart.total_cop)}</span>
         </div>
-        <TextField
-          label={en.cart.address}
-          hint={en.cart.addressHint}
-          value={text}
-          onChange={setAddress}
-          problem={tried && problem !== null ? en.cart.addressProblem : null}
-          autoComplete="street-address"
-        />
+        {address === null ? (
+          <p className="text-body text-ink-2">{en.state.loading}</p>
+        ) : (
+          <AddressField
+            label={en.cart.address}
+            hint={en.cart.addressHint}
+            saved={address}
+            confirmLabel={en.cart.confirmAddress}
+            changeLabel={en.cart.changeAddress}
+            showProblem={tried}
+            // For this order only: the saved address in Account stays as it is.
+            onConfirm={(next) => {
+              setAddress(next);
+              return true;
+            }}
+            onDraft={setDraft}
+          />
+        )}
         {cart.can_checkout && !anyEmpty ? null : <Notice text={en.cart.fix} />}
         {failure === null ? null : <Notice text={failure} />}
         <BigButton variant="primary" disabled={busy || !cart.can_checkout || anyEmpty} onClick={() => void pay()}>

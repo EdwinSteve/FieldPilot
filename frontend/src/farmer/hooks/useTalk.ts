@@ -89,6 +89,7 @@ export function useTalk(plotId: number | undefined): Talk {
         durationMs,
         question,
         answer: reply.answer,
+        offTopic: reply.topic === "out_of_scope",
         lookedAt,
       };
       setExchanges((previous) => [...previous, exchange]);

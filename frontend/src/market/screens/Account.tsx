@@ -18,7 +18,7 @@ import { mobileDisplay, typedMobile, typedName } from "../../farmer/lib/typing";
 import { getJson } from "../../api/client";
 import { session } from "../api/session";
 import { store } from "../api/store";
-import { Notice } from "../components";
+import { AddressField, Notice } from "../components";
 import { en } from "../i18n/en";
 import { hrefOf } from "../lib/route";
 import { canRunWarehouse } from "../lib/storedUser";
@@ -75,7 +75,7 @@ function LogIn({ onCreate }: { onCreate: () => void }) {
         autoComplete="current-password"
       />
       {failure === null ? null : <Notice text={farmerEn.auth.failures[failure]} />}
-      <BigButton variant="primary" disabled={busy} onClick={() => void submit()}>
+      <BigButton type="submit" variant="primary" disabled={busy}>
         {busy ? en.account.loggingIn : en.account.logIn}
       </BigButton>
       <button type="button" onClick={onCreate} className="press min-h-12 border-0 bg-transparent text-body font-bold text-primary">
@@ -154,7 +154,7 @@ function CreateAccount({ onLogIn }: { onLogIn: () => void }) {
       </label>
       {tried && problems.consent !== null ? <Notice text={words(problems.consent) ?? ""} /> : null}
       {failure === null ? null : <Notice text={farmerEn.auth.failures[failure]} />}
-      <BigButton variant="primary" disabled={busy} onClick={() => void submit()}>
+      <BigButton type="submit" variant="primary" disabled={busy}>
         {busy ? en.account.creating : en.account.create}
       </BigButton>
       <button type="button" onClick={onLogIn} className="press min-h-12 border-0 bg-transparent text-body font-bold text-primary">
@@ -167,12 +167,8 @@ function CreateAccount({ onLogIn }: { onLogIn: () => void }) {
 function Profile() {
   const [address, setAddress] = useState<string | null>(null);
   const [picks, setPicks] = useState(false);
-  const [saving, setSaving] = useState<"idle" | "busy" | "saved" | "failed">("idle");
-  /** An edit after a save: "Saved" no longer tells the truth. */
-  const edit = <T,>(set: (value: T) => void) => (value: T) => {
-    set(value);
-    setSaving((current) => (current === "busy" ? current : "idle"));
-  };
+  /** What the last save did: the address and the picks each say their own. */
+  const [said, setSaid] = useState<{ what: "address" | "picks"; state: "busy" | "saved" | "failed" } | null>(null);
   useEffect(() => {
     void store
       .profile()
@@ -182,30 +178,56 @@ function Profile() {
       })
       .catch(() => setAddress(""));
   }, []);
-  const save = async () => {
-    setSaving("busy");
+  const save = async (what: "address" | "picks", next: { address: string; picks: boolean }) => {
+    setSaid({ what, state: "busy" });
     try {
-      await store.saveProfile({ delivery_address: (address ?? "").trim() || null, consent_profiling: picks });
-      setSaving("saved");
+      await store.saveProfile({ delivery_address: next.address.trim() || null, consent_profiling: next.picks });
+      setAddress(next.address);
+      setPicks(next.picks);
+      setSaid({ what, state: "saved" });
+      return true;
     } catch {
-      setSaving("failed");
+      setSaid({ what, state: "failed" });
+      return false;
     }
   };
+  const status = (what: "address" | "picks") =>
+    said?.what !== what ? null : said.state === "saved" ? (
+      <Notice tone="good" text={en.account.saved} />
+    ) : said.state === "failed" ? (
+      <Notice text={en.account.saveFailed} />
+    ) : null;
+  if (address === null) return <p className="text-body text-ink-2">{en.state.loading}</p>;
   return (
     <section className="flex flex-col gap-4 rounded-card bg-surface p-5">
-      <TextField label={en.account.address} hint={en.cart.addressHint} value={address ?? ""} onChange={edit(setAddress)} problem={null} autoComplete="street-address" />
+      <AddressField
+        label={en.account.address}
+        hint={en.cart.addressHint}
+        saved={address}
+        confirmLabel={said?.what === "address" && said.state === "busy" ? en.account.saving : en.account.saveAddress}
+        changeLabel={en.account.changeAddress}
+        busy={said?.state === "busy"}
+        onConfirm={(next) => save("address", { address: next, picks })}
+        // Typing again: "Saved" no longer tells the truth. Closing the box after a save keeps it.
+        onDraft={(draft) => {
+          if (draft !== null) setSaid(null);
+        }}
+      />
+      {status("address")}
       <label className="flex min-h-12 items-start gap-3" aria-label={en.account.picks}>
-        <input type="checkbox" checked={picks} onChange={(event) => edit(setPicks)(event.target.checked)} className="mt-1 size-6 shrink-0 accent-[var(--color-primary)]" />
+        <input
+          type="checkbox"
+          checked={picks}
+          disabled={said?.state === "busy"}
+          onChange={(event) => void save("picks", { address, picks: event.target.checked })}
+          className="mt-1 size-6 shrink-0 accent-[var(--color-primary)]"
+        />
         <span className="flex flex-col">
           <span className="text-body font-bold">{en.account.picks}</span>
           <span className="text-small text-ink-2">{en.account.picksDetail}</span>
         </span>
       </label>
-      {saving === "saved" ? <Notice tone="good" text={en.account.saved} /> : null}
-      {saving === "failed" ? <Notice text={en.account.saveFailed} /> : null}
-      <BigButton variant="primary" size="compact" disabled={saving === "busy"} onClick={() => void save()}>
-        {saving === "busy" ? en.account.saving : en.account.save}
-      </BigButton>
+      {status("picks")}
     </section>
   );
 }

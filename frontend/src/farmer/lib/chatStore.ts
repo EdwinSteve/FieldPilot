@@ -22,7 +22,8 @@ function isExchange(value: unknown): value is ChatExchange {
     typeof item.question === "string" &&
     (item.answer === null || typeof item.answer === "string") &&
     Array.isArray(item.lookedAt) &&
-    item.lookedAt.every(isLookedAt)
+    item.lookedAt.every(isLookedAt) &&
+    (item.offTopic === undefined || typeof item.offTopic === "boolean")
   );
 }
 

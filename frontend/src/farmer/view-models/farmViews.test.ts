@@ -616,6 +616,15 @@ describe("talkView", () => {
     expect(talkView({ ...soy, cycle: null }, []).manualCrop).toBeNull();
   });
 
+  it("points a declined question to What to plant", () => {
+    const declined = { ...exchange, offTopic: true };
+    expect(talkView(demo.day1Held, [declined]).exchanges[0]?.elsewhere).toEqual({
+      label: "See what to plant",
+      href: "#/advice",
+    });
+    expect(talkView(demo.day1Held, [exchange]).exchanges[0]?.elsewhere).toBeNull();
+  });
+
   it("lets the farmer ask on the live model", () => {
     expect(talkView({ ...demo.day1Held, chatLive: true }, []).unavailable).toBeNull();
   });
@@ -631,6 +640,7 @@ describe("talkView", () => {
         { kind: "soil", text: "Soil 20% · full at 32%" },
         { kind: "rain", text: "Rain 12 mm · 24 h" },
       ],
+      elsewhere: null,
     });
   });
 

@@ -5,6 +5,7 @@ import { forecastOfDay } from "../lib/forecast";
 import { activeRun } from "../lib/irrigationRun";
 import { clipLength, type LookedAt } from "../lib/lookedAt";
 import { cropLabel } from "../lib/names";
+import { hrefOf } from "../lib/route";
 import { isWatering, pendingTasks, plotOffset, soilAt, type FarmSnapshot } from "./snapshot";
 import { firstDecision } from "./today";
 import type { ChatExchange, StopView, TalkChip, TalkExchange, TalkView } from "./types";
@@ -68,6 +69,9 @@ function exchangeView(snapshot: FarmSnapshot, exchange: ChatExchange): TalkExcha
     question: exchange.question,
     answer: exchange.answer,
     chips: exchange.lookedAt.flatMap((source) => chipOf(snapshot, source) ?? []),
+    // The chat keeps to the crop growing; what to sow next is on What to plant.
+    elsewhere:
+      exchange.offTopic === true ? { label: en.advice.seeWhatToPlant, href: hrefOf({ screen: "advice" }) } : null,
   };
 }
 

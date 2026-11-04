@@ -101,6 +101,15 @@ function AgentBubble({ exchange }: { exchange: TalkExchange }) {
           </div>
         </div>
       ) : null}
+      {exchange.elsewhere === null ? null : (
+        <a
+          href={exchange.elsewhere.href}
+          className="press flex min-h-12 items-center justify-between gap-2 self-stretch rounded-control border-2 border-border bg-surface px-4 text-body font-extrabold text-primary no-underline"
+        >
+          {exchange.elsewhere.label}
+          <Icon name="forward" size={20} strokeWidth={2.6} />
+        </a>
+      )}
     </AgentFrame>
   );
 }

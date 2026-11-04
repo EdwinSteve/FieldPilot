@@ -41,7 +41,14 @@ function ReceiveForm({ shipmentId, sentKg, onDone }: { shipmentId: number | null
     }
   };
   return (
-    <div className="flex flex-col gap-3">
+    <form
+      noValidate
+      className="flex flex-col gap-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submit();
+      }}
+    >
       {shipmentId === null ? (
         <TextField label={en.warehouse.deliveryNumber} value={number} onChange={(v) => setNumber(typedWhole(v))} problem={null} inputMode="numeric" />
       ) : null}
@@ -64,10 +71,10 @@ function ReceiveForm({ shipmentId, sentKg, onDone }: { shipmentId: number | null
         />
       </div>
       {result === null ? null : <Notice tone={result.ok ? "good" : "needs"} text={result.text} />}
-      <BigButton variant="primary" size="compact" disabled={busy} onClick={() => void submit()}>
+      <BigButton type="submit" variant="primary" size="compact" disabled={busy}>
         {busy ? en.warehouse.receiving : en.warehouse.receive}
       </BigButton>
-    </div>
+    </form>
   );
 }
 
@@ -110,14 +117,21 @@ function HandOver() {
     }
   };
   return (
-    <section className="flex flex-col gap-3 rounded-card bg-surface p-5">
+    <form
+      noValidate
+      className="flex flex-col gap-3 rounded-card bg-surface p-5"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submit();
+      }}
+    >
       <h2 className="text-lead font-extrabold">{en.warehouse.handOver}</h2>
       <TextField label={en.warehouse.orderNumber} value={number} onChange={(v) => setNumber(typedWhole(v))} problem={null} inputMode="numeric" />
       {result === null ? null : <Notice tone={result.ok ? "good" : "needs"} text={result.text} />}
-      <BigButton variant="primary" size="compact" disabled={busy} onClick={() => void submit()}>
+      <BigButton type="submit" variant="primary" size="compact" disabled={busy}>
         {busy ? en.warehouse.delivering : en.warehouse.deliver}
       </BigButton>
-    </section>
+    </form>
   );
 }
 

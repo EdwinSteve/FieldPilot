@@ -9,7 +9,10 @@ import {
   type PlantingPlan,
   type StartedCycle,
 } from "../api/lifecycle";
+import { BackLink } from "../components/BackHeader";
 import { BigButton } from "../components/BigButton";
+import { CropArt } from "../components/CropArt";
+import { daysSinceSowing } from "../../lib/stages";
 import { CropCard } from "../components/CropCard";
 import { SalesCard } from "../components/SalesCard";
 import { SettingsLink } from "../components/SettingsLink";
@@ -224,6 +227,7 @@ interface AdviceProps {
   /** The farm's data just finished building while the farmer waited. */
   justReady: boolean;
   onPlanted: (cycle: StartedCycle) => void;
+  growing: Growing | null;
 }
 
 /** The moment the wait ends, so the farmer sees it is done and what comes next. */
@@ -239,7 +243,24 @@ function ReadyNote() {
   );
 }
 
-function Advice({ plot, plan, harvested, justReady, onPlanted }: AdviceProps) {
+/** The crop on the farm now, at the top of What to plant next. */
+function GrowingNow({ growing, day }: { growing: Growing; day: number }) {
+  return (
+    <section className="flex shrink-0 items-center gap-3.5 rounded-card bg-primary px-4.5 py-4 text-surface">
+      <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-surface">
+        <CropArt crop={growing.crop} size={40} />
+      </span>
+      <span className="flex flex-col gap-0.5">
+        <span className="text-caption font-extrabold tracking-wide uppercase">{en.advice.growingNow}</span>
+        <span className="text-row font-extrabold">
+          {en.advice.growingSince(cropLabel(growing.crop), formatCalendarDate(growing.sowingDate), day)}
+        </span>
+      </span>
+    </section>
+  );
+}
+
+function Advice({ plot, plan, harvested, justReady, onPlanted, growing }: AdviceProps) {
   const [draft] = useState(readDraft);
   const [weekIndex, setWeekIndex] = useState(0);
   const [planting, setPlanting] = useState<Planting | null>(null);
@@ -261,16 +282,33 @@ function Advice({ plot, plan, harvested, justReady, onPlanted }: AdviceProps) {
 
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4.5 pt-7 pb-6">
-      <header className="flex items-start justify-between gap-3 px-0.5">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-title font-extrabold tracking-title">{en.advice.title}</h1>
-          <span className="text-lead leading-snug text-ink-2">{en.advice.lead(farmLabel(plot.name))}</span>
-        </div>
-        <SettingsLink />
-      </header>
-      {justReady ? <ReadyNote /> : null}
-      {harvested === null ? null : <SavedNote note={harvested} />}
-      <SalesCard plotId={plot.id} />
+      {growing === null ? (
+        <header className="flex items-start justify-between gap-3 px-0.5">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-title font-extrabold tracking-title">{en.advice.title}</h1>
+            <span className="text-lead leading-snug text-ink-2">{en.advice.lead(farmLabel(plot.name))}</span>
+          </div>
+          <SettingsLink />
+        </header>
+      ) : (
+        <header className="flex items-start gap-3 px-0.5">
+          <BackLink />
+          <div className="flex flex-col gap-1">
+            <h1 className="text-title font-extrabold tracking-title">{en.advice.nextTitle}</h1>
+            <span className="text-lead leading-snug text-ink-2">{en.advice.nextLead}</span>
+          </div>
+        </header>
+      )}
+      {growing === null ? null : (
+        <GrowingNow
+          growing={growing}
+          // The backend's day, as the rest of the farm counts it; the phone's until it answers.
+          day={daysSinceSowing(growing.sowingDate, clock.data?.now ?? phoneNow(), plot.utc_offset_hours)}
+        />
+      )}
+      {justReady && growing === null ? <ReadyNote /> : null}
+      {harvested === null || growing !== null ? null : <SavedNote note={harvested} />}
+      {growing === null ? <SalesCard plotId={plot.id} /> : null}
       <WeekPicker plan={plan} chosen={weekIndex} onChoose={setWeekIndex} />
       {poor ? (
         <div role="note" className="flex gap-3 rounded-card bg-bad-tint px-4.5 py-4 text-bad-text">
@@ -292,7 +330,8 @@ function Advice({ plot, plan, harvested, justReady, onPlanted }: AdviceProps) {
           bestFor={index === 0 && !poor ? firstGoal : null}
           grown={draft.crops.includes(outlook.crop)}
           lastHarvest={latestLotOf(lots, outlook.crop)}
-          onPlanted={() => plant(outlook)}
+          onPlanted={growing === null ? () => plant(outlook) : null}
+          growing={growing?.crop === outlook.crop}
         />
       ))}
       <SowingStrips plan={plan} grown={draft.crops} />
@@ -307,7 +346,8 @@ function Advice({ plot, plan, harvested, justReady, onPlanted }: AdviceProps) {
               bestFor={null}
               grown={draft.crops.includes(outlook.crop)}
               lastHarvest={latestLotOf(lots, outlook.crop)}
-              onPlanted={() => plant(outlook)}
+              onPlanted={growing === null ? () => plant(outlook) : null}
+              growing={growing?.crop === outlook.crop}
             />
           ))}
         </>
@@ -333,8 +373,15 @@ function Advice({ plot, plan, harvested, justReady, onPlanted }: AdviceProps) {
   );
 }
 
+/** The crop on the farm now: What to plant then shows the next sowing, with nothing to sow. */
+export interface Growing {
+  crop: string;
+  sowingDate: string;
+}
+
 interface AdviceScreenProps {
   plot: FarmPlot;
+  growing?: Growing | null;
   /** The harvest just saved, said once at the top. */
   harvested: HarvestNote | null;
   /** A crop was started: read the farmer's progress again, which opens the farm. */
@@ -400,7 +447,7 @@ function Preparing() {
 }
 
 /** What to sow on the farmer's own plot, from the planner (D079, D081), and the sowing confirmation (D083). */
-export function AdviceScreen({ plot, harvested, onPlanted }: AdviceScreenProps) {
+export function AdviceScreen({ plot, harvested, onPlanted, growing = null }: AdviceScreenProps) {
   const advice = useAdvice(plot.id);
   // Seen waiting once: when the plan arrives, say the farm is ready.
   const [waited, setWaited] = useState(false);
@@ -432,7 +479,14 @@ export function AdviceScreen({ plot, harvested, onPlanted }: AdviceScreenProps) 
       );
     case "ready":
       return (
-        <Advice plot={plot} plan={advice.plan} harvested={harvested} justReady={waited} onPlanted={onPlanted} />
+        <Advice
+          plot={plot}
+          plan={advice.plan}
+          harvested={harvested}
+          justReady={waited}
+          onPlanted={onPlanted}
+          growing={growing}
+        />
       );
   }
 }
