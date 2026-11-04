@@ -562,6 +562,12 @@ export const en = {
     agentSecond: "Pilot",
     avatarAlt: "FieldPilot",
     onlyAnswers: "Here I only answer. Watering is decided every morning, and big choices come to you.",
+    /** The crop on the farm is one FieldPilot does not run (D083): said before the farmer asks. */
+    notLookedAfterTitle: (crop: string) => `FieldPilot doesn’t look after ${crop} yet`,
+    notLookedAfterDetail: (crop: string) =>
+      `At this stage of its development, FieldPilot only looks after maize. Your ${crop} are yours to look after, so I can’t answer about them here yet.`,
+    notLookedAfter: (crop: string) =>
+      `FieldPilot doesn’t look after ${crop} yet. At this stage of its development, it only looks after maize.`,
     tapToTalk: "Tap to talk",
     listening: "Listening…",
     tapToSend: "Tap to send",

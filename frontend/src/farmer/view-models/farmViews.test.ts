@@ -185,6 +185,11 @@ describe("updatesView", () => {
     expect(view.items[0]?.time).toBe("Today 6:00–9:20 am · Automatic");
     expect(view.items[4]?.title).toBe("Yesterday’s report");
     expect(view.unreadCount).toBe(1);
+    // The ids leaving Updates marks read: exactly the unread ones.
+    expect(view.unreadIds).toHaveLength(1);
+    expect(view.unreadIds).toEqual(
+      demo.day2Cycle.notifications.filter((notice) => notice.read_at === null).map((notice) => notice.id),
+    );
   });
 
   it("day 2: offers the undo with the backend's window", () => {
@@ -602,6 +607,13 @@ describe("talkView", () => {
     expect(view.unavailable).toContain("live model");
     expect(view.decision?.taskId).toBe(HELD_TASK);
     expect(view.waitingCount).toBe(1);
+  });
+
+  it("says up front when the crop is one FieldPilot does not look after", () => {
+    expect(talkView(demo.day1Held, []).manualCrop).toBeNull();
+    const soy = { ...demo.day1Held, automated: false, cycle: demo.day1Held.cycle && { ...demo.day1Held.cycle, crop: "soybean" } };
+    expect(talkView(soy, []).manualCrop).toBe("soybeans");
+    expect(talkView({ ...soy, cycle: null }, []).manualCrop).toBeNull();
   });
 
   it("lets the farmer ask on the live model", () => {

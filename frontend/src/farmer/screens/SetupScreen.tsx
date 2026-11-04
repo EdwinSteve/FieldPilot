@@ -299,6 +299,12 @@ export function SetupScreen({ farmer, home, onSaved }: SetupScreenProps) {
     return stored.farmName === "" ? { ...stored, farmName: en.setup.farmNameDefault(farmer.name) } : stored;
   });
   const [step, setStep] = useState(0);
+  /** Which way the last move went, so the new step slides in from that side. */
+  const [moved, setMoved] = useState<"forward" | "back">("forward");
+  const go = (next: number) => {
+    setMoved(next > step ? "forward" : "back");
+    setStep(next);
+  };
   // Where the farmer lives, until the map or the farmer says the farm is elsewhere.
   const [town, setTown] = useState(home?.town ?? "");
   const [department, setDepartment] = useState(home?.department ?? "");
@@ -388,10 +394,15 @@ export function SetupScreen({ farmer, home, onSaved }: SetupScreenProps) {
 
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-4.5 overflow-y-auto px-4.5 pt-7 pb-6">
-      <div ref={heading} key={step} className="animate-screen-in">
-        <StepHeader step={step + 1} title={content.title} lead={content.lead} />
+      <div
+        key={step}
+        className={`flex flex-col gap-4.5 ${moved === "forward" ? "animate-step-forward" : "animate-step-back"}`}
+      >
+        <div ref={heading}>
+          <StepHeader step={step + 1} title={content.title} lead={content.lead} />
+        </div>
+        {content.body}
       </div>
-      {content.body}
       {saveFailed ? (
         <p role="alert" className="rounded-control bg-needs-tint px-4 py-3 text-small font-bold text-needs-text">
           {en.setup.saveFailed}
@@ -402,13 +413,13 @@ export function SetupScreen({ farmer, home, onSaved }: SetupScreenProps) {
           variant="primary"
           size="large"
           disabled={saving}
-          onClick={() => (last ? void save() : setStep(step + 1))}
+          onClick={() => (last ? void save() : go(step + 1))}
         >
           {last ? (saving ? en.setup.saving : en.setup.analyse) : en.setup.next}
           {last ? null : <Icon name="forward" size={22} strokeWidth={2.6} />}
         </BigButton>
         {step === 0 ? null : (
-          <BigButton variant="outline" size="compact" onClick={() => setStep(step - 1)}>
+          <BigButton variant="outline" size="compact" onClick={() => go(step - 1)}>
             {en.setup.back}
           </BigButton>
         )}

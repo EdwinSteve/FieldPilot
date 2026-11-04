@@ -326,5 +326,6 @@ export function updatesView(snapshot: FarmSnapshot): UpdatesView {
     rare: rareCases(snapshot),
     items: dated.toSorted((a, b) => b.at - a.at).map(({ item }) => item),
     unreadCount: snapshot.notifications.filter((notice) => notice.read_at === null).length,
+    unreadIds: snapshot.notifications.filter((notice) => notice.read_at === null).map((notice) => notice.id),
   };
 }

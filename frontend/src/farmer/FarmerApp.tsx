@@ -180,6 +180,7 @@ function FarmArea({ plot, route, shown, online, shell, aside }: FarmAreaProps) {
   const state = useFarm(plot.id, away);
   const tab = tabOf(shown);
   const farm = state.status === "ready" ? state.farm : null;
+  useMarkSeenOnLeave(shown.screen === "updates", farm);
   return (
     <>
       {away ? aside : farmContent(route, shown, state, online, shell)}
@@ -289,7 +290,13 @@ function signedInContent(
     );
   }
   if (stage.stage !== "farming") {
-    return aside ?? setupFor(shown, session, farm, shell.harvested, shell.onPlanted);
+    if (aside !== null) return aside;
+    // Setting up the farm, then What to plant: each comes in as its own screen.
+    return (
+      <div key={shown.screen} className="flex min-h-0 flex-1 animate-screen-in flex-col">
+        {setupFor(shown, session, farm, shell.harvested, shell.onPlanted)}
+      </div>
+    );
   }
   return (
     <FarmArea
@@ -302,6 +309,27 @@ function signedInContent(
       aside={aside}
     />
   );
+}
+
+/**
+ * Updates keep their dots while the farmer looks, so the new ones stand out; leaving the
+ * screen (for a report, a tab, or Back) marks every one that was shown as read.
+ */
+function useMarkSeenOnLeave(onUpdates: boolean, farm: Farm | null) {
+  const seen = useRef<Set<number>>(new Set());
+  const wasOn = useRef(false);
+  const shownIds = onUpdates && farm !== null ? farm.updates.unreadIds : null;
+  const markSeen = farm?.markSeen;
+  useEffect(() => {
+    shownIds?.forEach((id) => seen.current.add(id));
+  }, [shownIds]);
+  useEffect(() => {
+    if (wasOn.current && !onUpdates && markSeen !== undefined) {
+      markSeen([...seen.current]);
+      seen.current = new Set();
+    }
+    wasOn.current = onUpdates;
+  }, [onUpdates, markSeen]);
 }
 
 /** Floats over the screen so nothing jumps. A fast action never shows it. */
@@ -374,9 +402,14 @@ export function FarmerApp() {
       className="relative mx-auto flex h-dvh w-full max-w-[430px] flex-col overflow-hidden bg-ground pt-[env(safe-area-inset-top)]"
     >
       <BackTarget value={back}>
-        {!signedIn || shown.screen === "welcome"
-          ? entryFor(shown, session, online)
-          : signedInContent(route, shown, session, farm, online, shellActions)}
+        {!signedIn || shown.screen === "welcome" ? (
+          // The key plays the entrance on each entry screen: Welcome, log in, sign up.
+          <div key={hrefOf(shown)} className="flex min-h-0 flex-1 animate-screen-in flex-col">
+            {entryFor(shown, session, online)}
+          </div>
+        ) : (
+          signedInContent(route, shown, session, farm, online, shellActions)
+        )}
       </BackTarget>
     </div>
   );

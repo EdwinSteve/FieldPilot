@@ -4,6 +4,7 @@ import { formatClock, relativeDay } from "../lib/farmTime";
 import { forecastOfDay } from "../lib/forecast";
 import { activeRun } from "../lib/irrigationRun";
 import { clipLength, type LookedAt } from "../lib/lookedAt";
+import { cropLabel } from "../lib/names";
 import { isWatering, pendingTasks, plotOffset, soilAt, type FarmSnapshot } from "./snapshot";
 import { firstDecision } from "./today";
 import type { ChatExchange, StopView, TalkChip, TalkExchange, TalkView } from "./types";
@@ -70,9 +71,16 @@ function exchangeView(snapshot: FarmSnapshot, exchange: ChatExchange): TalkExcha
   };
 }
 
+/** "soybeans" when the crop growing runs by hand: the chat answers only about a crop FieldPilot runs. */
+export function manualCrop(snapshot: FarmSnapshot): string | null {
+  if (snapshot.cycle === null || snapshot.automated) return null;
+  return cropLabel(snapshot.cycle.crop).toLowerCase();
+}
+
 export function talkView(snapshot: FarmSnapshot, exchanges: readonly ChatExchange[]): TalkView {
   return {
     unavailable: snapshot.chatLive ? null : en.talk.needsLiveModel,
+    manualCrop: manualCrop(snapshot),
     exchanges: exchanges.map((exchange) => exchangeView(snapshot, exchange)),
     decision: firstDecision(snapshot),
     waitingCount: pendingTasks(snapshot).length,

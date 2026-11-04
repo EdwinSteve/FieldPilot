@@ -98,61 +98,71 @@ export function SellSheet({ lot, onClose, onDone }: { lot: Lot; onClose: () => v
 
   return (
     <Sheet label={en.sales.form.title(name)} onClose={onClose}>
-      <h2 className="text-head font-extrabold tracking-key">{en.sales.form.title(name)}</h2>
-      <p className="text-body text-ink-2">{en.sales.form.harvested(kgText(lot.quantity_kg), en.harvest.grades[lot.grade])}</p>
-      <TextField
-        label={en.sales.form.price}
-        hint={en.sales.form.priceHint(cop(lowestPrice()))}
-        prefix="COP"
-        value={price}
-        onChange={(value) => setPrice(typedWhole(value))}
-        problem={tried && problems.price !== null ? en.sales.form.problems.price[problems.price] : null}
-        inputMode="numeric"
-        autoComplete="off"
-      />
-      <PricePreview price={Number(price)} />
-      <p className="px-0.5 text-small text-ink-3">
-        {en.sales.form.fees(cop(FEES.logisticsPerKg), FEES.platformPct)}
-      </p>
-      <TextField
-        label={en.sales.form.kg}
-        hint={en.sales.form.kgHint(kgText(lot.quantity_kg))}
-        value={kg}
-        onChange={(value) => setKg(typedWhole(value))}
-        problem={tried && problems.kg !== null ? en.sales.form.problems.kg[problems.kg] : null}
-        inputMode="numeric"
-        autoComplete="off"
-      />
-      {warehouses.length > 1 ? (
-        <fieldset className="flex flex-col gap-2 border-0 p-0">
-          <legend className="px-0.5 pb-2 text-body font-bold text-ink-2">{en.sales.form.warehouse}</legend>
-          <Choices
-            options={warehouses.map((w) => w.id)}
-            chosen={chosen?.id ?? null}
-            label={(id) => warehouses.find((w) => w.id === id)?.name ?? ""}
-            onChoose={setWarehouseId}
-          />
-        </fieldset>
-      ) : chosen === undefined ? null : (
-        <div className="flex gap-3 rounded-control bg-ground px-4 py-3">
-          <Icon name="home" size={24} className="mt-0.5 shrink-0 text-primary" />
-          <div className="flex flex-col">
-            <span className="text-small font-bold text-ink-3">{en.sales.form.warehouse}</span>
-            <span className="text-body font-bold">{chosen.name}</span>
-            <span className="text-small text-ink-2">
-              {chosen.municipality}
-              {chosen.cold_storage ? ` · ${en.sales.form.cold}` : ""}
-            </span>
+      {/* Enter in any box presses the main button, as on any form. */}
+      <form
+        noValidate
+        className="contents"
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit();
+        }}
+      >
+        <h2 className="text-head font-extrabold tracking-key">{en.sales.form.title(name)}</h2>
+        <p className="text-body text-ink-2">{en.sales.form.harvested(kgText(lot.quantity_kg), en.harvest.grades[lot.grade])}</p>
+        <TextField
+          label={en.sales.form.price}
+          hint={en.sales.form.priceHint(cop(lowestPrice()))}
+          prefix="COP"
+          value={price}
+          onChange={(value) => setPrice(typedWhole(value))}
+          problem={tried && problems.price !== null ? en.sales.form.problems.price[problems.price] : null}
+          inputMode="numeric"
+          autoComplete="off"
+        />
+        <PricePreview price={Number(price)} />
+        <p className="px-0.5 text-small text-ink-3">
+          {en.sales.form.fees(cop(FEES.logisticsPerKg), FEES.platformPct)}
+        </p>
+        <TextField
+          label={en.sales.form.kg}
+          hint={en.sales.form.kgHint(kgText(lot.quantity_kg))}
+          value={kg}
+          onChange={(value) => setKg(typedWhole(value))}
+          problem={tried && problems.kg !== null ? en.sales.form.problems.kg[problems.kg] : null}
+          inputMode="numeric"
+          autoComplete="off"
+        />
+        {warehouses.length > 1 ? (
+          <fieldset className="flex flex-col gap-2 border-0 p-0">
+            <legend className="px-0.5 pb-2 text-body font-bold text-ink-2">{en.sales.form.warehouse}</legend>
+            <Choices
+              options={warehouses.map((w) => w.id)}
+              chosen={chosen?.id ?? null}
+              label={(id) => warehouses.find((w) => w.id === id)?.name ?? ""}
+              onChoose={setWarehouseId}
+            />
+          </fieldset>
+        ) : chosen === undefined ? null : (
+          <div className="flex gap-3 rounded-control bg-ground px-4 py-3">
+            <Icon name="home" size={24} className="mt-0.5 shrink-0 text-primary" />
+            <div className="flex flex-col">
+              <span className="text-small font-bold text-ink-3">{en.sales.form.warehouse}</span>
+              <span className="text-body font-bold">{chosen.name}</span>
+              <span className="text-small text-ink-2">
+                {chosen.municipality}
+                {chosen.cold_storage ? ` · ${en.sales.form.cold}` : ""}
+              </span>
+            </div>
           </div>
-        </div>
-      )}
-      <Failure failure={step.failure} />
-      <BigButton variant="primary" disabled={step.busy} onClick={submit}>
-        {step.busy ? en.sales.form.submitting : en.sales.form.submit}
-      </BigButton>
-      <BigButton variant="outline" size="compact" onClick={onClose}>
-        {en.sales.form.cancel}
-      </BigButton>
+        )}
+        <Failure failure={step.failure} />
+        <BigButton type="submit" variant="primary" disabled={step.busy}>
+          {step.busy ? en.sales.form.submitting : en.sales.form.submit}
+        </BigButton>
+        <BigButton variant="outline" size="compact" onClick={onClose}>
+          {en.sales.form.cancel}
+        </BigButton>
+      </form>
     </Sheet>
   );
 }
@@ -258,44 +268,54 @@ export function OfferSheet({
   };
   return (
     <Sheet label={words.title} onClose={onClose}>
-      <h2 className="text-head font-extrabold tracking-key">{words.title}</h2>
-      <p className="text-body text-ink-2">{words.lead}</p>
-      <fieldset className="flex flex-col gap-2 border-0 p-0">
-        <legend className="px-0.5 pb-2 text-body font-bold text-ink-2">{words.discount}</legend>
-        <Choices
-          options={DISCOUNTS}
-          chosen={discount}
-          label={(pct) => `${pct}%`}
-          onChoose={setDiscount}
-        />
-      </fieldset>
-      {discount === null ? null : (
-        <p
-          aria-live="polite"
-          className={`rounded-control px-4 py-3 text-body font-extrabold ${
-            problem === null ? "bg-tint text-primary-hover" : "bg-needs-tint text-needs-text"
-          }`}
-        >
-          {words.preview(cop(shelfPrice(price, discount)), String(farmerShare(price, discount)))}
-        </p>
-      )}
-      {tried && problem !== null ? (
-        <p className="flex items-center gap-2 px-0.5 text-small font-bold text-bad-text">
-          <Icon name="warning" size={18} strokeWidth={2.4} className="shrink-0" />
-          {words.problems[problem]}
-        </p>
-      ) : null}
-      <fieldset className="flex flex-col gap-2 border-0 p-0">
-        <legend className="px-0.5 pb-2 text-body font-bold text-ink-2">{words.days}</legend>
-        <Choices options={DAYS} chosen={days} label={(d) => words.dayCount(d)} onChoose={setDays} />
-      </fieldset>
-      <Failure failure={step.failure} />
-      <BigButton variant="primary" disabled={step.busy} onClick={submit}>
-        {step.busy ? words.busy : words.confirm}
-      </BigButton>
-      <BigButton variant="outline" size="compact" onClick={onClose}>
-        {en.sales.form.cancel}
-      </BigButton>
+      {/* Enter in any box presses the main button, as on any form. */}
+      <form
+        noValidate
+        className="contents"
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit();
+        }}
+      >
+        <h2 className="text-head font-extrabold tracking-key">{words.title}</h2>
+        <p className="text-body text-ink-2">{words.lead}</p>
+        <fieldset className="flex flex-col gap-2 border-0 p-0">
+          <legend className="px-0.5 pb-2 text-body font-bold text-ink-2">{words.discount}</legend>
+          <Choices
+            options={DISCOUNTS}
+            chosen={discount}
+            label={(pct) => `${pct}%`}
+            onChoose={setDiscount}
+          />
+        </fieldset>
+        {discount === null ? null : (
+          <p
+            aria-live="polite"
+            className={`rounded-control px-4 py-3 text-body font-extrabold ${
+              problem === null ? "bg-tint text-primary-hover" : "bg-needs-tint text-needs-text"
+            }`}
+          >
+            {words.preview(cop(shelfPrice(price, discount)), String(farmerShare(price, discount)))}
+          </p>
+        )}
+        {tried && problem !== null ? (
+          <p className="flex items-center gap-2 px-0.5 text-small font-bold text-bad-text">
+            <Icon name="warning" size={18} strokeWidth={2.4} className="shrink-0" />
+            {words.problems[problem]}
+          </p>
+        ) : null}
+        <fieldset className="flex flex-col gap-2 border-0 p-0">
+          <legend className="px-0.5 pb-2 text-body font-bold text-ink-2">{words.days}</legend>
+          <Choices options={DAYS} chosen={days} label={(d) => words.dayCount(d)} onChoose={setDays} />
+        </fieldset>
+        <Failure failure={step.failure} />
+        <BigButton type="submit" variant="primary" disabled={step.busy}>
+          {step.busy ? words.busy : words.confirm}
+        </BigButton>
+        <BigButton variant="outline" size="compact" onClick={onClose}>
+          {en.sales.form.cancel}
+        </BigButton>
+      </form>
     </Sheet>
   );
 }

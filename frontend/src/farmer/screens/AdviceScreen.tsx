@@ -361,6 +361,13 @@ function Preparing() {
         <h1 className="text-title-sm font-extrabold tracking-title">{en.advice.preparingTitle}</h1>
         <p className="text-body leading-snug text-ink-2">{en.advice.preparingDetail}</p>
       </div>
+      {/* The bar moves on with each step; the list below says the same in words. */}
+      <div aria-hidden="true" className="h-2.5 w-full max-w-80 overflow-hidden rounded-pill bg-divider">
+        <div
+          className="h-full rounded-pill bg-primary transition-[width] duration-700 ease-(--ease-calm)"
+          style={{ width: `${Math.round(((Math.min(current, SITE_STEPS.length - 1) + 0.5) / SITE_STEPS.length) * 100)}%` }}
+        />
+      </div>
       <ol className="flex w-full max-w-80 flex-col gap-2 text-left">
         {SITE_STEPS.map((step, index) => {
           const state = index < current ? "done" : index === current ? "working" : "waiting";

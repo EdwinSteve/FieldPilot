@@ -98,114 +98,124 @@ export function HarvestSheet({ info, onClose, onSaved }: HarvestSheetProps) {
 
   return (
     <Sheet label={en.harvest.title(name)} onClose={onClose}>
-      <h2 className="text-head font-extrabold tracking-key">{en.harvest.title(name)}</h2>
-      {/* The backend refuses a harvest while work is open (D083 §6): say it before the farmer fills in the form. */}
-      {info.openTask === null ? null : (
-        <div className="flex flex-col gap-2 rounded-control bg-needs-tint px-4 py-3 text-small font-bold text-needs-text">
-          {info.openTask.decision ? en.harvest.openDecision : en.harvest.openWatering}
-          {info.openTask.decision ? (
-            <BigLink variant="outline" size="compact" href={hrefOf({ screen: "decide", taskId: info.openTask.id })}>
-              {en.harvest.seeDecision}
-            </BigLink>
-          ) : null}
-        </div>
-      )}
-
-      <label className="flex flex-col gap-2">
-        <span className="px-0.5 text-body font-bold text-ink-2">{en.harvest.when}</span>
-        <input
-          type="date"
-          value={date}
-          min={firstHarvestDay(info.sowingDate)}
-          max={info.today}
-          aria-invalid={tried && problems.date !== null}
-          onChange={(event) => setDate(event.target.value)}
-          className="min-h-16 rounded-control border-2 border-border bg-surface px-4 text-row text-ink"
-        />
-      </label>
-      <Problem text={show(problems.date, (p) => en.harvest.problems.date[p])} />
-
-      <fieldset className="flex flex-col gap-3 border-0 p-0">
-        <legend className="px-0.5 pb-2 text-body font-bold text-ink-2">{en.harvest.howMuch}</legend>
-        <Choices
-          options={["bags", "kg"] as const}
-          chosen={unit}
-          label={(option) => en.harvest.units[option]}
-          icon={(option) => (option === "bags" ? "bag" : "scale")}
-          onChoose={setUnit}
-        />
-        <Problem text={show(problems.unit, () => en.harvest.problems.unit)} />
-        {/* Asked each time: the amount waits until the farmer says bags or kilos. */}
-        {unit === null ? null : (
-          <TextField
-            label={unit === "bags" ? en.harvest.amountBags : en.harvest.amountKg}
-            value={amount}
-            onChange={(value) => setAmount(typedAmount(value))}
-            problem={show(problems.amount, (p) => en.harvest.problems.amount[p])}
-            inputMode="decimal"
-            autoComplete="off"
-          />
-        )}
-        {unit === "bags" ? (
-          <div className="flex flex-col gap-2.5">
-            <span className="px-0.5 text-body font-bold text-ink-2">{en.harvest.bagSize}</span>
-            <Choices
-              options={[...BAG_PRESETS, OTHER] as const}
-              chosen={bagChoice}
-              label={(option) => (option === OTHER ? en.harvest.bagOther : en.harvest.bagPreset(option))}
-              onChoose={setBagChoice}
-            />
-            {bagChoice === OTHER ? (
-              <TextField
-                label={en.harvest.bagOtherLabel}
-                value={bagOther}
-                onChange={(value) => setBagOther(typedAmount(value))}
-                problem={show(problems.bag, () => en.harvest.problems.bag)}
-                inputMode="decimal"
-                autoComplete="off"
-              />
+      {/* Enter in any box presses the main button, as on any form. */}
+      <form
+        noValidate
+        className="contents"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save();
+        }}
+      >
+        <h2 className="text-head font-extrabold tracking-key">{en.harvest.title(name)}</h2>
+        {/* The backend refuses a harvest while work is open (D083 §6): say it before the farmer fills in the form. */}
+        {info.openTask === null ? null : (
+          <div className="flex flex-col gap-2 rounded-control bg-needs-tint px-4 py-3 text-small font-bold text-needs-text">
+            {info.openTask.decision ? en.harvest.openDecision : en.harvest.openWatering}
+            {info.openTask.decision ? (
+              <BigLink variant="outline" size="compact" href={hrefOf({ screen: "decide", taskId: info.openTask.id })}>
+                {en.harvest.seeDecision}
+              </BigLink>
             ) : null}
           </div>
-        ) : null}
-        {Number.isFinite(kg) && kg > 0 ? (
-          <p aria-live="polite" className="rounded-control bg-tint px-4 py-3 text-body font-extrabold text-primary-hover">
-            {unit === "bags"
-              ? en.harvest.total(amount, bagKg, kgText(kg))
-              : en.harvest.totalKg(kgText(kg))}
-          </p>
-        ) : null}
-      </fieldset>
+        )}
 
-      <fieldset className="flex flex-col gap-2 border-0 p-0">
-        <legend className="px-0.5 pb-2 text-body font-bold text-ink-2">{en.harvest.quality}</legend>
-        {GRADES.map((option) => (
-          <button
-            key={option}
-            type="button"
-            aria-pressed={option === grade}
-            onClick={() => setGrade(option)}
-            className={`press flex min-h-14 flex-col items-start justify-center rounded-control border-2 px-4 py-2 text-left ${
-              option === grade ? "border-primary bg-tint" : "border-border bg-surface"
-            }`}
-          >
-            <span className="text-row font-bold">{en.harvest.grades[option]}</span>
-            <span className="text-small text-ink-2">{en.harvest.gradeDetails[option]}</span>
-          </button>
-        ))}
-      </fieldset>
-      <Problem text={show(problems.grade, () => en.harvest.problems.grade)} />
+        <label className="flex flex-col gap-2">
+          <span className="px-0.5 text-body font-bold text-ink-2">{en.harvest.when}</span>
+          <input
+            type="date"
+            value={date}
+            min={firstHarvestDay(info.sowingDate)}
+            max={info.today}
+            aria-invalid={tried && problems.date !== null}
+            onChange={(event) => setDate(event.target.value)}
+            className="min-h-16 rounded-control border-2 border-border bg-surface px-4 text-row text-ink"
+          />
+        </label>
+        <Problem text={show(problems.date, (p) => en.harvest.problems.date[p])} />
 
-      {failure === null ? null : (
-        <div role="alert" className="flex flex-col gap-2 rounded-control bg-needs-tint px-4 py-3 text-small font-bold text-needs-text">
-          {en.harvest.failures[failure]}
-        </div>
-      )}
-      <BigButton variant="primary" disabled={busy || info.openTask !== null} onClick={() => void save()}>
-        {busy ? en.harvest.saving : en.harvest.save}
-      </BigButton>
-      <BigButton variant="outline" size="compact" onClick={onClose}>
-        {en.harvest.cancel}
-      </BigButton>
+        <fieldset className="flex flex-col gap-3 border-0 p-0">
+          <legend className="px-0.5 pb-2 text-body font-bold text-ink-2">{en.harvest.howMuch}</legend>
+          <Choices
+            options={["bags", "kg"] as const}
+            chosen={unit}
+            label={(option) => en.harvest.units[option]}
+            icon={(option) => (option === "bags" ? "bag" : "scale")}
+            onChoose={setUnit}
+          />
+          <Problem text={show(problems.unit, () => en.harvest.problems.unit)} />
+          {/* Asked each time: the amount waits until the farmer says bags or kilos. */}
+          {unit === null ? null : (
+            <TextField
+              label={unit === "bags" ? en.harvest.amountBags : en.harvest.amountKg}
+              value={amount}
+              onChange={(value) => setAmount(typedAmount(value))}
+              problem={show(problems.amount, (p) => en.harvest.problems.amount[p])}
+              inputMode="decimal"
+              autoComplete="off"
+            />
+          )}
+          {unit === "bags" ? (
+            <div className="flex flex-col gap-2.5">
+              <span className="px-0.5 text-body font-bold text-ink-2">{en.harvest.bagSize}</span>
+              <Choices
+                options={[...BAG_PRESETS, OTHER] as const}
+                chosen={bagChoice}
+                label={(option) => (option === OTHER ? en.harvest.bagOther : en.harvest.bagPreset(option))}
+                onChoose={setBagChoice}
+              />
+              {bagChoice === OTHER ? (
+                <TextField
+                  label={en.harvest.bagOtherLabel}
+                  value={bagOther}
+                  onChange={(value) => setBagOther(typedAmount(value))}
+                  problem={show(problems.bag, () => en.harvest.problems.bag)}
+                  inputMode="decimal"
+                  autoComplete="off"
+                />
+              ) : null}
+            </div>
+          ) : null}
+          {Number.isFinite(kg) && kg > 0 ? (
+            <p aria-live="polite" className="rounded-control bg-tint px-4 py-3 text-body font-extrabold text-primary-hover">
+              {unit === "bags"
+                ? en.harvest.total(amount, bagKg, kgText(kg))
+                : en.harvest.totalKg(kgText(kg))}
+            </p>
+          ) : null}
+        </fieldset>
+
+        <fieldset className="flex flex-col gap-2 border-0 p-0">
+          <legend className="px-0.5 pb-2 text-body font-bold text-ink-2">{en.harvest.quality}</legend>
+          {GRADES.map((option) => (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={option === grade}
+              onClick={() => setGrade(option)}
+              className={`press flex min-h-14 flex-col items-start justify-center rounded-control border-2 px-4 py-2 text-left ${
+                option === grade ? "border-primary bg-tint" : "border-border bg-surface"
+              }`}
+            >
+              <span className="text-row font-bold">{en.harvest.grades[option]}</span>
+              <span className="text-small text-ink-2">{en.harvest.gradeDetails[option]}</span>
+            </button>
+          ))}
+        </fieldset>
+        <Problem text={show(problems.grade, () => en.harvest.problems.grade)} />
+
+        {failure === null ? null : (
+          <div role="alert" className="flex flex-col gap-2 rounded-control bg-needs-tint px-4 py-3 text-small font-bold text-needs-text">
+            {en.harvest.failures[failure]}
+          </div>
+        )}
+        <BigButton type="submit" variant="primary" disabled={busy || info.openTask !== null}>
+          {busy ? en.harvest.saving : en.harvest.save}
+        </BigButton>
+        <BigButton variant="outline" size="compact" onClick={onClose}>
+          {en.harvest.cancel}
+        </BigButton>
+      </form>
     </Sheet>
   );
 }

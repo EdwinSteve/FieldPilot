@@ -164,6 +164,15 @@ export function TalkScreen({ view, control }: TalkScreenProps) {
       <main className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-4.5 pt-7 pb-3">
         <h1 className="mx-0.5 text-title font-extrabold tracking-title">{en.talk.title}</h1>
         <DecisionsLink view={view} />
+        {view.manualCrop === null ? null : (
+          <section className="flex shrink-0 items-start gap-3 rounded-card bg-needs-tint px-4 py-3.5 text-needs-text">
+            <Icon name="info" size={22} strokeWidth={2.3} className="mt-0.5 shrink-0" />
+            <span className="flex flex-col gap-1">
+              <span className="text-body font-extrabold">{en.talk.notLookedAfterTitle(view.manualCrop)}</span>
+              <span className="text-small leading-snug">{en.talk.notLookedAfterDetail(view.manualCrop)}</span>
+            </span>
+          </section>
+        )}
         <span className="flex items-center gap-2 px-1 text-caption leading-snug text-ink-3">
           <Icon name="info" size={18} className="shrink-0" />
           {en.talk.onlyAnswers}

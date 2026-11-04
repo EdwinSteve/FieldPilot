@@ -115,6 +115,8 @@ export interface TalkExchange {
 export interface TalkView {
   /** Why asking is off; null when the live model can answer. */
   unavailable: string | null;
+  /** The crop growing, in lower case, when FieldPilot does not look after it; null otherwise. */
+  manualCrop: string | null;
   exchanges: TalkExchange[];
   decision: DecisionLink | null;
   waitingCount: number;
@@ -182,6 +184,8 @@ export interface UpdatesView {
   rare: RareCase[];
   items: UpdateItem[];
   unreadCount: number;
+  /** The unread notifications: marked read once the farmer leaves Updates, having seen them. */
+  unreadIds: number[];
 }
 
 export interface FieldView {
@@ -359,6 +363,8 @@ export interface Farm {
   outboxNotice: string | null;
   undo: (taskId: number) => Promise<boolean>;
   markAllRead: () => Promise<boolean>;
+  /** Marks these read without a word: no "Working…", no failure notice; the next read shows it. */
+  markSeen: (ids: readonly number[]) => void;
   setStopped: (stopped: boolean) => Promise<boolean>;
   busy: boolean;
   /** Why the last action failed, while the notice is up. */

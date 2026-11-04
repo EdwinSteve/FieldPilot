@@ -10,7 +10,7 @@ import { fromCache, toCache, type CachedFarm } from "../lib/farmCache";
 import { formatClock } from "../lib/farmTime";
 import { ageText } from "../lib/freshness";
 import { buzz } from "../lib/haptic";
-import { stopView, talkView } from "../view-models/control";
+import { manualCrop, stopView, talkView } from "../view-models/control";
 import { decisionView } from "../view-models/decide";
 import { fieldView } from "../view-models/field";
 import { planView } from "../view-models/plan";
@@ -139,6 +139,8 @@ export function useFarm(plotId: number, paused = false): FarmState {
   }, [failure]);
 
   const { exchanges } = talk;
+  /** The crop FieldPilot does not run, named in a refusal; null when it runs it. */
+  const notLookedAfter = data === null ? null : manualCrop(data);
   const views = useMemo(() => (data ? viewsOf(data, exchanges) : null), [data, exchanges]);
 
   if (loading) return { status: "loading" };
@@ -211,12 +213,22 @@ export function useFarm(plotId: number, paused = false): FarmState {
     undo: (taskId) => tried(() => api.revert(taskId)),
     markAllRead: () =>
       tried(() => Promise.all(unread.map((notice) => api.markRead(notice.id))), false),
+    markSeen: (ids) => {
+      if (ids.length === 0) return;
+      // Seen is not an action the farmer took: a failure stays quiet and the dots simply stay.
+      void Promise.all(ids.map((id) => api.markRead(id))).then(refresh, () => undefined);
+    },
     setStopped: (stopped) => tried(() => api.setEmergencyStop(stopped)),
     busy: action.busy,
     actionFailure: failure,
     talk: {
       status: talk.status,
-      failure: talk.failure === null ? null : en.talk.failures[talk.failure],
+      failure:
+        talk.failure === null
+          ? null
+          : talk.failure === "needs_automated_crop" && notLookedAfter !== null
+            ? en.talk.notLookedAfter(notLookedAfter)
+            : en.talk.failures[talk.failure],
       pendingQuestion: talk.pendingQuestion,
       draft: talk.draft,
       setDraft: talk.setDraft,
