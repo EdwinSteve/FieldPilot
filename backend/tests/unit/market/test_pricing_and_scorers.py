@@ -56,7 +56,7 @@ def _product(listing_id: int, crop: str, harvested: date) -> ProductView:
     listing = Listing("FP-1", 7, 1, crop, 100_000, 300_000, "COP", ListingStatus.ACTIVE,
                       datetime(2026, 11, 1, tzinfo=UTC), listing_id)  # fmt: skip
     return ProductView(listing, crop.title(), shelf_price(300_000, FEES, "COP"), None, 100_000,
-                       harvested, harvested + timedelta(days=14), "Producer from Neiva",
+                       harvested, harvested + timedelta(days=14), 7, "Producer from Neiva",
                        "Neiva", "Huila", "BOG")  # fmt: skip
 
 
