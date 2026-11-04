@@ -81,7 +81,9 @@ def _propose(
         problems = _problems(read, draft, args, scheduled_for, now)
         if problems:
             raise ToolRefusedError("Proposal refused before the gate: " + " ".join(problems))
-        params = {} if args.volume_mm is None else {"volume_mm": args.volume_mm}
+        params: dict[str, float | str] = (
+            {} if args.volume_mm is None else {"volume_mm": args.volume_mm}
+        )
         view = proposer.propose(
             ActionRequest(
                 args.action_type,

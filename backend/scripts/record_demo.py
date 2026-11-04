@@ -6,16 +6,18 @@ answer recorded, and only then replaces data/fixtures/llm/demo/<day>.json, so a
 failed run never overwrites a good recording.
 """
 
+import json
 import shutil
 import sys
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.agent.llm.recording import RecordingLLMClient
-from app.container import MOCK_CYCLE_DIRS, Container
-from app.domain.enums import TaskStatus
+from app.container import MOCK_CYCLE_DIRS, RECORDED_FILE, Container
+from app.domain.enums import ActionType, TaskStatus
 from app.main import create_app
 from app.services.demo_seed import seed_demo_farm
 from app.settings import Settings
@@ -36,21 +38,33 @@ def main() -> None:
         day1 = record_day(container, plot_id, recordings)
         held = reject_held(container)
         print(f"Day 1 {day1}: rejected held tasks {held}.")
-        if not held:
-            fail("day 1 held nothing for approval: the story needs the rain hold. Record again.")
+        rejected = container.queries.tasks(TaskStatus.REJECTED)
+        if not any(v.task.action_type is ActionType.IRRIGATION for v in rejected):
+            fail("day 1 held no irrigation for approval: the story needs the rain hold.")
         between_days(container)
         day2 = record_day(container, plot_id, recordings)
-        statuses = sorted(str(v.task.status) for v in container.queries.tasks())
-        print(f"Day 2 {day2}: task statuses {statuses}.")
+        tasks = [v.task for v in container.queries.tasks()]
+        print(f"Day 2 {day2}: task statuses {sorted(str(t.status) for t in tasks)}.")
         print_tasks(container)
-        if str(TaskStatus.SCHEDULED) not in statuses:
+        if not any(t.action_type is ActionType.EXTRA_IRRIGATION
+                   and t.status is TaskStatus.SCHEDULED for t in tasks):  # fmt: skip
             fail("day 2 scheduled nothing to revert: the story needs the extra irrigation.")
+        if not any(t.action_type is ActionType.IRRIGATION and t.status is TaskStatus.EXECUTED
+                   for t in tasks):  # fmt: skip
+            fail("day 2 irrigated nothing: the story needs the dry-day irrigation.")
 
         target = settings.data_dir.joinpath(*MOCK_CYCLE_DIRS[settings.app_language])
         target.mkdir(parents=True, exist_ok=True)
         for recording in sorted(recordings.glob("*.json")):
             shutil.copy2(recording, target / recording.name)
             print(f"Saved {target / recording.name}")
+        label = {
+            "recorded_on": datetime.now(UTC).date().isoformat(),
+            "model": settings.muse_agent_model,
+            "daily_cycle": settings.daily_cycle,
+        }
+        (target / RECORDED_FILE).write_text(json.dumps(label, indent=2) + "\n", encoding="utf-8")
+        print(f"Saved {target / RECORDED_FILE}: the replay's label (D094)")
 
 
 def record_day(container: Container, plot_id: int, recordings: Path) -> str:

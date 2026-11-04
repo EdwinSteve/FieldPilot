@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 from app.actuation.simulated import SUPPORTED_ACTIONS
 from app.domain.enums import AutonomyLevel, EventKind, TaskStatus
-from app.domain.errors import MissingDataError
+from app.domain.errors import InvalidTransitionError, MissingDataError
 from app.domain.models import Event, JsonValue, Task
 from app.persistence.ports import UnitOfWork
 from app.services.due_tasks import DueTaskRunner
@@ -47,6 +47,33 @@ class ApprovalService:
         if task.scheduled_for <= now and task.action_type in SUPPORTED_ACTIONS:
             return self._due.run_task(task, now)
         return task
+
+    def mark_done(self, stored_id: int, actor: str) -> Task:
+        """The farmer did a manual task (fertilizer, a scouting visit): it is executed (D093).
+
+        Only a scheduled task with no actuator command: a machine's task is
+        executed by the machine, and an unapproved one is not the farmer's to do yet.
+        """
+        with self._uow() as u:
+            task = u.tasks.get(stored_id)
+            if task.action_type in SUPPORTED_ACTIONS:
+                raise InvalidTransitionError(f"task {stored_id} is run by the actuator")
+            if task.status is not TaskStatus.SCHEDULED:
+                raise InvalidTransitionError(f"task {stored_id} is {task.status}, not scheduled")
+            done = u.tasks.transition(
+                stored_id,
+                TaskStatus.EXECUTED,
+                Event(
+                    kind=EventKind.EXECUTION,
+                    actor=actor,
+                    reason="Done by the farmer.",
+                    occurred_at=self._clock.now(),
+                    idempotency_key=f"task-{stored_id}:manual",
+                    inputs={"manual": True, "action_type": str(task.action_type)},
+                ),
+            )
+            u.commit()
+        return done
 
     def reject(self, stored_id: int, actor: str, reason: str | None = None) -> Task:
         """The farmer's "no" is final and logged as clearly as a "yes" (D008)."""

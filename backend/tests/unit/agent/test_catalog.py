@@ -36,11 +36,27 @@ def test_the_real_catalogue_loads_every_prompt_with_its_hash() -> None:
         assert agent.prompt_sha256 == hashlib.sha256(raw).hexdigest()
 
 
-def test_only_irrigation_may_write() -> None:
-    """D054: pinned on the real catalogue."""
+def test_only_irrigation_and_the_agronomist_may_write() -> None:
+    """D054, D093: pinned on the real catalogue. Both write only through the gate."""
     writers = [agent.name for agent in load_agent_catalog(PROMPTS) if agent.may_write]
 
-    assert writers == ["irrigation"]
+    assert writers == ["irrigation", "agronomist"]
+
+
+def test_the_agronomist_leads_and_the_specialists_only_read() -> None:
+    """D093: it consults every specialist; the two new ones close with their own tool."""
+    agents = {a.name: a for a in load_agent_catalog(PROMPTS)}
+    agronomist = agents["agronomist"]
+
+    consults = {n for n in agronomist.tool_names if n.startswith("consult_")}
+    assert consults == {f"consult_{name}" for name in
+                        ("monitoring", "imaging", "crop_health", "soil_nutrition", "irrigation",
+                         "reporting")}  # fmt: skip
+    assert agronomist.closing_tool == "close_day"
+    assert "propose_action" not in agronomist.tool_names  # water belongs to irrigation
+    assert agents["crop_health"].closing_tool == "submit_health"
+    assert agents["soil_nutrition"].closing_tool == "submit_nutrition"
+    assert not agents["crop_health"].may_write and not agents["soil_nutrition"].may_write
 
 
 def test_every_real_subagent_has_a_closing_tool() -> None:
@@ -97,6 +113,8 @@ def test_the_orchestrator_is_read_only() -> None:
     assert orchestrator.closing_tool == "answer_farmer"
     assert not orchestrator.may_write
     assert "consult_irrigation" not in orchestrator.tool_names
+    assert {"propose_task", "cancel_task", "consult_reporting"}.isdisjoint(orchestrator.tool_names)
+    assert "consult_soil_nutrition" in orchestrator.tool_names  # read-only specialists (D093)
     assert "propose_action" not in orchestrator.tool_names
 
 

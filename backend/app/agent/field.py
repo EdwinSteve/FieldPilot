@@ -64,7 +64,7 @@ class ActionRequest:
     plot_id: int
     zone_id: int | None
     scheduled_for: datetime
-    params: dict[str, float]
+    params: dict[str, float | str]
     rationale: str
     proposed_by: str
 
@@ -121,3 +121,68 @@ class ImageryView:
 class ImageryReader(Protocol):
     def imagery(self, plot_id: int, day: date) -> ImageryView | None: ...  # None: no scene
     def scene_png(self, plot_id: int, day: date) -> bytes | None: ...  # None: no scene
+
+
+# --- D093: what the agronomist and its two specialists read and change -----------------
+
+
+@dataclass(frozen=True)
+class Microclimate:
+    """A zone's air over a window, from its temperature and humidity sensors."""
+
+    zone_id: int
+    window_hours: float
+    readings: int  # how many paired readings the window holds; 0: nothing to say
+    temperature_mean_c: float | None
+    temperature_max_c: float | None
+    humidity_mean_pct: float | None
+    humidity_max_pct: float | None
+    humid_leaf_hours: float | None  # RH >= 90 % between 10 and 30 °C
+    last_reading_id: int | None  # the latest humidity reading, for the observation id
+    until: datetime
+
+
+@dataclass(frozen=True)
+class SoilTarget:
+    low: float
+    high: float
+
+
+@dataclass(frozen=True)
+class SoilView:
+    """A zone's soil: measured or estimated values and the crop's target ranges."""
+
+    zone_id: int
+    ph: float
+    ph_source: str  # "soilgrids" or "probe"
+    organic_carbon_g_kg: float | None
+    nitrogen_ppm: float
+    phosphorus_ppm: float
+    potassium_ppm: float
+    targets: dict[str, SoilTarget]  # by "ph", "nitrogen", "phosphorus", "potassium"
+    simulated: bool  # the N-P-K probe is simulated (D038, D093)
+
+
+@dataclass(frozen=True)
+class TaskRecord:
+    task_id: int
+    action_type: str
+    zone_id: int | None
+    scheduled_for: datetime
+    status: str
+    proposed_by: str
+    params: dict[str, float | str]
+    rationale: str
+
+
+class Agronomy(Protocol):
+    """The agronomist's view beyond water, and its one way to withdraw a task (D093)."""
+
+    def microclimate(self, plot_id: int, zone_id: int, at: datetime) -> Microclimate | None: ...
+    def soil(self, plot_id: int, zone_id: int, at: datetime) -> SoilView | None: ...
+    def open_tasks(self, plot_id: int) -> Sequence[TaskRecord]: ...
+    def cancel(self, plot_id: int, task_id: int, reason: str, actor: str) -> TaskRecord: ...
+
+
+class TaskNotCancellableError(Exception):
+    """The task is not this plot's, not an agent's, or has already run. Told to the model."""

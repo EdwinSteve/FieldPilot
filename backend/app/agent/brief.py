@@ -24,6 +24,15 @@ class ObservationKind(StrEnum):
     NDVI = "ndvi"
     LOW_NDVI = "low_ndvi"
     BARE_SOIL = "bare_soil"
+    TEMPERATURE = "temperature"  # D093: the microclimate of crop_health
+    HUMIDITY = "humidity"
+    HUMID_HOURS = "humid_hours"
+    SOIL_PH = "soil_ph"  # D093: the soil of soil_nutrition
+    ORGANIC_CARBON = "organic_carbon"
+    NITROGEN = "nitrogen"
+    PHOSPHORUS = "phosphorus"
+    POTASSIUM = "potassium"
+    TASK = "task"  # an open task the agronomist read (D093)
 
 
 @dataclass(frozen=True)
@@ -102,6 +111,24 @@ class ImagingResult:
 
 
 @dataclass(frozen=True)
+class ZoneHealth:
+    zone_id: int
+    risk: str  # low | moderate | high
+    threats: tuple[str, ...]  # e.g. "fungal_disease", "water_stress", "pests"
+    note: str
+    cited: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ZoneNutrition:
+    zone_id: int
+    status: str  # ok | low | high
+    deficits: tuple[str, ...]  # nutrients below target: "nitrogen", "phosphorus", "ph", ...
+    note: str
+    cited: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class FieldBrief:
     """The structured handoff between subagents. Never free text (D044)."""
 
@@ -110,6 +137,10 @@ class FieldBrief:
     assessment: Assessment | None = None
     imaging: ImagingResult | None = None
     proposals: tuple[ProposalSummary, ...] = field(default_factory=tuple)
+    health: tuple[ZoneHealth, ...] | None = None  # None: crop_health not consulted (D093)
+    nutrition: tuple[ZoneNutrition, ...] | None = None
+    cancelled: tuple[int, ...] = field(default_factory=tuple)  # task ids (D093)
+    report_id: int | None = None
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), default=str, sort_keys=True)
@@ -127,8 +158,20 @@ class BriefDraft:
         self.assessment: Assessment | None = None
         self.imaging: ImagingResult | None = None
         self.proposals: list[ProposalSummary] = []
+        self.health: tuple[ZoneHealth, ...] | None = None
+        self.nutrition: tuple[ZoneNutrition, ...] | None = None
+        self.cancelled: list[int] = []
+        self.report_id: int | None = None
 
     def freeze(self) -> FieldBrief:
         return FieldBrief(
-            self.plot_id, self.day, self.assessment, self.imaging, tuple(self.proposals)
+            self.plot_id,
+            self.day,
+            self.assessment,
+            self.imaging,
+            tuple(self.proposals),
+            self.health,
+            self.nutrition,
+            tuple(self.cancelled),
+            self.report_id,
         )
