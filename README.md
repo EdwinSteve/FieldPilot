@@ -261,6 +261,8 @@ cp .env.example .env        # add your Meta Model API key, or keep MOCK_LLM=1
 make install
 make dev                    # backend :8000 · frontend :5173 (make dev BACKEND_PORT=8001 if 8000 is taken)
 make test                   # backend tests, mock mode, no network
+make e2e                    # the whole season over HTTP, fake Muse on localhost (D090)
+make e2e-live               # the same season against the real Muse (.env key, quota; D091)
 make check                  # what CI runs: hygiene, backend and frontend
 ```
 
@@ -292,7 +294,8 @@ All eleven build steps are complete; the two-day demo is in
 Makefile targets as `make check`, in three jobs ([D041](docs/decisions.md)):
 - **repository hygiene:** no secret, database or database backup tracked;
 - **backend:** ruff with readability rules (complexity, unused code, no
-  `print`, no naive datetimes; [D042](docs/decisions.md)), mypy and pytest;
+  `print`, no naive datetimes; [D042](docs/decisions.md)), mypy, pytest and
+  the end-to-end journey ([D090](docs/decisions.md));
 - **frontend:** Oxlint with the React hooks rules, Vitest, and the type-checked
   build ([D068](docs/decisions.md), [D069](docs/decisions.md)).
 

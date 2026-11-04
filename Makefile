@@ -9,7 +9,7 @@ RUFF_ARGS ?=
 BACKEND_PORT ?= 8000
 
 .PHONY: help install install-backend install-frontend demo dev dev-backend dev-frontend \
-	seed user record-demo test lint lint-backend lint-rules-backend format-check-backend format \
+	seed user record-demo test e2e e2e-live lint lint-backend lint-rules-backend format-check-backend format \
 	typecheck typecheck-backend typecheck-frontend build-frontend lint-frontend test-frontend \
 	check check-backend check-frontend check-repo preflight clean \
 	install-planner check-planner planner planner-site
@@ -60,6 +60,12 @@ record-demo: ## Record the two-day demo against the real model (network, key quo
 test: ## Run the backend test suite (mock mode, no network)
 	MOCK_LLM=1 $(UV) run pytest
 
+e2e: ## The whole season over HTTP: real backend + fake Muse on localhost, no network (D090)
+	$(UV) run pytest e2e
+
+e2e-live: ## The same season against the real Muse, with .env's key (network, quota; not in CI, D091)
+	E2E_MUSE=live $(UV) run pytest e2e
+
 lint: lint-backend ## Lint (readability rules, D042) and check formatting
 
 lint-backend: lint-rules-backend format-check-backend
@@ -77,7 +83,7 @@ format: ## Auto-format backend code
 typecheck: typecheck-backend typecheck-frontend ## Type-check backend (mypy) and frontend (tsc)
 
 typecheck-backend:
-	$(UV) run mypy app tests scripts
+	$(UV) run mypy app tests scripts e2e
 
 typecheck-frontend:
 	npm --prefix $(FRONTEND) run typecheck
@@ -85,7 +91,7 @@ typecheck-frontend:
 build-frontend: ## Type-check and build the frontend bundle
 	npm --prefix $(FRONTEND) run build
 
-check-backend: lint-backend typecheck-backend test ## Backend checks, as run by CI
+check-backend: lint-backend typecheck-backend test e2e ## Backend checks, as run by CI
 
 lint-frontend: ## Oxlint: correctness, suspicious code and the React hooks rules (D068, D069)
 	npm --prefix $(FRONTEND) run lint
