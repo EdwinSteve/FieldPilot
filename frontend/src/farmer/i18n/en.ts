@@ -685,31 +685,56 @@ export const en = {
     caption: (areaHa: number, crop: string) => `${areaHa} ha · ${crop.toLowerCase()}`,
     needsMore: (zone: string, points: number) => `${zone} needs about ${points}% more to be full.`,
     isFull: (zone: string) => `${zone} is full.`,
+    asOf: (when: string) => `As it was on ${when}`,
+    seeNow: "See it now",
+    noReadingThen: "No soil reading from that time.",
     historyAlt: (first: number, last: number, fieldCapacity: number) =>
       `Soil water went from ${first}% to ${last}%. Full is ${fieldCapacity}%.`,
   },
   report: {
     verified: "Every number was checked against the sensors.",
-    original: "Original report (Spanish)",
+    full: "FieldPilot’s full report",
+    fullIn: (language: string) => `FieldPilot’s full report (in ${language})`,
+    languages: { es: "Spanish", en: "English" } as Record<string, string>,
+    seenTitle: "What FieldPilot saw",
+    doneTitle: "What it did",
+    nextTitle: "What’s next",
+    soilValue: (value: number) => `${value}%`,
+    soilNote: (fieldCapacity: number) => `of ${fieldCapacity}% full`,
+    rainValue: (mm: number) => `${mm} mm`,
+    rainToday: "Rain today",
+    noRainToday: "No rain today",
+    satelliteTitle: "Some plants look weak",
+    satelliteDetail: (barePct: number | null) =>
+      barePct === null ? "Seen from the satellite." : `About ${barePct}% of the field shows bare soil.`,
+    /** 1 mm of water on the field is 1 litre on every square metre: a measure a farmer can picture. */
+    litres: (mm: number, zone: string) => `${mm} litres on every square metre of ${zone}.`,
+    wateredTitle: (mm: number | null) =>
+      mm === null ? "FieldPilot watered" : `FieldPilot watered ${mm} mm`,
+    wateringTitle: (mm: number | null) =>
+      mm === null ? "FieldPilot is watering" : `FieldPilot is watering ${mm} mm`,
+    finishedAt: (time: string) => `Finished at ${time}.`,
+    runningUntil: (time: string) => `Running until ${time}.`,
+    plannedTitle: (mm: number | null, day: string) =>
+      mm === null ? `Watering ${day}` : `Watering ${day}: ${mm} mm`,
+    plannedDetail: (mm: number | null, zone: string) =>
+      mm === null
+        ? `FieldPilot opens the valve on its own and waters ${zone}.`
+        : `FieldPilot opens the valve on its own and gives ${zone} ${mm} litres per square metre.`,
+    seeOrUndo: "See it or undo",
+    seePlan: "See the plan",
+    waitingTitle: (mm: number | null) =>
+      mm === null ? "FieldPilot wants to water" : `FieldPilot wants to water ${mm} mm`,
+    waitingDetail: (mm: number | null) =>
+      mm === null
+        ? "It waits for your OK."
+        : `That is ${mm} litres per square metre. It waits for your OK.`,
+    decide: "Decide",
+    onDay: (day: string) => `on ${day}`,
     saidNo: "After this, you said no",
     saidNoDetail: (time: string, reason: string | null) =>
       reason === null ? time : `${time} · “${reason}”`,
-    soil: (zone: string, status: string, value: number, fieldCapacity: number) =>
-      `${zoneIs(zone, status)}: ${value}% (full at ${fieldCapacity}%)`,
-    noRain: "No rain expected (0 mm)",
-    rain: (mm: number) => `Rain expected: ${mm} mm`,
-    waiting: (mm: number | null) =>
-      mm === null ? "A watering waits for your OK" : `${mm} mm of water waits for your OK`,
-    wateringNow: (mm: number | null, until: string | null) => {
-      const start = mm === null ? "Watering" : `Watering ${mm} mm`;
-      return until === null ? start : `${start} · until ${until}`;
-    },
-    planned: (mm: number | null, day: string) => {
-      const amount = mm === null ? "More water" : `${mm} mm more`;
-      return `${amount} ${day.toLowerCase()} · you can undo`;
-    },
-    satellite: (barePct: number | null) =>
-      barePct === null ? "Satellite: weak plants" : `Satellite: weak plants, ${barePct}% bare soil`,
+    soilLabel: (zone: string, status: string) => zoneIs(zone, status),
     linkToDay: (day: string, date: string) => `${day} · ${date}`,
     emptyTitle: "No report here",
     emptyDetail: "Reports appear after the morning check.",

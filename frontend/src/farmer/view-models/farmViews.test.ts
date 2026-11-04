@@ -401,6 +401,20 @@ describe("zoneView", () => {
     expect(view?.caption).toBe("0.5 ha · maize");
   });
 
+  it("opened from day 1's report on day 2: the soil of that morning, no valve or sensor", () => {
+    const report = demo.day2Cycle.reports.find((candidate) => candidate.id === 1);
+    const view = zoneView(demo.day2Cycle, ZONE_ID, report?.created_at);
+    expect(view?.display).toBe("20%");
+    expect(view?.asOf).toEqual({ label: "As it was on Monday, 2 Nov · 6:00 am", nowHref: "#/zone/1" });
+    expect(zoneView(demo.day2Cycle, ZONE_ID)?.asOf).toBeNull();
+  });
+
+  it("says so when the moment is older than every reading", () => {
+    const view = zoneView(demo.day2Cycle, ZONE_ID, "2026-10-01T11:00:00Z");
+    expect(view?.display).toBe("—");
+    expect(view?.needsMore).toBe("No soil reading from that time.");
+  });
+
   it("day 2: the valve is open while the 20 mm runs", () => {
     const view = zoneView(demo.day2Cycle, ZONE_ID);
     expect(view?.status).toBe("Very dry");
@@ -433,12 +447,23 @@ describe("reportView", () => {
     const view = reportView(demo.day2Cycle, 1);
     expect(view?.title).toBe("Yesterday’s report");
     expect(view?.dateLine).toBe("Monday, 2 Nov · 6:00 am");
-    expect(view?.rows.map((row) => row.text)).toEqual([
-      "Zone 2 is dry: 20% (full at 32%)",
-      "Rain expected: 12 mm",
-      "20 mm of water waits for your OK",
-      "Satellite: weak plants, 25% bare soil",
+    expect(view?.tiles.map((tile) => [tile.value, tile.note, tile.label])).toEqual([
+      ["20%", "of 32% full", "Zone 2 is dry"],
+      ["12 mm", null, "Rain today"],
     ]);
+    expect(view?.seen.map((item) => item.detail)).toEqual(["About 25% of the field shows bare soil."]);
+    expect(view?.done).toEqual([]);
+    // Said no since: the decision is closed, so the card explains and offers no button.
+    expect(view?.next).toEqual([
+      {
+        kind: "waiting",
+        title: "FieldPilot wants to water 20 mm",
+        detail: "That is 20 litres per square metre. It waits for your OK.",
+        href: null,
+        action: null,
+      },
+    ]);
+    expect(view?.fullLanguage).toBe("Spanish");
     expect(view?.saidNo?.detail).toBe("6:00 am · “Wait for the rain”");
     expect(view?.other?.label).toBe("Today · Tue 3 Nov");
   });
@@ -446,16 +471,31 @@ describe("reportView", () => {
   it("day 2: the watering and the undoable extra", () => {
     const view = reportView(demo.day2Cycle, 2);
     expect(view?.title).toBe("Today’s report");
-    expect(view?.rows.map((row) => row.text)).toEqual([
-      "Zone 2 is very dry: 16.7% (full at 32%)",
-      "No rain expected (0 mm)",
-      "Watering 20 mm · until 9:20 am",
-      "20 mm more tomorrow · you can undo",
-      "Satellite: weak plants, 25% bare soil",
+    expect(view?.tiles.map((tile) => [tile.value, tile.label, tile.href])).toEqual([
+      ["16.7%", "Zone 2 is very dry", "#/zone/1?at=2026-11-03T11%3A00%3A00Z"],
+      ["0 mm", "No rain today", null],
+    ]);
+    expect(view?.done.map((item) => [item.title, item.detail])).toEqual([
+      ["FieldPilot is watering 20 mm", "20 litres on every square metre of Zone 2. Running until 9:20 am."],
+    ]);
+    expect(view?.next.map((item) => [item.title, item.detail, item.href, item.action])).toEqual([
+      [
+        "Watering tomorrow: 20 mm",
+        "FieldPilot opens the valve on its own and gives Zone 2 20 litres per square metre.",
+        "#/plan",
+        "See it or undo",
+      ],
     ]);
     expect(view?.saidNo).toBeNull();
     expect(view?.other?.label).toBe("Yesterday · Mon 2 Nov");
-    expect(view?.original).toContain("16,7 %");
+    expect(view?.full).toContain("16,7 %");
+  });
+
+  it("says the watering finished once its end has passed", () => {
+    const later = { ...demo.day2Cycle, clock: { ...demo.day2Cycle.clock, now: "2026-11-03T20:00:00Z" } };
+    expect(reportView(later, 2)?.done[0]?.detail).toBe(
+      "20 litres on every square metre of Zone 2. Finished at 9:20 am.",
+    );
   });
 
   it("is null for an unknown report", () => {

@@ -91,7 +91,7 @@ function screenFor(route: Route, farm: Farm, age: string | null, shell: ShellAct
     case "field":
       return <FieldScreen view={farm.field} onAsk={farm.talk.setDraft} />;
     case "zone": {
-      const view = farm.zone(route.zoneId);
+      const view = farm.zone(route.zoneId, route.at);
       return view === null ? today : <ZoneScreen view={view} />;
     }
     case "report": {

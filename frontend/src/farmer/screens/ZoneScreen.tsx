@@ -22,6 +22,19 @@ export function ZoneScreen({ view }: { view: ZoneView }) {
         <Chip tone={LEVEL_CHIP[view.level]}>{view.status}</Chip>
       </BackHeader>
       <ScreenBody underHeader>
+        {view.asOf === null ? null : (
+          <div className="flex shrink-0 items-center gap-3 rounded-tile bg-undo-tint py-2 pr-2 pl-4 text-undo-text">
+            <Icon name="calendar" size={22} strokeWidth={2.2} className="shrink-0" />
+            <span className="flex-1 text-small font-extrabold leading-snug">{view.asOf.label}</span>
+            <a
+              href={view.asOf.nowHref}
+              className="press flex min-h-12 shrink-0 items-center gap-1 rounded-control bg-surface px-3.5 text-small font-extrabold text-undo-text no-underline"
+            >
+              {en.zone.seeNow}
+              <Icon name="forward" size={18} strokeWidth={2.6} />
+            </a>
+          </div>
+        )}
         <section className="flex flex-col gap-3.5 rounded-card bg-surface p-5">
           <div className="flex items-center gap-3.5">
             <IconCircle tone={LEVEL_CIRCLE[view.level]} size="tall">
@@ -51,28 +64,31 @@ export function ZoneScreen({ view }: { view: ZoneView }) {
             level={view.level}
           />
         </section>
-        <section className="rounded-card bg-surface px-4.5 py-1">
-          <InfoRow
-            icon={<Icon name="valve" size={26} className="text-ink-2" />}
-            value={
-              <span className={`text-small font-extrabold ${LEVEL_TEXT[view.valveLevel]}`}>
-                {view.valve}
-              </span>
-            }
-          >
-            {en.zone.valve}
-          </InfoRow>
-          <InfoRow
-            icon={<Icon name="sensor" size={26} className="text-ink-2" />}
-            value={
-              <span className={`text-small font-extrabold ${LEVEL_TEXT[view.sensorLevel]}`}>
-                {view.sensor}
-              </span>
-            }
-          >
-            {en.zone.sensor}
-          </InfoRow>
-        </section>
+        {/* The valve and the sensor say how things are now: not shown for a past moment. */}
+        {view.asOf !== null ? null : (
+          <section className="rounded-card bg-surface px-4.5 py-1">
+            <InfoRow
+              icon={<Icon name="valve" size={26} className="text-ink-2" />}
+              value={
+                <span className={`text-small font-extrabold ${LEVEL_TEXT[view.valveLevel]}`}>
+                  {view.valve}
+                </span>
+              }
+            >
+              {en.zone.valve}
+            </InfoRow>
+            <InfoRow
+              icon={<Icon name="sensor" size={26} className="text-ink-2" />}
+              value={
+                <span className={`text-small font-extrabold ${LEVEL_TEXT[view.sensorLevel]}`}>
+                  {view.sensor}
+                </span>
+              }
+            >
+              {en.zone.sensor}
+            </InfoRow>
+          </section>
+        )}
       </ScreenBody>
     </>
   );

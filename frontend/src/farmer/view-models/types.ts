@@ -218,21 +218,45 @@ export interface ZoneView {
   valveLevel: Level;
   sensor: string;
   sensorLevel: Level;
+  /** Set when the zone is shown as it was at a past moment: the valve and sensor are then hidden. */
+  asOf: { label: string; nowHref: string } | null;
 }
 
-export type ReportRowKind = "soil" | "rain" | "no_rain" | "done" | "waiting" | "planned" | "satellite";
+/** A reading the report rests on, as a small tile: the number first, then what it means. */
+export interface ReportTile {
+  kind: "soil" | "rain";
+  value: string;
+  /** Set smaller after the value, as in "of 32% full". */
+  note: string | null;
+  label: string;
+  level: Level;
+  href: string | null;
+}
 
-export interface ReportRow {
-  kind: ReportRowKind;
-  text: string;
+/** One line of the report: what it says, one plain sentence under it, and where it opens. */
+export interface ReportItem {
+  kind: "satellite" | "done" | "planned" | "waiting";
+  title: string;
+  detail: string;
+  href: string | null;
+  /** The button's words, when the farmer can still act on it. */
+  action: string | null;
 }
 
 export interface ReportView {
   title: string;
   dateLine: string;
   soil: SoilReading;
-  rows: ReportRow[];
-  original: string;
+  /** What FieldPilot saw: the readings as tiles, then the satellite. */
+  tiles: ReportTile[];
+  seen: ReportItem[];
+  /** What it did that day. */
+  done: ReportItem[];
+  /** What comes next, with a way to act while the farmer still can. */
+  next: ReportItem[];
+  full: string;
+  /** "Spanish" when the report is in another language than the app; null when it is the same. */
+  fullLanguage: string | null;
   saidNo: { detail: string } | null;
   other: { label: string; href: string } | null;
 }
@@ -322,7 +346,7 @@ export interface Farm {
   plan: PlanView;
   stop: StopView;
   decision: (taskId: number) => DecisionView | null;
-  zone: (zoneId: number) => ZoneView | null;
+  zone: (zoneId: number, at?: string) => ZoneView | null;
   report: (reportId: number) => ReportView | null;
   /** Each action resolves true when the backend took it. */
   /** What the yes led to, or null when the backend refused it. */

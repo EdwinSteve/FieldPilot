@@ -16,6 +16,15 @@ describe("parseRoute", () => {
     expect(parseRoute("#/report/2")).toEqual({ screen: "report", reportId: 2 });
   });
 
+  it("reads the moment a zone is shown at, and drops one that is not a date", () => {
+    expect(parseRoute("#/zone/1?at=2026-11-02T11%3A00%3A00Z")).toEqual({
+      screen: "zone",
+      zoneId: 1,
+      at: "2026-11-02T11:00:00Z",
+    });
+    expect(parseRoute("#/zone/1?at=yesterday")).toEqual({ screen: "zone", zoneId: 1 });
+  });
+
   it.each(["#/nothing", "#/decide", "#/decide/x", "#/decide/-1", "#/today/2", "#/zone/1/2"])(
     "falls back to Today on %s",
     (hash) => {
@@ -32,6 +41,7 @@ describe("hrefOf", () => {
     [{ screen: "sales" }],
     [{ screen: "decide", taskId: 7 }],
     [{ screen: "zone", zoneId: 1 }],
+    [{ screen: "zone", zoneId: 1, at: "2026-11-02T11:00:00Z" }],
     [{ screen: "report", reportId: 2 }],
   ])("round-trips %j", (route) => {
     expect(parseRoute(hrefOf(route))).toEqual(route);

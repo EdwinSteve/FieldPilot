@@ -90,7 +90,7 @@ function viewsOf(snapshot: FarmSnapshot, exchanges: ChatExchange[]): FarmViews {
     plan: planView(snapshot),
     stop: stopView(snapshot),
     decision: (taskId) => decisionView(snapshot, taskId),
-    zone: (zoneId) => zoneView(snapshot, zoneId),
+    zone: (zoneId, at) => zoneView(snapshot, zoneId, at),
     report: (reportId) => reportView(snapshot, reportId),
   };
 }

@@ -11,7 +11,8 @@ export type Route =
   | { screen: "updates" }
   | { screen: "decide"; taskId: number }
   | { screen: "field" }
-  | { screen: "zone"; zoneId: number }
+  /** `at`: the zone as it was then, as a report opens it; without it, the zone now. */
+  | { screen: "zone"; zoneId: number; at?: string }
   | { screen: "report"; reportId: number }
   | { screen: "plan" }
   | { screen: "stop" }
@@ -35,16 +36,27 @@ const PLAIN: Record<string, Route> = {
   sales: { screen: "sales" },
 };
 
+/** The moment in "?at=…", when it is a real one. */
+function atOf(query: string | undefined): string | undefined {
+  if (query === undefined) return undefined;
+  const at = new URLSearchParams(query).get("at");
+  return at !== null && !Number.isNaN(Date.parse(at)) ? at : undefined;
+}
+
 /** "#/decide/3" as a route. An empty hash is Welcome; anything unknown is Today. */
 export function parseRoute(hash: string): Route {
-  const [name, id, ...rest] = hash.replace(/^#\/?/, "").split("/").filter(Boolean);
+  const [path = "", query] = hash.replace(/^#\/?/, "").split("?");
+  const [name, id, ...rest] = path.split("/").filter(Boolean);
   if (name === undefined) return { screen: "welcome" };
   if (rest.length > 0) return { screen: "today" };
   if (id === undefined) return PLAIN[name] ?? { screen: "today" };
   const parsed = Number(id);
   if (!Number.isInteger(parsed) || parsed <= 0) return { screen: "today" };
   if (name === "decide") return { screen: "decide", taskId: parsed };
-  if (name === "zone") return { screen: "zone", zoneId: parsed };
+  if (name === "zone") {
+    const at = atOf(query);
+    return at === undefined ? { screen: "zone", zoneId: parsed } : { screen: "zone", zoneId: parsed, at };
+  }
   if (name === "report") return { screen: "report", reportId: parsed };
   return { screen: "today" };
 }
@@ -56,7 +68,9 @@ export function hrefOf(route: Route): string {
     case "decide":
       return `#/decide/${route.taskId}`;
     case "zone":
-      return `#/zone/${route.zoneId}`;
+      return route.at === undefined
+        ? `#/zone/${route.zoneId}`
+        : `#/zone/${route.zoneId}?at=${encodeURIComponent(route.at)}`;
     case "report":
       return `#/report/${route.reportId}`;
     default:
