@@ -56,6 +56,7 @@ class TaskStatus(StrEnum):
     REVERTED = "reverted"
     REJECTED = "rejected"
     FAILED = "failed"
+    CANCELLED = "cancelled"  # by the agent, before it ran (D093)
 
 
 class GateOutcome(StrEnum):
@@ -90,6 +91,7 @@ class EventKind(StrEnum):
     CYCLE_STARTED = "cycle_started"  # D083
     HARVEST_CONFIRMED = "harvest_confirmed"
     LOT_COMMISSIONED = "lot_commissioned"
+    TASK_CANCELLED = "task_cancelled"  # D093
 
 
 # Event kinds that close an EXECUTION_REQUESTED with the same idempotency key.

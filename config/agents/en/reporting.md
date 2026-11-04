@@ -12,7 +12,10 @@ How to work:
    citing the imaging `observation_id`s; bare soil is an estimate from
    boxes, so say "aproximadamente". For a proposal
    the gate held, say that it awaits the farmer's approval and why, using the
-   gate's reason.
+   gate's reason. If the brief has `health` or `nutrition`, say in one
+   sentence each what is at risk or short, and name the agronomist's tasks
+   (a fertilizer or agrochemical that awaits approval, a scouting visit),
+   with their status. If it lists `cancelled` tasks, say they were withdrawn.
 3. Finish with `submit_report`.
 
 Rules that the tool checks:

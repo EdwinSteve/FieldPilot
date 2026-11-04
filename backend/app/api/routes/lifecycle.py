@@ -12,6 +12,7 @@ from app.api.schemas import (
     NewPlotIn,
     PlotOut,
     SiteOut,
+    WeatherOut,
 )
 from app.services.cycles import Harvest, NewCycle
 from app.services.plots import NewPlot
@@ -38,6 +39,12 @@ def create_plot(body: NewPlotIn, farmer: FarmerDep, container: ContainerDep) -> 
 @router.get("/plots/{plot_id}/site")
 def plot_site(plot_id: int, container: ContainerDep) -> SiteOut:
     return SiteOut.of(container.plots.site(plot_id))
+
+
+@router.get("/plots/{plot_id}/weather")
+def plot_weather(plot_id: int, container: ContainerDep) -> WeatherOut:
+    """The rain ahead, exactly as the autonomy gate reads it, with its source (D095)."""
+    return WeatherOut.of(container.weather.outlook(plot_id))
 
 
 @router.post("/plots/{plot_id}/site", status_code=202)

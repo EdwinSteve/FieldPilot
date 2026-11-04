@@ -19,6 +19,10 @@ JsonDict = dict[str, Any]
 
 DRY_SHARE_OF_CAPACITY = 0.7  # below 70 % of field capacity a zone is dry
 IRRIGATION_MM = 10.0
+HUMID_HOURS_HIGH = 6.0
+FERTILIZER = {"nitrogen": ("urea", 50.0), "phosphorus": ("DAP", 60.0),
+              "potassium": ("potassium chloride", 50.0)}  # fmt: skip
+CONSULTS = ("monitoring", "imaging", "crop_health", "soil_nutrition", "irrigation")
 OFF_TOPIC_WORDS = ("football", "fútbol", "python", "homework", "capital of", "recipe for a poem")
 
 
@@ -180,6 +184,103 @@ def orchestrator(conversation: Conversation) -> Call | None:
                                   "cited": []})  # fmt: skip
 
 
+def _brief(conversation: Conversation) -> JsonDict:
+    """The brief a specialist was given at the end of its task."""
+    _, _, brief = conversation.question.partition("Brief: ")
+    return json.loads(brief) if brief else {}
+
+
+def crop_health(conversation: Conversation) -> Call | None:
+    if not conversation.called("list_zones"):
+        return Call("list_zones", {})
+    read = {r["zone_id"] for r in conversation.results("read_microclimate")}
+    for zone in conversation.results("list_zones")[0]["zones"]:
+        if zone["zone_id"] not in read:
+            return Call("read_microclimate", {"zone_id": zone["zone_id"]})
+    imaging = _brief(conversation).get("imaging") or {"zones": []}
+    low_vigor = {z["zone_id"] for z in imaging["zones"] if z["low_vigor"]}
+    zones = []
+    for air in conversation.results("read_microclimate"):
+        hours = air.get("humid_leaf_hours")
+        humid = float(hours["value"]) if hours and hours["value"] is not None else 0.0
+        weak = air["zone_id"] in low_vigor
+        risk = "high" if humid >= HUMID_HOURS_HIGH else ("moderate" if humid or weak else "low")
+        threats = (["fungal_disease"] if humid else []) + (["low_vigor"] if weak else [])
+        cited = [air[k]["observation_id"] for k in ("humidity_max", "humid_leaf_hours") if k in air]
+        cited += [z["cited"][0] for z in imaging["zones"] if z["zone_id"] == air["zone_id"]]
+        zones.append({"zone_id": air["zone_id"], "risk": risk, "threats": threats,
+                      "note": "Read from the zone's air and the imaging.",
+                      "cited": cited})  # fmt: skip
+    return Call("submit_health", {"zones": zones})
+
+
+def soil_nutrition(conversation: Conversation) -> Call | None:
+    if not conversation.called("list_zones"):
+        return Call("list_zones", {})
+    read = {r["zone_id"] for r in conversation.results("read_soil")}
+    for zone in conversation.results("list_zones")[0]["zones"]:
+        if zone["zone_id"] not in read:
+            return Call("read_soil", {"zone_id": zone["zone_id"]})
+    zones = []
+    for soil in conversation.results("read_soil"):
+        deficits = [n for n in ("nitrogen", "phosphorus", "potassium")
+                    if float(soil[n]["value"]) < float(soil[n]["target"]["low"])]  # fmt: skip
+        ph = soil["ph"]
+        if float(ph["value"]) < float(ph["target"]["low"]):
+            deficits.append("ph_low")
+        zones.append({"zone_id": soil["zone_id"], "status": "low" if deficits else "ok",
+                      "deficits": deficits, "note": "Compared with the crop's targets.",
+                      "cited": [soil[n]["observation_id"] for n in
+                                ("ph", "nitrogen", "phosphorus", "potassium")]})  # fmt: skip
+    return Call("submit_nutrition", {"zones": zones})
+
+
+def agronomist(conversation: Conversation) -> Call | None:
+    """Consults every specialist, turns deficits and risks into tasks, then the report."""
+    if not conversation.called("read_crop_stage"):
+        return Call("read_crop_stage", {})
+    for name in CONSULTS:
+        if not conversation.called(f"consult_{name}"):
+            arguments = {"question": "Assess every zone."} if name == "monitoring" else {}
+            return Call(f"consult_{name}", arguments)
+    if not conversation.called("read_tasks"):
+        return Call("read_tasks", {})
+    task = _next_task(conversation)
+    if task is not None:
+        return task
+    if not conversation.called("consult_reporting"):
+        return Call("consult_reporting", {})
+    return Call("close_day", {"summary": "I consulted every specialist and proposed the tasks."})
+
+
+def _next_task(conversation: Conversation) -> Call | None:
+    """A fertilizer per zone short of a nutrient, a visit per zone at risk; none twice."""
+    brief = json.loads(conversation.results("consult_irrigation")[0]["brief"])
+    tasks = conversation.results("read_tasks")[0]["tasks"]
+    taken = {(t["action_type"], t["zone_id"]) for t in tasks} | {
+        (c.arguments["action_type"], c.arguments["zone_id"])
+        for c, _ in conversation.calls
+        if c.name == "propose_task"
+    }
+    for zone in brief["nutrition"] or []:
+        nutrients = [d for d in zone["deficits"] if d in FERTILIZER]
+        if nutrients and ("fertilizer", zone["zone_id"]) not in taken:
+            product, dose = FERTILIZER[nutrients[0]]
+            return Call("propose_task", {
+                "action_type": "fertilizer", "zone_id": zone["zone_id"], "scheduled_for": "now",
+                "product": product, "dose_kg_ha": dose, "cited": zone["cited"],
+                "rationale": f"The soil is short of {nutrients[0]}: I propose {product}.",
+            })  # fmt: skip
+    for zone in brief["health"] or []:
+        if zone["risk"] != "low" and ("scouting_visit", zone["zone_id"]) not in taken:
+            return Call("propose_task", {
+                "action_type": "scouting_visit", "zone_id": zone["zone_id"],
+                "scheduled_for": "now", "cited": zone["cited"],
+                "rationale": "The air or the imaging points to a risk: please look at the plants.",
+            })  # fmt: skip
+    return None
+
+
 # --- the store -----------------------------------------------------------------------------
 
 
@@ -212,6 +313,9 @@ _STEPS: Sequence[tuple[str, Step]] = (
     ("submit_imaging", imaging),
     ("finish", irrigation),
     ("submit_report", reporting),
+    ("submit_health", crop_health),
+    ("submit_nutrition", soil_nutrition),
+    ("close_day", agronomist),
     ("answer_farmer", orchestrator),
     ("answer_customer", shopper),
 )

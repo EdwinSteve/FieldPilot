@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     muse_timeout_seconds: float = Field(default=30.0, gt=0)
     # At least 2: the last-turn nudge follows turn max_turns - 1 (§4.8 rule 5).
     agent_max_turns: int = Field(default=12, ge=2)
+    # D093: the agronomist leads the daily cycle; "pipeline" is the fixed order of D044.
+    daily_cycle: Literal["orchestrated", "pipeline"] = "orchestrated"
 
     # D010: the demo override is honoured only under APP_PROFILE=demo; any
     # other profile with the variable set refuses to start (app/bootstrap.py).

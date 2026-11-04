@@ -16,7 +16,11 @@ def test_health_returns_ok_in_mock_mode() -> None:
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "mock_llm": True}
+    body = response.json()
+    assert (body["status"], body["mock_llm"], body["llm_mode"]) == ("ok", True, "replay")
+    assert body["agent_model"] is None  # a replay never claims a live model (D094)
+    assert set(body["replay"]) == {"recorded_on", "model"}
+    assert body["daily_cycle"] == "orchestrated" and body["agents"][0] == "agronomist"
 
 
 def test_health_reports_live_mode() -> None:
@@ -34,4 +38,6 @@ def test_health_reports_live_mode() -> None:
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "mock_llm": False}
+    body = response.json()
+    assert (body["mock_llm"], body["llm_mode"], body["replay"]) == (False, "live", None)
+    assert body["agent_model"] == "muse-spark-1.3"

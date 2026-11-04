@@ -1,0 +1,36 @@
+# D093: the simulated soil probe of every zone, and the crops' target ranges.
+# Every probe value is a demo_value (D038): a real probe would replace
+# SoilProbe behind the same port. pH and organic carbon come from SoilGrids
+# instead when the plot has site data (D083).
+
+# One entry per zone, by the zone's order in the plot; the last entry is
+# repeated for any further zone. Values at sowing, before the crop's uptake.
+# Both are short of nitrogen for maize (25 ppm), so the demo's agronomist has a
+# fertilizer to weigh against the forecast rain.
+zones:
+  - {ph: 6.2, organic_carbon_g_kg: 18, nitrogen_ppm: 21, phosphorus_ppm: 24, potassium_ppm: 165}
+  - {ph: 5.9, organic_carbon_g_kg: 12, nitrogen_ppm: 24, phosphorus_ppm: 13, potassium_ppm: 130}
+
+# What the crop takes from the soil per 100 growing degree-days, in ppm.
+uptake_ppm_per_100_gdd: {nitrogen: 1.2, phosphorus: 0.25, potassium: 0.8}
+
+# One kg/ha of a nutrient raises the top 20 cm by about this many ppm.
+ppm_per_kg_ha_of_nutrient: 0.38
+
+# The nutrient share of each product, matched by name (lower case, substring).
+# A product not listed counts as `default`.
+products:
+  urea: {nitrogen: 0.46}
+  dap: {nitrogen: 0.18, phosphorus: 0.20}
+  potassium chloride: {potassium: 0.50}
+  kcl: {potassium: 0.50}
+  15-15-15: {nitrogen: 0.15, phosphorus: 0.065, potassium: 0.125}
+  default: {nitrogen: 0.30}
+
+# Target ranges by crop key (config/crops); `default` for any other crop.
+targets:
+  default: {ph: [5.5, 7.0], nitrogen: [25, 60], phosphorus: [15, 45], potassium: [120, 250]}
+  maize: {ph: [5.5, 7.0], nitrogen: [25, 60], phosphorus: [15, 45], potassium: [120, 250]}
+  potato: {ph: [5.0, 6.5], nitrogen: [30, 70], phosphorus: [20, 50], potassium: [150, 300]}
+  tomato: {ph: [5.8, 7.0], nitrogen: [30, 70], phosphorus: [20, 50], potassium: [150, 300]}
+  common_bean: {ph: [5.5, 7.0], nitrogen: [15, 45], phosphorus: [15, 40], potassium: [110, 220]}

@@ -152,3 +152,36 @@ def test_the_rain_event_exceeds_the_5_mm_limit(shipped: FixtureForecast) -> None
 
 def test_after_the_fixture_ends_the_forecast_is_unknown(shipped: FixtureForecast) -> None:
     assert shipped.rain_next_24h_mm(*DEMO_FARM, datetime(2026, 11, 10, 11, 0, tzinfo=UTC)) is None
+
+
+# --- D095: the hours ahead, and the demo's repeated series ------------------------------------
+
+
+def test_the_outlook_lists_the_hours_ahead_with_the_gates_total() -> None:
+    hours = _hours(AT - timedelta(hours=1), 50, mm=0.5)
+
+    outlook = _forecast(hours).hourly(LAT, LON, AT, 3)
+
+    assert outlook is not None
+    assert [end for end, _ in outlook.hours] == [AT + timedelta(hours=n) for n in (1, 2, 3)]
+    assert outlook.next_24h_mm == 12.0 and not outlook.repeated
+
+
+def test_outside_the_demo_the_series_ends_and_the_forecast_is_unknown() -> None:
+    hours = _hours(AT, 24, mm=1.0)
+    after = AT + timedelta(hours=30)
+
+    assert _forecast(hours).rain_next_24h_mm(LAT, LON, after) is None
+
+
+def test_in_the_demo_the_series_starts_over_and_says_so() -> None:
+    hours = _hours(AT, 24, mm=0.0)
+    hours[AT + timedelta(hours=2)] = 7.0  # one rainy hour, 2 h into the series
+    demo = FixtureForecast([HourlyRain(LAT, LON, hours)], nearest_anywhere=True)
+    after = AT + timedelta(hours=24)  # the series' last hour; the next ones repeat it
+
+    outlook = demo.hourly(LAT, LON, after, 3)
+
+    assert outlook is not None and outlook.repeated
+    assert [mm for _, mm in outlook.hours] == [0.0, 7.0, 0.0]
+    assert demo.rain_next_24h_mm(LAT, LON, after) == 7.0

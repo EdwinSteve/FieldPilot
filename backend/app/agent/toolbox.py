@@ -1,7 +1,9 @@
 """Builds the tools of one daily cycle or chat turn, bound to its plot, ledger and brief."""
 
 from app.agent.brief import BriefDraft
-from app.agent.field import ActionProposer, FarmerOutbox, ImageryReader
+from app.agent.field import ActionProposer, Agronomy, FarmerOutbox, ImageryReader
+from app.agent.tools.agronomist import agronomist_tools
+from app.agent.tools.agronomy import agronomy_tools
 from app.agent.tools.field_tools import ReadContext, read_tools
 from app.agent.tools.imaging import imaging_tools
 from app.agent.tools.irrigation import irrigation_tools
@@ -18,6 +20,7 @@ def cycle_registry(
     outbox: FarmerOutbox,
     consultant: Consultant,
     imagery: ImageryReader,
+    agronomy: Agronomy | None = None,
 ) -> ToolRegistry:
     """Every tool of the catalogue. Each subagent sees only its subset (D054)."""
     return ToolRegistry(
@@ -26,7 +29,9 @@ def cycle_registry(
             *monitoring_tools(read, draft),
             *imaging_tools(read, draft, imagery),
             *irrigation_tools(read, draft, proposer),
-            *reporting_tools(read, outbox),
+            *reporting_tools(read, outbox, draft),
             *orchestrator_tools(read, draft, consultant),
+            *agronomy_tools(read, draft, agronomy),
+            *agronomist_tools(read, draft, proposer, consultant, agronomy),
         ]
     )

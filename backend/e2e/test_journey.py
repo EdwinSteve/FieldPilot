@@ -21,7 +21,7 @@ step prints the model's report card from the agent trace.
 """
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import httpx2
@@ -40,6 +40,8 @@ NEIVA = {  # the coordinates of the shipped planner site (data/fixtures/planner/
 }
 HOUR, DAY = 3600, 86_400
 OPEN = {"pending_approval", "scheduled"}
+COLOMBIA_UTC_OFFSET_HOURS = -5  # the journey's plot is in Colombia
+WATER = ("irrigation", "extra_irrigation", "stop_irrigation")
 FARM_TOPICS = {"crop", "water", "weather", "field", "tasks"}
 STORE_TOPICS = {"products", "prices_offers", "cart_orders", "meal_planning", "origin"}
 
@@ -94,8 +96,9 @@ class Journey:
         return float(moisture["readings"][-1]["value"])
 
     def today(self) -> date:
-        clock = self.call("GET", "/clock", "farmer")
-        return date.fromisoformat(clock["now"][:10])  # UTC; the plot's day is close enough
+        """The plot's local day (D018): the backend judges dates by it, never by UTC."""
+        now = datetime.fromisoformat(self.call("GET", "/clock", "farmer")["now"])
+        return (now + timedelta(hours=COLOMBIA_UTC_OFFSET_HOURS)).date()
 
 
 @pytest.fixture(scope="module")
@@ -159,24 +162,41 @@ def test_3_the_daily_cycle_assesses_and_irrigates_the_dry_zone(journey: Journey)
     cycle = journey.call("POST", "/agent/daily-cycle", "farmer", json={"plot_id": journey.plot_id})
 
     assert cycle["status"] == "completed", cycle
-    assert [run["subagent"] for run in cycle["runs"]] == [
-        "monitoring", "imaging", "irrigation", "reporting"
-    ]  # fmt: skip
-    statuses = {z["zone_id"]: z["status"] for z in cycle["brief"]["assessment"]["zones"]}
+    runs = [run["subagent"] for run in cycle["runs"]]
+    assert runs[-1] == "agronomist" and "monitoring" in runs  # D093: the agronomist leads
+    journey.notes.append(f"daily cycle: the agronomist consulted {runs[:-1]}")
+    brief = cycle["brief"]
+    statuses = {z["zone_id"]: z["status"] for z in brief["assessment"]["zones"]}
     assert set(statuses) == set(journey.zones.values())  # the backend checks every zone
-    assert len(cycle["brief"]["imaging"]["zones"]) == 2  # the synthetic scene covers both
-    proposals = cycle["brief"]["proposals"]
-    journey.notes.append(f"daily cycle: zones {statuses}, {len(proposals)} proposal(s)")
+    assert brief["report_id"] is not None  # the day cannot close without the report
+    proposals = brief["proposals"]
+    water = [p for p in proposals if p["action_type"] in WATER]
+    tasks = [p for p in proposals if p["action_type"] not in WATER]
+    agronomist_tasks = [(p["action_type"], p["status"]) for p in tasks]
+    journey.notes.append(f"daily cycle: zones {statuses}, {len(water)} irrigation(s), "
+                         f"agronomist tasks {agronomist_tasks}")  # fmt: skip
+    for task in tasks:  # D005: inputs always wait for the farmer
+        if task["action_type"] in ("fertilizer", "agrochemical"):
+            assert task["status"] == "pending_approval", task
     if not journey.live:
+        assert runs == ["monitoring", "imaging", "crop_health", "soil_nutrition", "irrigation",
+                        "reporting", "agronomist"]  # fmt: skip
+        assert len(brief["imaging"]["zones"]) == 2  # the synthetic scene covers both
         assert statuses == {journey.zones["Zone 1"]: "ok", journey.zones["Zone 2"]: "dry"}
-        assert [p["zone_id"] for p in proposals] == [journey.zones["Zone 2"]]
+        assert [p["zone_id"] for p in water] == [journey.zones["Zone 2"]]
+        nutrition = {z["zone_id"]: z["deficits"] for z in brief["nutrition"]}
+        assert "nitrogen" in nutrition[journey.zones["Zone 2"]]  # the probe's poor zone
+        assert ("fertilizer", journey.zones["Zone 2"]) in {
+            (p["action_type"], p["zone_id"]) for p in tasks
+        }
 
-    _settle_tasks(journey, [p["task_id"] for p in proposals])
+    _settle_tasks(journey, [p["task_id"] for p in water])
+    _do_manual_tasks(journey, [p["task_id"] for p in tasks])
     journey.advance(HOUR)  # a reading taken after the irrigation
     statuses_now = [_task(journey, p["task_id"])["status"] for p in proposals]
     journey.notes.append(f"proposed tasks ended as {statuses_now}")
     if not journey.live:
-        assert statuses_now == ["executed"]
+        assert set(statuses_now) == {"executed"}
         assert journey.moisture("Zone 2") > dry_before
 
 
@@ -221,6 +241,7 @@ def test_6_the_harvest_becomes_a_lot_with_a_verified_passport(journey: Journey) 
     journey.lot_code = lot["code"]
     assert passport["integrity"]["verified"] is True
     assert [step["step"] for step in passport["journey"]] == ["commissioning"]
+    journey.notes.append(f"passport cultivation: {passport.get('cultivation')}")
     assert "latitude" not in passport and passport["producer"]  # public, without the plot
 
 
@@ -320,8 +341,8 @@ def test_10_the_agents_kept_to_the_backends_checks(
     log = journey.stack.muse_log()
     agents = {turn["agent"] for turn in log}
     refused = [turn for turn in log if turn["refusals"]]
-    assert agents >= {"monitoring", "imaging", "irrigation", "reporting", "orchestrator",
-                      "shopper"}  # fmt: skip
+    assert agents >= {"agronomist", "monitoring", "imaging", "crop_health", "soil_nutrition",
+                      "irrigation", "reporting", "orchestrator", "shopper"}  # fmt: skip
     assert refused == [], refused
     assert all(entry["inputs"]["error"] is None for entry in trace)
 
@@ -329,12 +350,13 @@ def test_10_the_agents_kept_to_the_backends_checks(
 def _report_card(trace: list[Any]) -> list[str]:
     """Per farm subagent: turns, refusals (with the first reason) and tokens."""
     lines = []
-    for subagent in ("monitoring", "imaging", "irrigation", "reporting", "orchestrator"):
+    for subagent in ("agronomist", "monitoring", "imaging", "crop_health", "soil_nutrition",
+                     "irrigation", "reporting", "orchestrator"):  # fmt: skip
         entries = [e["inputs"] for e in trace if e["inputs"]["subagent"] == subagent]
         refusals = [e["error"] for e in entries if e["error"]]
         tokens = sum(e["usage"]["input_tokens"] + e["usage"]["output_tokens"] for e in entries)
         line = (
-            f"{subagent:<13} {len(entries):>3} turns  {len(refusals):>2} refused  {tokens:>7} tok"
+            f"{subagent:<15} {len(entries):>3} turns  {len(refusals):>2} refused  {tokens:>7} tok"
         )
         lines.append(line + (f"  first refusal: {refusals[0][:120]}" if refusals else ""))
     return lines
@@ -353,6 +375,15 @@ def _settle_tasks(journey: Journey, task_ids: list[int]) -> None:
     for task_id in task_ids:
         if _task(journey, task_id)["status"] in OPEN:
             journey.call("POST", f"/tasks/{task_id}/reject", "farmer")
+
+
+def _do_manual_tasks(journey: Journey, task_ids: list[int]) -> None:
+    """The farmer approves the agronomist's tasks and does them by hand (D093)."""
+    for task_id in task_ids:
+        if _task(journey, task_id)["status"] == "pending_approval":
+            journey.call("POST", f"/tasks/{task_id}/approve", "farmer")
+        if _task(journey, task_id)["status"] == "scheduled":
+            journey.call("POST", f"/tasks/{task_id}/done", "farmer")
 
 
 def _task(journey: Journey, task_id: int) -> Any:
