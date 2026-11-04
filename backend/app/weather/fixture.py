@@ -59,15 +59,16 @@ class HourlyRain:
 class FixtureForecast:
     """Implements `ForecastProvider` from every `*.json` in a directory."""
 
-    def __init__(self, locations: Sequence[HourlyRain]) -> None:
+    def __init__(self, locations: Sequence[HourlyRain], nearest_anywhere: bool = False) -> None:
         self._locations = tuple(locations)
+        self._anywhere = nearest_anywhere  # the demo's (D089): the nearest, however far
 
     @classmethod
-    def from_directory(cls, directory: Path) -> "FixtureForecast":
+    def from_directory(cls, directory: Path, nearest_anywhere: bool = False) -> "FixtureForecast":
         files = sorted(directory.glob("*.json"))
         if not files:
             raise ConfigError(f"no Open-Meteo fixtures in {directory}")
-        return cls([load_open_meteo(path) for path in files])
+        return cls([load_open_meteo(path) for path in files], nearest_anywhere)
 
     def rain_next_24h_mm(self, lat: float, lon: float, at: datetime) -> float | None:
         if at.tzinfo is None:
@@ -79,8 +80,11 @@ class FixtureForecast:
         close = [
             location
             for location in self._locations
-            if abs(location.latitude - lat) <= MAX_COORDINATE_DELTA_DEG
-            and abs(location.longitude - lon) <= MAX_COORDINATE_DELTA_DEG
+            if self._anywhere
+            or (
+                abs(location.latitude - lat) <= MAX_COORDINATE_DELTA_DEG
+                and abs(location.longitude - lon) <= MAX_COORDINATE_DELTA_DEG
+            )
         ]
         return min(
             close,

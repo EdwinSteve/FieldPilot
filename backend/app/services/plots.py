@@ -11,6 +11,7 @@ from app.persistence.ports import UnitOfWork
 from app.planning.models import SiteState, SiteStatus
 from app.planning.ports import SiteSource
 from app.planning.site_jobs import SITE_MESSAGES, SiteJobs
+from app.services.sensor_kit import FieldInstaller
 from app.simulator.clock import Clock
 
 UowFactory = Callable[[], UnitOfWork]
@@ -35,15 +36,19 @@ class PlotService:
         sites: SiteSource,
         jobs: SiteJobs,
         messages: MessageCatalog,
+        installer: FieldInstaller | None = None,  # the demo's sensor kit (D089)
     ) -> None:
         self._uow = uow
         self._clock = clock
         self._sites = sites
         self._jobs = jobs
         self._messages = messages
+        self._installer = installer
 
     def create(self, principal: Principal, form: NewPlot) -> Plot:
-        """Store the plot; its farmer becomes a member; its site data starts building."""
+        """Store the plot; its farmer becomes a member; its site data starts building. In
+        the demo it also gets its simulated zones and sensors (D089)."""
+        now = self._clock.now()
         with self._uow() as uow:
             plot = uow.plots.add(
                 Plot(
@@ -51,7 +56,7 @@ class PlotService:
                     latitude=form.latitude,
                     longitude=form.longitude,
                     area_ha=form.area_ha,
-                    created_at=self._clock.now(),
+                    created_at=now,
                     utc_offset_hours=COLOMBIA_UTC_OFFSET_HOURS,
                     municipality=form.municipality.strip(),
                     department=form.department.strip(),
@@ -61,6 +66,8 @@ class PlotService:
                 raise ValueError("plot was not stored")
             if principal.user_id is not None and not principal.sees_every_plot:
                 uow.plot_members.add(plot.id, principal.user_id)
+            if self._installer is not None:
+                self._installer.install(uow, plot, now)
             uow.commit()
         self._jobs.start(plot)
         return plot

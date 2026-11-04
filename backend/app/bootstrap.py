@@ -34,6 +34,7 @@ from app.safety.rules import SafetyLimits
 from app.satellite.config import ImagingConfig, load_imaging_config
 from app.services.clock import load_or_start_clock
 from app.services.reconciliation import ReconciliationReport, reconcile_executions
+from app.services.sensor_kit import SensorKit, load_sensor_kit
 from app.services.simulation import ensure_simulated
 from app.settings import Settings
 from app.simulator.clock import SimClock, WallClock, system_wall_clock
@@ -55,6 +56,7 @@ class RuntimeConfig:
     identity: IdentityConfig
     market: MarketConfig  # D085
     shopper: Subagent  # the customer's shopping assistant (D085)
+    demo_field: SensorKit  # a demo plot's simulated sensors (D089)
 
 
 def load_runtime_config(config_dir: Path, language: str = "en") -> RuntimeConfig:
@@ -88,6 +90,7 @@ def load_runtime_config(config_dir: Path, language: str = "en") -> RuntimeConfig
         identity=load_identity_config(config_dir / "identity.yaml"),  # D082
         market=load_market_config(config_dir / "market.yaml"),
         shopper=load_agent_catalog(config_dir / "agents", (SHOPPER,), language=language)[0],
+        demo_field=load_sensor_kit(config_dir / "demo_field.yaml"),
     )
 
 

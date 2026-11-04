@@ -73,6 +73,16 @@ def test_a_plot_far_from_every_fixture_gets_no_forecast() -> None:
     assert _forecast(_hours(AT, 24)).rain_next_24h_mm(4.6, -74.1, AT) is None
 
 
+def test_in_the_demo_a_far_plot_uses_the_nearest_fixture() -> None:
+    """D089: the demo has no plot without a forecast."""
+    near = HourlyRain(2.95, -75.3, _hours(AT, 24, mm=1.0))
+    nearer = HourlyRain(4.0, -74.0, _hours(AT, 24, mm=2.0))
+    forecast = FixtureForecast([near, nearer], nearest_anywhere=True)
+
+    assert forecast.rain_next_24h_mm(5.53, -73.36, AT) == 48.0
+    assert forecast.rain_next_24h_mm(2.93, -75.28, AT) == 24.0
+
+
 def test_a_naive_time_is_refused() -> None:
     with pytest.raises(ValueError, match="timezone-aware"):
         _forecast(_hours(AT, 24)).rain_next_24h_mm(LAT, LON, AT.replace(tzinfo=None))

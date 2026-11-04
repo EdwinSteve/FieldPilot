@@ -1,0 +1,15 @@
+# The sensor kit a new plot gets under APP_PROFILE=demo (D089). Every value
+# is a demo_value (D038). Real zones come from real sensors.
+
+# One zone per entry, named "Zone <n>" in APP_LANGUAGE: the names the demo
+# satellite scene knows. `area_share` splits the plot's area.
+zones:
+  - area_share: 0.5
+    field_capacity_pct: 32
+    soil_moisture_pct: 26   # moist
+  - area_share: 0.5
+    field_capacity_pct: 32
+    soil_moisture_pct: 18   # dry: stage 2 has something to decide
+
+# Every zone gets one sensor of each kind; the simulator records them all.
+sensors: [soil_moisture, temperature, humidity]
