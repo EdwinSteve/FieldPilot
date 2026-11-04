@@ -22,7 +22,7 @@ import { Notice } from "../components";
 import { en } from "../i18n/en";
 import { hrefOf } from "../lib/route";
 import { canRunWarehouse } from "../lib/storedUser";
-import { useUser } from "../state";
+import { showToast, useUser } from "../state";
 
 const words = (problem: FieldProblem | null) => (problem === null ? null : farmerEn.auth.problems[problem]);
 
@@ -41,6 +41,7 @@ function LogIn({ onCreate }: { onCreate: () => void }) {
     setBusy(true);
     try {
       const user = await session.logIn(mobile, password);
+      showToast({ tone: "good", text: en.toast.loggedIn(user.name) });
       window.location.hash = canRunWarehouse(user.role) ? hrefOf({ screen: "warehouse" }) : hrefOf({ screen: "shop" });
     } catch (caught) {
       setFailure(authFailure(caught, navigator.onLine));
@@ -111,6 +112,7 @@ function CreateAccount({ onLogIn }: { onLogIn: () => void }) {
     try {
       const { version } = await loadPolicy();
       await session.register({ phone: mobile, full_name: name.trim(), password, privacy_policy_version: version });
+      showToast({ tone: "good", text: en.toast.created(name.trim()) });
       window.location.hash = hrefOf({ screen: "shop" });
     } catch (caught) {
       setFailure(authFailure(caught, navigator.onLine));
@@ -165,7 +167,12 @@ function CreateAccount({ onLogIn }: { onLogIn: () => void }) {
 function Profile() {
   const [address, setAddress] = useState<string | null>(null);
   const [picks, setPicks] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState<"idle" | "busy" | "saved" | "failed">("idle");
+  /** An edit after a save: "Saved" no longer tells the truth. */
+  const edit = <T,>(set: (value: T) => void) => (value: T) => {
+    set(value);
+    setSaving((current) => (current === "busy" ? current : "idle"));
+  };
   useEffect(() => {
     void store
       .profile()
@@ -176,23 +183,28 @@ function Profile() {
       .catch(() => setAddress(""));
   }, []);
   const save = async () => {
-    setSaved(false);
-    await store.saveProfile({ delivery_address: (address ?? "").trim() || null, consent_profiling: picks });
-    setSaved(true);
+    setSaving("busy");
+    try {
+      await store.saveProfile({ delivery_address: (address ?? "").trim() || null, consent_profiling: picks });
+      setSaving("saved");
+    } catch {
+      setSaving("failed");
+    }
   };
   return (
     <section className="flex flex-col gap-4 rounded-card bg-surface p-5">
-      <TextField label={en.account.address} hint={en.cart.addressHint} value={address ?? ""} onChange={setAddress} problem={null} autoComplete="street-address" />
+      <TextField label={en.account.address} hint={en.cart.addressHint} value={address ?? ""} onChange={edit(setAddress)} problem={null} autoComplete="street-address" />
       <label className="flex min-h-12 items-start gap-3" aria-label={en.account.picks}>
-        <input type="checkbox" checked={picks} onChange={(event) => setPicks(event.target.checked)} className="mt-1 size-6 shrink-0 accent-[var(--color-primary)]" />
+        <input type="checkbox" checked={picks} onChange={(event) => edit(setPicks)(event.target.checked)} className="mt-1 size-6 shrink-0 accent-[var(--color-primary)]" />
         <span className="flex flex-col">
           <span className="text-body font-bold">{en.account.picks}</span>
           <span className="text-small text-ink-2">{en.account.picksDetail}</span>
         </span>
       </label>
-      {saved ? <Notice tone="good" text={en.account.saved} /> : null}
-      <BigButton variant="primary" size="compact" onClick={() => void save()}>
-        {en.account.save}
+      {saving === "saved" ? <Notice tone="good" text={en.account.saved} /> : null}
+      {saving === "failed" ? <Notice text={en.account.saveFailed} /> : null}
+      <BigButton variant="primary" size="compact" disabled={saving === "busy"} onClick={() => void save()}>
+        {saving === "busy" ? en.account.saving : en.account.save}
       </BigButton>
     </section>
   );
@@ -231,7 +243,11 @@ export function AccountPage() {
           </BigLink>
         </section>
       ) : null}
-      <BigButton variant="outline" size="compact" onClick={() => void session.logOut()}>
+      <BigButton
+        variant="outline"
+        size="compact"
+        onClick={() => void session.logOut().then(() => showToast({ tone: "good", text: en.toast.loggedOut }))}
+      >
         <Icon name="logOut" size={22} />
         {en.account.signOut}
       </BigButton>

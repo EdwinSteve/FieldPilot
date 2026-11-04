@@ -4,12 +4,42 @@ import { BigButton, BigLink } from "../../farmer/components/BigButton";
 import { Icon } from "../../farmer/components/Icon";
 import { TextField } from "../../farmer/components/TextField";
 import { cop } from "../../farmer/lib/listing";
-import { store } from "../api/store";
+import { store, type CartLine } from "../api/store";
 import { Empty, KgStepper, Notice } from "../components";
 import { en } from "../i18n/en";
 import { hrefOf } from "../lib/route";
-import { addressProblem, clampKg, labelOfName } from "../lib/shop";
-import { cartStore, markPlaced, refreshCart, useCart, useUser } from "../state";
+import { addressProblem, kgProblem, labelOfName } from "../lib/shop";
+import { cartStore, markPlaced, refreshCart, showToast, useCart, useUser } from "../state";
+
+/** "Updated" stays until the shopper changes that line again or leaves the cart. */
+type LineState = "saving" | "updated" | "failed";
+
+/** How long a removed line takes to fade away before the cart closes the gap. */
+const LEAVE_MS = 200;
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Undo of a removed line: lives outside the screen, as the toast may outlast it. */
+async function putBack(listingId: number, kg: number): Promise<void> {
+  try {
+    cartStore.set(await store.setItem(listingId, kg));
+  } catch {
+    showToast({ tone: "needs", text: en.toast.undoFailed });
+  }
+}
+
+function LineStatus({ state }: { state: LineState | undefined }) {
+  return (
+    <span aria-live="polite" className="flex min-w-0 flex-1 items-center gap-1.5 text-small font-bold">
+      {state === "saving" ? <span className="text-ink-3">{en.cart.saving}</span> : null}
+      {state === "updated" ? (
+        <span className="flex animate-fade-in items-center gap-1 text-primary">
+          <Icon name="check" size={18} strokeWidth={2.8} />
+          {en.cart.updated}
+        </span>
+      ) : null}
+    </span>
+  );
+}
 
 export function CartPage() {
   const user = useUser();
@@ -18,6 +48,12 @@ export function CartPage() {
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  /** Lines whose kilos box the shopper emptied: kept here, never sent, until a number is typed. */
+  const [emptied, setEmptied] = useState<ReadonlySet<number>>(() => new Set());
+  /** What each line's last change is doing: saving, just saved, or failed. */
+  const [lines, setLines] = useState<ReadonlyMap<number, LineState>>(() => new Map());
+  /** The line fading out after Remove, so the shopper sees which one went. */
+  const [leaving, setLeaving] = useState<number | null>(null);
 
   // The cart is repriced on every read (§9.3): read it whenever this screen opens.
   useEffect(() => {
@@ -51,11 +87,55 @@ export function CartPage() {
     );
   }
 
+  const mark = (listingId: number, state: LineState | null) =>
+    setLines((current) => {
+      const next = new Map(current);
+      if (state === null) next.delete(listingId);
+      else next.set(listingId, state);
+      return next;
+    });
+  const markEmptied = (listingId: number, isEmpty: boolean) =>
+    setEmptied((current) => {
+      const next = new Set(current);
+      if (isEmpty) next.add(listingId);
+      else next.delete(listingId);
+      return next;
+    });
+  const typeKg = (listingId: number, kg: number | null) => {
+    const isEmpty = kgProblem(kg) !== null;
+    markEmptied(listingId, isEmpty);
+    if (isEmpty) mark(listingId, null);
+    else if (kg !== null) void setKg(listingId, kg);
+  };
+  const remove = async (line: CartLine) => {
+    markEmptied(line.listing_id, false);
+    mark(line.listing_id, "saving");
+    setLeaving(line.listing_id);
+    try {
+      const [next] = await Promise.all([store.setItem(line.listing_id, 0), wait(LEAVE_MS)]);
+      cartStore.set(next);
+      setLeaving(null);
+      mark(line.listing_id, null);
+      const kg = line.quantity_kg;
+      showToast({
+        tone: "good",
+        text: en.toast.removed(labelOfName(line.crop_name)),
+        action: { label: en.toast.undo, run: () => void putBack(line.listing_id, kg) },
+      });
+    } catch {
+      setLeaving(null);
+      mark(line.listing_id, null);
+      showToast({ tone: "needs", text: en.toast.removeFailed });
+    }
+  };
+  const anyEmpty = cart.lines.some((line) => emptied.has(line.listing_id));
   const setKg = async (listingId: number, kg: number) => {
+    mark(listingId, "saving");
     try {
       cartStore.set(await store.setItem(listingId, kg));
+      mark(listingId, "updated");
     } catch {
-      setFailure(en.cart.failures.other ?? null);
+      mark(listingId, "failed");
     }
   };
   const text = address ?? "";
@@ -63,7 +143,7 @@ export function CartPage() {
   const pay = async () => {
     setTried(true);
     setFailure(null);
-    if (problem !== null || !cart.can_checkout) return;
+    if (problem !== null || !cart.can_checkout || anyEmpty) return;
     setBusy(true);
     try {
       const order = await store.checkout(text.trim());
@@ -84,7 +164,12 @@ export function CartPage() {
       <section className="flex flex-col gap-3">
         <h1 className="text-title font-extrabold tracking-title">{en.cart.title}</h1>
         {cart.lines.map((line) => (
-          <article key={line.listing_id} className="flex flex-col gap-3 rounded-card bg-surface p-4.5">
+          <article
+            key={line.listing_id}
+            className={`flex animate-screen-in flex-col gap-3 rounded-card bg-surface p-4.5 transition-[opacity,scale] duration-200 ease-(--ease-calm) ${
+              leaving === line.listing_id ? "scale-95 opacity-0" : ""
+            }`}
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="flex flex-col">
                 <a href={hrefOf({ screen: "product", id: line.listing_id })} className="text-row font-extrabold text-ink no-underline">
@@ -96,19 +181,23 @@ export function CartPage() {
             </div>
             <div className="flex items-center justify-between gap-3">
               <KgStepper
-                kg={line.quantity_kg}
+                kg={emptied.has(line.listing_id) ? null : line.quantity_kg}
                 max={Math.floor(line.available_kg)}
-                onChange={(kg) => void setKg(line.listing_id, Math.max(1, clampKg(kg, line.available_kg)))}
+                onChange={(kg) => typeKg(line.listing_id, kg)}
               />
+              <LineStatus state={lines.get(line.listing_id)} />
               <button
                 type="button"
                 aria-label={en.cart.remove(labelOfName(line.crop_name))}
-                onClick={() => void setKg(line.listing_id, 0)}
-                className="press flex size-12 items-center justify-center rounded-control border-0 bg-transparent text-bad-text"
+                disabled={lines.get(line.listing_id) === "saving"}
+                onClick={() => void remove(line)}
+                className="press flex size-12 items-center justify-center rounded-control border-0 bg-transparent text-bad-text disabled:opacity-40"
               >
                 <Icon name="close" size={24} strokeWidth={2.6} />
               </button>
             </div>
+            {emptied.has(line.listing_id) ? <Notice text={en.cart.typeKg} /> : null}
+            {lines.get(line.listing_id) === "failed" ? <Notice text={en.cart.lineFailed} /> : null}
             {line.problem === null ? null : <Notice text={en.cart.problems[line.problem]} />}
           </article>
         ))}
@@ -126,9 +215,9 @@ export function CartPage() {
           problem={tried && problem !== null ? en.cart.addressProblem : null}
           autoComplete="street-address"
         />
-        {cart.can_checkout ? null : <Notice text={en.cart.fix} />}
+        {cart.can_checkout && !anyEmpty ? null : <Notice text={en.cart.fix} />}
         {failure === null ? null : <Notice text={failure} />}
-        <BigButton variant="primary" disabled={busy || !cart.can_checkout} onClick={() => void pay()}>
+        <BigButton variant="primary" disabled={busy || !cart.can_checkout || anyEmpty} onClick={() => void pay()}>
           <Icon name="lock" size={22} />
           {busy ? en.cart.paying : `${en.cart.pay} ${cop(cart.total_cop)}`}
         </BigButton>

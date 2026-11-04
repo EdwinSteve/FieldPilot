@@ -1,26 +1,16 @@
 import { useState } from "react";
-import { ApiError } from "../../api/client";
 import { BigButton, BigLink } from "../../farmer/components/BigButton";
 import { Icon } from "../../farmer/components/Icon";
-import { store, type AssistantAnswer } from "../api/store";
 import { Empty, Notice } from "../components";
 import { en } from "../i18n/en";
 import { hrefOf } from "../lib/route";
-import { cartStore, useUser } from "../state";
-
-interface Turn {
-  question: string;
-  answer: AssistantAnswer | null;
-  /** Why there is no answer: the model is off, or the call failed. */
-  failed: "unavailable" | "failed" | null;
-}
+import { acceptProposal, askAssistant, useChat, useUser } from "../state";
 
 export function AssistantPage() {
   const user = useUser();
+  const { turns, accepted, busy } = useChat();
   const [draft, setDraft] = useState("");
-  const [turns, setTurns] = useState<Turn[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [accepted, setAccepted] = useState<Set<number>>(() => new Set());
+  const [acceptFailed, setAcceptFailed] = useState(false);
 
   if (user?.role !== "customer") {
     return (
@@ -32,25 +22,20 @@ export function AssistantPage() {
     );
   }
 
-  const ask = async () => {
+  const ask = () => {
     const question = draft.trim();
     if (question === "" || busy) return;
     setDraft("");
-    setBusy(true);
-    setTurns((current) => [...current, { question, answer: null, failed: null }]);
-    let turn: Turn;
-    try {
-      turn = { question, answer: await store.ask(question), failed: null };
-    } catch (caught) {
-      turn = { question, answer: null, failed: caught instanceof ApiError && caught.status === 503 ? "unavailable" : "failed" };
-    }
-    setTurns((current) => [...current.slice(0, -1), turn]);
-    setBusy(false);
+    void askAssistant(question);
   };
 
   const accept = async (proposalId: number) => {
-    cartStore.set(await store.accept(proposalId));
-    setAccepted((current) => new Set(current).add(proposalId));
+    setAcceptFailed(false);
+    try {
+      await acceptProposal(proposalId);
+    } catch {
+      setAcceptFailed(true);
+    }
   };
 
   return (
@@ -70,7 +55,9 @@ export function AssistantPage() {
             {turn.failed === null ? null : <Notice text={turn.failed === "unavailable" ? en.assistant.unavailable : en.assistant.failed} />}
             {turn.answer === null ? null : (
               <div className="flex max-w-[90%] flex-col gap-3 self-start rounded-[22px] rounded-bl-md bg-surface px-4 py-3">
-                <p className="text-body leading-snug whitespace-pre-line">{turn.answer.answer}</p>
+                <p className={`text-body leading-snug whitespace-pre-line ${turn.answer.answer === null ? "text-ink-2" : ""}`}>
+                  {turn.answer.answer ?? en.assistant.noAnswer}
+                </p>
                 {turn.answer.proposal === null ? null : (
                   <div className="flex flex-col gap-2 rounded-control bg-tint p-3">
                     <span className="text-small font-extrabold text-primary-hover">{en.assistant.proposal}</span>
@@ -83,6 +70,7 @@ export function AssistantPage() {
                         {en.assistant.addAll}
                       </BigButton>
                     )}
+                    {acceptFailed && !accepted.has(turn.answer.proposal.id) ? <Notice text={en.assistant.failed} /> : null}
                   </div>
                 )}
               </div>
@@ -94,7 +82,7 @@ export function AssistantPage() {
         className="sticky bottom-24 flex gap-2 rounded-card bg-surface p-3 shadow-[0_12px_40px_rgba(21,39,40,0.12)] md:bottom-4"
         onSubmit={(event) => {
           event.preventDefault();
-          void ask();
+          ask();
         }}
       >
         <label className="flex flex-1">

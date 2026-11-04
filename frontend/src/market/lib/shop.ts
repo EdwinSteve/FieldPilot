@@ -7,6 +7,22 @@ export function clampKg(kg: number, availableKg: number): number {
   return Math.max(0, Math.min(Math.floor(availableKg), Math.round(kg)));
 }
 
+/** What the shopper typed in the kilos box: null while it is empty, else whole kilos, at most `maxKg`. */
+export function kgFromText(text: string, maxKg: number): number | null {
+  const digits = text.replace(/\D/g, "");
+  return digits === "" ? null : clampKg(Number(digits), maxKg);
+}
+
+/** Kilos to buy must be typed and at least 1 before the shopper can go on. */
+export function kgProblem(kg: number | null): "missing" | null {
+  return kg === null || kg < 1 ? "missing" : null;
+}
+
+/** The words for a failure from the backend's error name (`code`), or the table's `other`. */
+export function failureWords(table: Record<string, string>, code: string | null): string {
+  return (code === null ? undefined : table[code]) ?? table.other ?? "";
+}
+
 /** The shelf price split three ways, as fractions of the total: the farmer, transport, FieldPilot. */
 export function priceSplit(price: Price): { farmer: number; logistics: number; platform: number } {
   const total = price.total_cop;

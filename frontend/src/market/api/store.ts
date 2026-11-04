@@ -93,7 +93,8 @@ export interface Proposal {
 }
 
 export interface AssistantAnswer {
-  answer: string;
+  /** Null when the run ended without an answer, such as out of turns (docs/api.md §9). */
+  answer: string | null;
   proposal: Proposal | null;
   run_id: string;
 }

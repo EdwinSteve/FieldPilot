@@ -1,4 +1,5 @@
 // The marketplace's building blocks: the product card, the price split, the kilo stepper and the journey.
+import { useId, useState, type ReactNode } from "react";
 import { CropArt } from "../farmer/components/CropArt";
 import { Icon, type IconName } from "../farmer/components/Icon";
 import { formatCalendarDate } from "../farmer/lib/farmTime";
@@ -8,7 +9,8 @@ import { cropLabel } from "../farmer/lib/names";
 import type { JourneyStep, Passport, Price, Product, Reason } from "./api/store";
 import { en } from "./i18n/en";
 import { hrefOf } from "./lib/route";
-import { priceSplit } from "./lib/shop";
+import { kgFromText, kgProblem, priceSplit } from "./lib/shop";
+import { dismissToast, useToast } from "./state";
 
 export function ReasonTag({ reason }: { reason: Reason }) {
   const offer = reason === "ON_OFFER";
@@ -39,11 +41,16 @@ export function ShareBar({ price }: { price: Price }) {
   );
 }
 
-export function ProductCard({ product, reasons }: { product: Product; reasons?: Reason[] }) {
+/** The longest wait before a card of a grid comes in, so a long list never feels slow. */
+const MAX_STAGGER_MS = 320;
+
+/** `index` is the card's place in its grid: the cards come in one after another. */
+export function ProductCard({ product, reasons, index = 0 }: { product: Product; reasons?: Reason[]; index?: number }) {
   return (
     <a
       href={hrefOf({ screen: "product", id: product.id })}
-      className="press group flex flex-col gap-3 rounded-card bg-surface p-4 text-ink no-underline shadow-[0_1px_0_var(--color-border)] transition-shadow hover:shadow-[0_12px_30px_rgba(21,39,40,0.12)]"
+      style={{ animationDelay: `${Math.min(index * 40, MAX_STAGGER_MS)}ms` }}
+      className="press group flex animate-screen-in flex-col gap-3 rounded-card bg-surface p-4 text-ink no-underline shadow-[0_1px_0_var(--color-border)] transition-[box-shadow,translate] duration-200 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(21,39,40,0.12)]"
     >
       <div className="relative flex h-36 items-center justify-center rounded-tile bg-tint">
         <span className="transition-transform duration-300 group-hover:scale-110">
@@ -77,51 +84,59 @@ export function ProductCard({ product, reasons }: { product: Product; reasons?: 
 }
 
 /** Where a shopper's money goes, in three labelled parts. */
-export function PriceSplit({ price }: { price: Price }) {
+export function PriceSplit({ price, bare = false }: { price: Price; bare?: boolean }) {
   const split = priceSplit(price);
   const rows: [string, number, number, string][] = [
     [en.product.toFarmer, price.farmer_cop, split.farmer, "bg-primary"],
     [en.product.toTransport, price.logistics_cop, split.logistics, "bg-earth"],
     [en.product.toPlatform, price.platform_cop, split.platform, "bg-undo"],
   ];
+  const bars = rows.map(([label, amount, part, color]) => (
+    <div key={label} className="flex flex-col gap-1.5">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-body font-bold">{label}</span>
+        <span className="text-body font-extrabold">
+          {cop(amount)} <span className="text-small font-semibold text-ink-3">· {Math.round(part * 100)}%</span>
+        </span>
+      </div>
+      <div className="h-2.5 overflow-hidden rounded-pill bg-divider">
+        <div className={`h-full rounded-pill ${color}`} style={{ width: `${part * 100}%` }} />
+      </div>
+    </div>
+  ));
+  if (bare) return <div className="flex flex-col gap-3">{bars}</div>;
   return (
     <section className="flex flex-col gap-3 rounded-card bg-surface p-5">
       <h2 className="text-lead font-extrabold">{en.product.split}</h2>
-      {rows.map(([label, amount, part, color]) => (
-        <div key={label} className="flex flex-col gap-1.5">
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="text-body font-bold">{label}</span>
-            <span className="text-body font-extrabold">
-              {cop(amount)} <span className="text-small font-semibold text-ink-3">· {Math.round(part * 100)}%</span>
-            </span>
-          </div>
-          <div className="h-2.5 overflow-hidden rounded-pill bg-divider">
-            <div className={`h-full rounded-pill ${color}`} style={{ width: `${part * 100}%` }} />
-          </div>
-        </div>
-      ))}
+      {bars}
     </section>
   );
 }
 
-export function KgStepper({ kg, max, onChange }: { kg: number; max: number; onChange: (kg: number) => void }) {
+/** Whole kilos, at most `max`. The box may be empty (null) while the shopper types; the screen asks for a number. */
+export function KgStepper({ kg, max, onChange }: { kg: number | null; max: number; onChange: (kg: number | null) => void }) {
   const button =
     "press flex size-12 items-center justify-center rounded-control border-2 border-border bg-surface text-ink disabled:opacity-40";
+  const missing = kgProblem(kg) !== null;
   return (
     <div className="flex items-center gap-2">
-      <button type="button" aria-label={en.product.less} disabled={kg <= 1} onClick={() => onChange(kg - 1)} className={button}>
+      <button type="button" aria-label={en.product.less} disabled={kg === null || kg <= 1} onClick={() => onChange((kg ?? 2) - 1)} className={button}>
         <span className="text-head font-extrabold leading-none">−</span>
       </button>
       <label className="flex flex-col items-center">
         <span className="sr-only">{en.product.kg}</span>
         <input
           inputMode="numeric"
-          value={kg}
-          onChange={(event) => onChange(Number(event.target.value.replace(/\D/g, "")) || 0)}
-          className="h-12 w-20 rounded-control border-2 border-border bg-surface text-center text-row font-extrabold text-ink"
+          value={kg ?? ""}
+          placeholder="0"
+          aria-invalid={missing}
+          onChange={(event) => onChange(kgFromText(event.target.value, max))}
+          className={`h-12 w-20 rounded-control border-2 bg-surface text-center text-row font-extrabold text-ink placeholder:text-ink-3 ${
+            missing ? "border-bad" : "border-border"
+          }`}
         />
       </label>
-      <button type="button" aria-label={en.product.more} disabled={kg >= max} onClick={() => onChange(kg + 1)} className={button}>
+      <button type="button" aria-label={en.product.more} disabled={kg !== null && kg >= max} onClick={() => onChange(Math.min(max, (kg ?? 0) + 1))} className={button}>
         <Icon name="plus" size={22} strokeWidth={2.8} />
       </button>
       <span className="text-body font-bold text-ink-2">kg</span>
@@ -175,6 +190,65 @@ export function Verified({ verified }: { verified: boolean }) {
   );
 }
 
+/**
+ * A section that opens in place: the button says what is inside and the chevron turns.
+ * Closed, the content is `inert`, so neither a tap nor a screen reader reaches it.
+ */
+export function Disclosure({
+  title,
+  summary,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  /** One line shown under the title while closed, so the shopper knows what is inside. */
+  summary?: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const id = useId();
+  return (
+    <section className="flex flex-col rounded-card bg-surface">
+      <h2 className="m-0">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={id}
+          onClick={() => setOpen((current) => !current)}
+          className="press flex min-h-16 w-full items-center gap-3 rounded-card border-0 bg-transparent px-5 py-3 text-left text-ink"
+        >
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="text-lead font-extrabold">{title}</span>
+            {summary === undefined ? null : (
+              <span className={`text-small text-ink-2 transition-opacity duration-200 ${open ? "opacity-0" : "opacity-100"}`}>{summary}</span>
+            )}
+          </span>
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-tint text-primary">
+            <Icon
+              name="chevronDown"
+              size={22}
+              strokeWidth={2.6}
+              className={`transition-transform duration-300 ease-(--ease-calm) ${open ? "rotate-180" : ""}`}
+            />
+          </span>
+        </button>
+      </h2>
+      <div
+        id={id}
+        inert={!open}
+        className={`grid transition-[grid-template-rows,opacity,visibility] duration-300 ease-(--ease-calm) ${
+          open ? "grid-rows-[1fr] opacity-100" : "invisible grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="flex flex-col gap-3 px-5 pb-5">{children}</div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function Notice({ text, tone = "needs" }: { text: string; tone?: "needs" | "good" }) {
   return (
     <p
@@ -185,6 +259,58 @@ export function Notice({ text, tone = "needs" }: { text: string; tone?: "needs" 
     >
       {text}
     </p>
+  );
+}
+
+/** The one toast of the page, above the phone's bottom bar; read out when it appears. */
+export function ToastRegion() {
+  const toast = useToast();
+  return (
+    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-24 z-40 flex justify-center px-4 md:bottom-6">
+      {toast === null ? null : (
+        <div
+          key={toast.id}
+          role={toast.tone === "needs" ? "alert" : "status"}
+          className={`pointer-events-auto flex w-full max-w-md animate-sheet-up items-start gap-3 rounded-card py-2 pr-2 pl-4 shadow-[0_12px_40px_rgba(21,39,40,0.22)] ${
+            toast.tone === "good" ? "bg-ink text-surface" : "bg-needs-tint text-needs-text"
+          }`}
+        >
+          <Icon name={toast.tone === "good" ? "check" : "warning"} size={22} strokeWidth={2.6} className="mt-3 shrink-0" />
+          <div className="flex min-w-0 flex-1 flex-col items-start">
+            <span className="py-2.5 text-body font-bold leading-snug">{toast.text}</span>
+            {toast.action === undefined ? null : "href" in toast.action ? (
+              <a
+                href={toast.action.href}
+                onClick={dismissToast}
+                className="press -mt-1 -ml-1 flex min-h-12 items-center rounded-control px-1 text-body font-extrabold text-inherit underline underline-offset-4"
+              >
+                {toast.action.label}
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  const run = (toast.action as { run: () => void }).run;
+                  dismissToast();
+                  run();
+                }}
+                className="press -mt-1 -ml-1 flex min-h-12 items-center rounded-control border-0 bg-transparent px-1 text-body font-extrabold text-inherit underline underline-offset-4"
+              >
+                {toast.action.label}
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            aria-label={en.toast.close}
+            onClick={dismissToast}
+            className="press flex size-12 shrink-0 items-center justify-center rounded-control border-0 bg-transparent text-inherit"
+          >
+            <Icon name="close" size={20} strokeWidth={2.6} />
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

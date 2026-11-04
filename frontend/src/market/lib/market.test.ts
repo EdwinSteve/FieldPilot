@@ -1,6 +1,38 @@
 import { describe, expect, it } from "vitest";
 import { hrefOf, lotHref, parseRoute, tabOf, type MarketRoute } from "./route";
-import { addressProblem, clampKg, daysUntil, isFresh, labelOfName, priceSplit } from "./shop";
+import { addressProblem, clampKg, daysUntil, failureWords, isFresh, kgFromText, kgProblem, labelOfName, priceSplit } from "./shop";
+
+describe("failure words", () => {
+  const table = { OutOfStockError: "Not that much is left.", other: "Try again." };
+  it("names the backend's error when it knows it", () => {
+    expect(failureWords(table, "OutOfStockError")).toBe("Not that much is left.");
+  });
+  it("falls back to the general words", () => {
+    expect(failureWords(table, "TeapotError")).toBe("Try again.");
+    expect(failureWords(table, null)).toBe("Try again.");
+    expect(failureWords({}, null)).toBe("");
+  });
+});
+
+describe("the kilos box", () => {
+  it("stays empty while the shopper clears it", () => {
+    expect(kgFromText("", 50)).toBeNull();
+    expect(kgFromText("kg", 50)).toBeNull();
+  });
+
+  it("keeps whole kilos, capped at the stock", () => {
+    expect(kgFromText("12", 50)).toBe(12);
+    expect(kgFromText("1.5", 50)).toBe(15);
+    expect(kgFromText("900", 50.7)).toBe(50);
+    expect(kgFromText("0", 50)).toBe(0);
+  });
+
+  it("asks for at least one kilo", () => {
+    expect(kgProblem(null)).toBe("missing");
+    expect(kgProblem(0)).toBe("missing");
+    expect(kgProblem(1)).toBeNull();
+  });
+});
 
 describe("the marketplace routes", () => {
   it.each<[MarketRoute]>([

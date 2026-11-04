@@ -1,4 +1,5 @@
-import { useCallback, useState } from "react";
+import { useCallback, useId, useState } from "react";
+import { ApiError } from "../../api/client";
 import { useResource } from "../../hooks/useResource";
 import { BigButton, BigLink } from "../../farmer/components/BigButton";
 import { Icon } from "../../farmer/components/Icon";
@@ -9,7 +10,8 @@ import { store, type Order, type OrderStatus } from "../api/store";
 import { Empty, Notice } from "../components";
 import { en } from "../i18n/en";
 import { hrefOf, lotHref } from "../lib/route";
-import { useUser, wasJustPlaced } from "../state";
+import { failureWords } from "../lib/shop";
+import { showToast, useUser, wasJustPlaced } from "../state";
 
 const loadOrders = () => store.orders();
 
@@ -29,9 +31,32 @@ function Status({ status }: { status: OrderStatus }) {
   );
 }
 
-function OrderCard({ order, open }: { order: Order; open?: boolean }) {
+function OrderLines({ order }: { order: Order }) {
   return (
-    <article className="flex flex-col gap-3 rounded-card bg-surface p-5">
+    <ul className="flex flex-col divide-y divide-divider">
+      {order.lines.map((line) => (
+        <li key={line.listing_id} className="flex items-center justify-between gap-3 py-2.5">
+          <div className="flex flex-col">
+            <span className="text-body font-bold">
+              {cropLabel(line.crop)} · {line.quantity_kg} kg
+            </span>
+            <a href={lotHref(line.passport_path)} className="font-mono text-caption text-primary">
+              {en.orders.passport} {line.lot_code}
+            </a>
+          </div>
+          <span className="text-body font-extrabold">{cop(line.line_total_cop)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** On the order's own page the lines always show; in the list they open in place under More details. */
+function OrderCard({ order, open }: { order: Order; open?: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const id = useId();
+  return (
+    <article className="flex animate-screen-in flex-col gap-3 rounded-card bg-surface p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <a href={hrefOf({ screen: "order", id: order.id })} className="text-row font-extrabold text-ink no-underline">
           {en.orders.number(order.id)}
@@ -42,23 +67,37 @@ function OrderCard({ order, open }: { order: Order; open?: boolean }) {
         {en.orders.placed(formatCalendarDate(order.placed_at.slice(0, 10)))} · {cop(order.total_cop)}
       </span>
       {open ? (
-        <ul className="flex flex-col divide-y divide-divider">
-          {order.lines.map((line) => (
-            <li key={line.listing_id} className="flex items-center justify-between gap-3 py-2.5">
-              <div className="flex flex-col">
-                <span className="text-body font-bold">
-                  {cropLabel(line.crop)} · {line.quantity_kg} kg
-                </span>
-                <a href={lotHref(line.passport_path)} className="font-mono text-caption text-primary">
-                  {en.orders.passport} {line.lot_code}
-                </a>
-              </div>
-              <span className="text-body font-extrabold">{cop(line.line_total_cop)}</span>
-            </li>
-          ))}
-        </ul>
+        <OrderLines order={order} />
       ) : (
-        <span className="text-small text-ink-2">{order.lines.map((line) => `${cropLabel(line.crop)} ${line.quantity_kg} kg`).join(" · ")}</span>
+        <>
+          <span className="text-small text-ink-2">{order.lines.map((line) => `${cropLabel(line.crop)} ${line.quantity_kg} kg`).join(" · ")}</span>
+          <div
+            id={id}
+            inert={!expanded}
+            className={`grid transition-[grid-template-rows,opacity,visibility] duration-300 ease-(--ease-calm) ${
+              expanded ? "grid-rows-[1fr] opacity-100" : "invisible grid-rows-[0fr] opacity-0"
+            }`}
+          >
+            <div className="min-h-0 overflow-hidden">
+              <OrderLines order={order} />
+            </div>
+          </div>
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-controls={id}
+            onClick={() => setExpanded((current) => !current)}
+            className="press -ml-1 flex min-h-12 items-center gap-2 self-start rounded-control border-0 bg-transparent px-1 text-body font-bold text-primary"
+          >
+            {expanded ? en.orders.fewerDetails : en.orders.moreDetails}
+            <Icon
+              name="chevronDown"
+              size={20}
+              strokeWidth={2.6}
+              className={`transition-transform duration-300 ease-(--ease-calm) ${expanded ? "rotate-180" : ""}`}
+            />
+          </button>
+        </>
       )}
     </article>
   );
@@ -102,6 +141,7 @@ export function OrderPage({ id }: { id: number }) {
   );
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [cancelFailed, setCancelFailed] = useState<string | null>(null);
   if (user?.role !== "customer") return <SignIn />;
   if (order.data === null) {
     return order.error === null ? <p className="text-body text-ink-2">{en.state.loading}</p> : <Empty icon="document" title={en.orders.notFound} />;
@@ -109,12 +149,18 @@ export function OrderPage({ id }: { id: number }) {
   const o = order.data;
   const cancel = async () => {
     setBusy(true);
+    setCancelFailed(null);
     try {
       await store.cancel(o.id);
       setVersion((v) => v + 1);
+      setAsking(false);
+      showToast({ tone: "good", text: en.toast.cancelled(o.id) });
+    } catch (caught) {
+      setCancelFailed(failureWords(en.orders.cancelFailed, caught instanceof ApiError ? caught.code : null));
+      // It may have been delivered meanwhile: show the order as it is now.
+      setVersion((v) => v + 1);
     } finally {
       setBusy(false);
-      setAsking(false);
     }
   };
   return (
@@ -135,6 +181,7 @@ export function OrderPage({ id }: { id: number }) {
         {o.delivery_address === null ? null : <span>{en.orders.deliverTo(o.delivery_address)}</span>}
         <span className="font-mono">{en.orders.payment(o.payment_ref)}</span>
       </div>
+      {cancelFailed === null ? null : <Notice text={cancelFailed} />}
       {o.status === "paid" ? (
         asking ? (
           <div className="flex flex-col gap-3 rounded-card bg-surface p-5">

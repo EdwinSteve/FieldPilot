@@ -72,8 +72,8 @@ export function Shop() {
       {offers.length > 0 && asked === "" ? (
         <Row title={en.shop.offers}>
           <div className={GRID}>
-            {offers.map((product) => (
-              <ProductCard key={product.id} product={product} reasons={["ON_OFFER"]} />
+            {offers.map((product, index) => (
+              <ProductCard key={product.id} product={product} reasons={["ON_OFFER"]} index={index} />
             ))}
           </div>
         </Row>
@@ -84,8 +84,8 @@ export function Shop() {
           picks.length > 0 ? (
             <Row title={en.shop.forYou} lead={en.shop.forYouLead}>
               <div className={GRID}>
-                {picks.map((pick) => (
-                  <ProductCard key={pick.product.id} product={pick.product} reasons={pick.reasons} />
+                {picks.map((pick, index) => (
+                  <ProductCard key={pick.product.id} product={pick.product} reasons={pick.reasons} index={index} />
                 ))}
               </div>
             </Row>
@@ -100,8 +100,8 @@ export function Shop() {
           <Empty icon="bag" title={asked === "" ? en.shop.empty : en.shop.none} />
         ) : (
           <div className={GRID}>
-            {list.map((product) => (
-              <ProductCard key={product.id} product={product} />
+            {list.map((product, index) => (
+              <ProductCard key={product.id} product={product} index={index} />
             ))}
           </div>
         )}

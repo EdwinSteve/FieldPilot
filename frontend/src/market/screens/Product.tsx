@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { ApiError } from "../../api/client";
 import { useResource } from "../../hooks/useResource";
 import { BigButton, BigLink } from "../../farmer/components/BigButton";
 import { CropArt } from "../../farmer/components/CropArt";
@@ -8,11 +9,11 @@ import { kgText } from "../../farmer/lib/harvest";
 import { cop } from "../../farmer/lib/listing";
 import { cropLabel } from "../../farmer/lib/names";
 import { store } from "../api/store";
-import { Empty, Journey, KgStepper, Notice, PriceSplit, ShareBar, Verified } from "../components";
+import { Disclosure, Empty, Journey, KgStepper, Notice, PriceSplit, ShareBar, Verified } from "../components";
 import { en } from "../i18n/en";
 import { hrefOf, lotHref } from "../lib/route";
-import { clampKg } from "../lib/shop";
-import { cartStore, useCart, useUser } from "../state";
+import { clampKg, failureWords, kgProblem } from "../lib/shop";
+import { cartStore, showToast, useCart, useUser } from "../state";
 
 export function ProductPage({ id }: { id: number }) {
   const user = useUser();
@@ -26,9 +27,10 @@ export function ProductPage({ id }: { id: number }) {
     useCallback(() => (code === null ? Promise.resolve(null) : store.passport(code)), [code]),
     0,
   );
-  const [kg, setKg] = useState(1);
+  const [kg, setKg] = useState<number | null>(1);
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  /** Why the last Add to cart failed, in words, next to the button. */
+  const [failed, setFailed] = useState<string | null>(null);
   const inCart = cart?.lines.find((line) => line.listing_id === id)?.quantity_kg ?? 0;
 
   if (product.data === null) {
@@ -44,14 +46,23 @@ export function ProductPage({ id }: { id: number }) {
   }
   const p = product.data;
   const max = Math.floor(p.available_kg);
+  const room = Math.max(1, max - inCart);
+  const kgMissing = kgProblem(kg) !== null;
 
   const add = async () => {
+    if (kg === null || kgMissing) return;
     setBusy(true);
-    setFailed(false);
+    setFailed(null);
     try {
       cartStore.set(await store.setItem(p.id, clampKg(inCart + kg, max)));
-    } catch {
-      setFailed(true);
+      showToast({
+        tone: "good",
+        text: en.toast.added(kg, cropLabel(p.crop)),
+        action: { label: en.toast.viewCart, href: hrefOf({ screen: "cart" }) },
+      });
+      setKg(1);
+    } catch (caught) {
+      setFailed(failureWords(en.toast.addFailed, caught instanceof ApiError ? caught.code : null));
     } finally {
       setBusy(false);
     }
@@ -73,7 +84,9 @@ export function ProductPage({ id }: { id: number }) {
               </span>
             )}
           </div>
-          <PriceSplit price={p.price} />
+          <Disclosure title={en.product.split} summary={en.product.farmerKeeps(String(p.price.farmer_share_pct))} defaultOpen>
+            <PriceSplit price={p.price} bare />
+          </Disclosure>
         </div>
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">
@@ -108,17 +121,18 @@ export function ProductPage({ id }: { id: number }) {
           <div className="sticky bottom-24 z-10 flex flex-col gap-3 rounded-card bg-surface p-5 shadow-[0_12px_40px_rgba(21,39,40,0.12)] md:bottom-4">
             {user?.role === "customer" ? (
               <>
-                <KgStepper kg={kg} max={Math.max(1, max - inCart)} onChange={(next) => setKg(Math.max(1, clampKg(next, max - inCart)))} />
-                <BigButton variant="primary" disabled={busy || max - inCart <= 0} onClick={() => void add()}>
+                <KgStepper kg={kg} max={room} onChange={setKg} />
+                {kgMissing ? <Notice text={en.product.typeKg} /> : null}
+                <BigButton variant="primary" disabled={busy || kgMissing || max - inCart <= 0} onClick={() => void add()}>
                   <Icon name="bag" size={24} />
-                  {busy ? en.product.adding : `${en.product.add} · ${cop(p.price.total_cop * kg)}`}
+                  {busy ? en.product.adding : kg === null || kgMissing ? en.product.add : `${en.product.add} · ${cop(p.price.total_cop * kg)}`}
                 </BigButton>
                 {inCart > 0 ? (
                   <a href={hrefOf({ screen: "cart" })} className="text-center text-body font-bold text-primary">
                     {en.product.added(inCart)} · {en.product.viewCart}
                   </a>
                 ) : null}
-                {failed ? <Notice text={en.cart.failures.other ?? ""} /> : null}
+                {failed === null ? null : <Notice text={failed} />}
               </>
             ) : (
               <BigLink variant="primary" href={hrefOf({ screen: "account" })}>
@@ -126,8 +140,16 @@ export function ProductPage({ id }: { id: number }) {
               </BigLink>
             )}
           </div>
-          <section className="flex flex-col gap-3 rounded-card bg-surface p-5">
-            <h2 className="text-lead font-extrabold">{en.product.passport}</h2>
+          <Disclosure
+            title={en.product.passport}
+            summary={
+              passport.data === null
+                ? en.state.loading
+                : passport.data.integrity.verified
+                  ? en.passport.verified
+                  : en.passport.broken
+            }
+          >
             {passport.data === null ? (
               <p className="text-body text-ink-2">{en.state.loading}</p>
             ) : (
@@ -140,7 +162,7 @@ export function ProductPage({ id }: { id: number }) {
               {en.product.fullPassport}
               <span className="font-mono text-small text-ink-3">{p.lot_code}</span>
             </a>
-          </section>
+          </Disclosure>
         </div>
       </div>
     </div>

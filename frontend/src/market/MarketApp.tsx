@@ -4,6 +4,7 @@ import { Icon, type IconName } from "../farmer/components/Icon";
 import { Wordmark } from "../farmer/components/Wordmark";
 import appIcon from "../farmer/assets/icon-180.png";
 import { useLook } from "../farmer/hooks/useLook";
+import { ToastRegion } from "./components";
 import { en } from "./i18n/en";
 import { hrefOf, tabOf, type MarketRoute } from "./lib/route";
 import { canRunWarehouse, type MarketRole } from "./lib/storedUser";
@@ -72,8 +73,12 @@ function screenFor(route: MarketRoute): ReactNode {
 
 function CartBadge({ count }: { count: number }) {
   if (count === 0) return null;
+  // Keyed on the count: it pops each time the cart changes, so the tap is seen to land.
   return (
-    <span className="absolute -top-1.5 -right-2 flex min-w-6 items-center justify-center rounded-pill border-2 border-surface bg-needs px-1.5 text-caption font-extrabold text-surface">
+    <span
+      key={count}
+      className="absolute -top-1.5 -right-2 flex min-w-6 animate-pop-in items-center justify-center rounded-pill border-2 border-surface bg-needs px-1.5 text-caption font-extrabold text-surface"
+    >
       {count}
     </span>
   );
@@ -154,6 +159,7 @@ export function MarketApp() {
           </a>
         ))}
       </nav>
+      <ToastRegion />
     </div>
   );
 }
