@@ -497,7 +497,8 @@ POST /lots/FP-2-20270302-1/listings
   "status": "awaiting_delivery", "quantity_kg": 5000,
   "farmer_price_per_kg_cop": 3000.0, "shelf_price_per_kg_cop": 3450.0, "farmer_share_pct": 87.0,
   "warehouse": { "id": 1, "code": "BOG-01", "name": "FieldPilot Bogotá D.C. warehouse" },
-  "stock_kg": 0.0, "sold_kg": 0.0, "payouts_cop": 0.0, "shipment": null
+  "stock_kg": 0.0, "sold_kg": 0.0, "payouts_cop": 0.0, "shipment": null,
+  "best_before": "2027-08-29", "days_left": 180, "clearance": null
 }
 ```
 
@@ -547,6 +548,34 @@ POST /listings/4/offers
 - **`GET /listings`** shows the farmer each listing with its stock, the kg
   sold and the payouts earned.
 
+### 8.5 Clearance before the shelf life ends (automatic, D086)
+
+Nobody creates these: the price drops by itself as the best-before day
+nears. **The best-before day** is the harvest day plus the crop's shelf
+life (`config/market.yaml`, for example 14 days for tomato). The discount
+follows the share of shelf life left:
+
+| Life left | Discount | Tomato (14 days) |
+|---|---|---|
+| 40 % or less | 10 % | from 5 days left |
+| 20 % or less | 20 % | from 2 days left |
+| 10 % or less | 35 % | from 1 day left |
+
+**The rules.**
+- **The deepest discount applies:** the farmer's offer or the clearance
+  step, never both.
+- **The farmer's share stays at 80 % or more.** A step that would break it
+  is reduced until it does not.
+- **The farmer sees it in `GET /listings`:** `best_before`, `days_left` and
+  `clearance` (`null`, or `{ "discount_pct": 20, "ends_on": "2027-03-15" }`).
+- **After the best-before day** the product is no longer sold. The
+  operator's `POST /listings/expire` (also run at startup) writes the
+  remaining stock off as spoilage, and the listing becomes `expired`:
+
+```http
+POST /listings/expire              → 200 [ the listings that expired, as in §8.2 ]
+```
+
 ---
 
 ## 9. The store (customers)
@@ -566,9 +595,9 @@ GET /store/products?q=tomato
     "id": 4, "crop": "soybean", "crop_name": "Soybean", "unit": "kg",
     "price": { "farmer_cop": 2550.0, "logistics_cop": 300.0, "platform_cop": 127.5,
                "total_cop": 2977.5, "farmer_share_pct": 85.6, "discount_pct": 15 },
-    "offer": { "discount_pct": 15, "ends_on": "2027-03-07" },
+    "offer": { "source": "offer", "discount_pct": 15, "ends_on": "2027-03-07" },
     "available_kg": 4980.0,
-    "harvested_on": "2027-03-02", "best_before": "2027-08-29",
+    "harvested_on": "2027-03-02", "best_before": "2027-08-29", "days_left": 175,
     "producer": "Producer from La Plata, Huila",
     "warehouse": "FieldPilot Bogotá D.C. warehouse",
     "lot_code": "FP-2-20270302-1", "passport_path": "/trace/FP-2-20270302-1"
@@ -583,6 +612,10 @@ GET /store/products?q=tomato
   sale.
 - **`GET /store/offers/today`** lists today's validated offers, each with
   its product.
+- **`offer.source`** is `offer` (the farmer's) or `clearance` (automatic,
+  because the best-before day is near, §8.5). `ends_on` is the last day of
+  that price. Show `days_left` next to a clearance price: it is the reason
+  for it.
 
 ### 9.2 Profile
 
@@ -613,8 +646,8 @@ GET /store/cart
 
 **How it behaves.**
 - **The cart is repriced on every read.** `problem` is `out_of_stock`
-  (less stock than asked) or `not_available` (the listing is no longer
-  sold).
+  (less stock than asked), `not_available` (the listing is no longer
+  sold) or `expired` (past its best-before day, §8.5).
 - **`can_checkout`** is false while a line has a problem.
 
 ### 9.4 Checkout and the purchase record
@@ -736,7 +769,8 @@ Both are 422. Tell them apart by the key: `error` or `detail`.
 | Planner crops | `maize`, `common_bean`, `sorghum`, `soybean`, `groundnut`, `cotton`, `tomato`, `potato` |
 | Automated crops (stage 2) | `maize` (one YAML per crop in `config/crops/`) |
 | Trace `biz_step` | `commissioning`, `shipping`, `receiving`, `retail_selling` (D085) |
-| Listing `status` | `awaiting_delivery`, `in_transit`, `active`, `sold_out`, `withdrawn` |
+| Listing `status` | `awaiting_delivery`, `in_transit`, `active`, `sold_out`, `withdrawn`, `expired` |
+| Offer `source` | `offer`, `clearance` (D086) |
 | Order `status` | `paid`, `delivered`, `cancelled` |
 | Recommendation reasons | `REPURCHASE_DUE`, `BOUGHT_TOGETHER`, `FRESH_HARVEST`, `ON_OFFER`, `POPULAR` |
 

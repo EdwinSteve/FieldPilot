@@ -2679,3 +2679,59 @@ front-end guide is docs/api.md §8 and §9.
 - Payments are mocked. A real gateway, delivery to the customer's address
   and the assistant's private log come after the hackathon.
 - Integer kilograms only, and one listing per lot.
+
+## D086 — Clearance: automatic markdowns before a lot's shelf life ends
+
+- **Date:** 2026-11-04
+- **Status:** Accepted (2026-11-04), asked for by Edwin. It extends D085.
+
+**Context.** A harvested lot has a shelf life, per crop, in
+`config/market.yaml` (`shelf_life_days`): 14 days for tomato, 180 for
+beans. What is not sold by then is lost: the farmer earns nothing and the
+food is wasted. Edwin wants the platform to know each product's shelf life
+and to mark it down automatically, in steps, before it spoils, so that
+customers buy it cheaper and sooner.
+
+**Decision.**
+- **The best-before day is `harvested_on + shelf_life_days[crop]`.** The
+  product type is the crop, so the shelf life comes from it.
+- **The markdown follows the share of shelf life left,** so one ladder
+  works for a tomato and for a bean. `config/market.yaml` `clearance.steps`
+  (demo values):
+
+  | Life left | Discount |
+  |---|---|
+  | 40 % or less | 10 % |
+  | 20 % or less | 20 % |
+  | 10 % or less | 35 % |
+
+  For a tomato (14 days) that is 10 % from 5 days left, 20 % from 2 days
+  and 35 % from 1 day left. For beans (180 days): 72, 36 and 18 days.
+- **It is computed on every read, never stored.** The price is a pure
+  function of the harvest date, the crop and today, like the offers of the
+  day. Nothing has to run for the markdown to appear or to deepen; a
+  changed ladder applies at once.
+- **It is a discount of the same kind as a farmer's offer.** It comes off
+  the farmer's price, it does not stack with an offer (the deepest of the
+  two applies), and it never drops the farmer's share under 80 %: a step is
+  reduced to the deepest discount that keeps it. The customer sees the
+  source, `offer` or `clearance`, and the day the current price ends.
+- **After the best-before day the product is not sold.** It leaves the
+  catalogue, the offers and the recommendations; a cart line shows
+  `expired` and checkout refuses it.
+- **A sweep writes it off.** `ListingService.expire_due` records the
+  remaining stock as `spoilage` and the listing becomes `expired`. It runs
+  at startup and on `POST /listings/expire` (operator). The sweep is
+  bookkeeping: the store already refuses an expired product without it.
+- **The farmer sees it in `GET /listings`:** the best-before day, the days
+  left and the markdown in force.
+
+**Consequences.**
+- No new table: one listing status (`expired`) and one stock reason
+  (`spoilage`).
+- The markdown lowers the farmer's price per kg without asking. The reason
+  is that an unsold kilogram pays nothing, and the 80 % guard still holds.
+  A per-listing opt-out, cold-storage adjustments to shelf life and a
+  trace event for the write-off come later.
+- The shopping assistant and the `ON_OFFER` recommendation read clearance
+  markdowns with no change, because they read the product's offer.
