@@ -70,7 +70,12 @@ function OrderCard({ order, open }: { order: Order; open?: boolean }) {
         <OrderLines order={order} />
       ) : (
         <>
-          <span className="text-small text-ink-2">{order.lines.map((line) => `${cropLabel(line.crop)} ${line.quantity_kg} kg`).join(" · ")}</span>
+          {/* The one-line summary gives way to the full lines once they are open. */}
+          {expanded ? null : (
+            <span className="animate-fade-in text-small text-ink-2">
+              {order.lines.map((line) => `${cropLabel(line.crop)} ${line.quantity_kg} kg`).join(" · ")}
+            </span>
+          )}
           <div
             id={id}
             inert={!expanded}

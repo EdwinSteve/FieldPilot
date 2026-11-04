@@ -48,7 +48,20 @@ export const en = {
     harvested: (date: string) => `Harvested ${date}`,
     bestBefore: (date: string) => `Best before ${date}`,
     left: (kg: string) => `${kg} kg left`,
+    /** Under "kg" beside the stepper: "kg / of 125". */
+    ofKg: (kg: string) => `of ${kg}`,
+    harvestedAgo: (days: number) => (days <= 0 ? "Harvested today" : days === 1 ? "Harvested yesterday" : `Harvested ${days} days ago`),
+    shelf: (date: string, days: number) =>
+      `Best before ${date} · ${days <= 0 ? "last day" : days === 1 ? "1 day left" : `${days} days left`}`,
+    fromWarehouse: (city: string) => `From the ${city} warehouse`,
     off: (pct: number) => `${pct}% off today`,
+    clearanceOff: (pct: number) => `${pct}% off · best before soon`,
+    clearanceBadge: (pct: number, days: number | null) =>
+      days === null ? `−${pct}% · best before soon` : `−${pct}% · ${days === 1 ? "1 day" : `${days} days`} left`,
+    clearanceWhy: (days: number | null, date: string) =>
+      days === null
+        ? `Its best-before day is ${date}, so the price drops by itself.`
+        : `${days === 1 ? "1 day" : `${days} days`} left before its best-before day (${date}), so the price drops by itself.`,
     offerEnds: (date: string) => `Offer ends ${date}`,
     farmerKeeps: (pct: string) => `Farmer keeps ${pct}%`,
     split: "Where your money goes",
@@ -75,6 +88,7 @@ export const en = {
     BOUGHT_TOGETHER: "Goes with what you buy",
     FRESH_HARVEST: "Just harvested",
     ON_OFFER: "Offer of the day",
+    DEAL_FOR_YOU: "A deal on what you like",
     POPULAR: "Popular",
   } satisfies Record<Reason, string>,
   cart: {
@@ -87,8 +101,15 @@ export const en = {
     problems: {
       out_of_stock: "Less is left than you asked for. Lower the kilos.",
       not_available: "This is no longer on sale. Remove it to check out.",
+      expired: "This is past its best-before day. Remove it to check out.",
     } satisfies Record<CartProblem, string>,
     total: "Total",
+    /** The assistant's suggestion in the cart (D087): a side note, never in the way of paying. */
+    suggestionTitle: "An idea for your cart",
+    assistantName: "FieldPilot assistant",
+    aiBadge: "AI",
+    suggestionLater: "No thanks",
+    suggestionAdded: (kg: number, crop: string) => `${kg} kg of ${crop} added to your cart.`,
     address: "Deliver to",
     addressHint: "Street, number and neighbourhood in Bogotá",
     addressProblem: "Write where to deliver.",
@@ -146,12 +167,15 @@ export const en = {
     you: "You",
     me: "Assistant",
     proposal: "A cart for you",
+    proposalLine: (kg: number, price: string) => `${kg} kg × ${price}`,
     addAll: "Add to cart",
     added: "Added to your cart.",
     unavailable: "The assistant needs the live Muse Spark model, which is off in this demo. The shop and your picks still work.",
     failed: "That didn't work. Please ask again.",
     noAnswer: "I couldn't finish an answer this time. Please ask again, maybe in fewer words.",
     signIn: "Log in to talk to the assistant.",
+    /** Over the fixed text the backend gives for a question off the store's subject (D088). */
+    offTopic: "That's outside what I can help with",
     builtOn: "Built on Meta's Muse Spark",
   },
   toast: {
@@ -251,6 +275,18 @@ export const en = {
     receiving: "Receiving…",
     received: (id: number) => `Delivery #${id} received. It's on sale now.`,
     handOver: "Hand an order over",
+    pastDate: "Past-date stock",
+    pastDateLead: "Takes off sale anything past its best-before day, and writes off what is left.",
+    writeOff: "Write off past-date stock",
+    writingOff: "Writing off…",
+    wroteOff: (lines: string) => `Written off: ${lines}.`,
+    nothingToWriteOff: "Nothing is past its best-before day.",
+    writeOffFailed: "That didn't work. Please try again.",
+    writtenOffTitle: "Written off",
+    writtenOffNone: "Nothing has been written off yet.",
+    writtenOffKg: (kg: string) => `${kg} kg written off`,
+    soldBefore: (kg: string) => `${kg} kg sold before`,
+    passedDay: (date: string) => `Best before ${date}`,
     orderNumber: "Order number",
     deliver: "Mark as delivered",
     delivering: "Saving…",

@@ -11,11 +11,11 @@ import { cropLabel } from "../farmer/lib/names";
 import type { JourneyStep, Passport, Price, Product, Reason } from "./api/store";
 import { en } from "./i18n/en";
 import { hrefOf } from "./lib/route";
-import { addressProblem, kgFromText, kgProblem, priceSplit } from "./lib/shop";
+import { addressProblem, isClearance, kgFromText, kgProblem, priceSplit } from "./lib/shop";
 import { dismissToast, useToast } from "./state";
 
 export function ReasonTag({ reason }: { reason: Reason }) {
-  const offer = reason === "ON_OFFER";
+  const offer = reason === "ON_OFFER" || reason === "DEAL_FOR_YOU";
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-caption font-bold ${
@@ -59,8 +59,15 @@ export function ProductCard({ product, reasons, index = 0 }: { product: Product;
           <CropArt crop={product.crop} size={92} />
         </span>
         {product.offer === null ? null : (
-          <span className="absolute top-2.5 left-2.5 rounded-pill bg-needs px-2.5 py-1 text-caption font-extrabold text-surface">
-            −{product.offer.discount_pct}%
+          <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 rounded-pill bg-needs px-2.5 py-1 text-caption font-extrabold text-surface">
+            {isClearance(product) ? (
+              <>
+                <Icon name="clock" size={14} strokeWidth={2.6} />
+                {en.product.clearanceBadge(product.offer.discount_pct, product.days_left ?? null)}
+              </>
+            ) : (
+              `−${product.offer.discount_pct}%`
+            )}
           </span>
         )}
       </div>
@@ -116,7 +123,18 @@ export function PriceSplit({ price, bare = false }: { price: Price; bare?: boole
 }
 
 /** Whole kilos, at most `max`. The box may be empty (null) while the shopper types; the screen asks for a number. */
-export function KgStepper({ kg, max, onChange }: { kg: number | null; max: number; onChange: (kg: number | null) => void }) {
+export function KgStepper({
+  kg,
+  max,
+  onChange,
+  of,
+}: {
+  kg: number | null;
+  max: number;
+  onChange: (kg: number | null) => void;
+  /** The stock, said beside the kilos: "of 125 kg". */
+  of?: number;
+}) {
   const button =
     "press flex size-12 items-center justify-center rounded-control border-2 border-border bg-surface text-ink disabled:opacity-40";
   const missing = kgProblem(kg) !== null;
@@ -141,7 +159,12 @@ export function KgStepper({ kg, max, onChange }: { kg: number | null; max: numbe
       <button type="button" aria-label={en.product.more} disabled={kg !== null && kg >= max} onClick={() => onChange(Math.min(max, (kg ?? 0) + 1))} className={button}>
         <Icon name="plus" size={22} strokeWidth={2.8} />
       </button>
-      <span className="text-body font-bold text-ink-2">kg</span>
+      <span className="flex flex-col leading-tight">
+        <span className="text-body font-bold text-ink-2">kg</span>
+        {of === undefined ? null : (
+          <span className="text-caption font-semibold whitespace-nowrap text-ink-3">{en.product.ofKg(kgText(of))}</span>
+        )}
+      </span>
     </div>
   );
 }

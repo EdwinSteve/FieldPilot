@@ -1,6 +1,6 @@
 // What the shop works out for itself: kilos in a cart, the price split, what to say about a product. Pure logic only.
 import { cropLabel } from "../../farmer/lib/names";
-import type { Price } from "../api/store";
+import type { Price, Product } from "../api/store";
 
 /** The most a cart line asks for: what the warehouse holds, in whole kilos. */
 export function clampKg(kg: number, availableKg: number): number {
@@ -58,6 +58,50 @@ export function labelOfName(cropName: string): string {
 }
 
 /** A delivery address worth sending: something to find the door by. */
+/** A clearance markdown (the best-before day is near), not the farmer's own offer (D086). */
+export function isClearance(product: Pick<Product, "offer">): boolean {
+  return product.offer?.source === "clearance";
+}
+
+/**
+ * How much of its shelf life a product has left, 0 to 1, from the days the backend counts
+ * (`days_left`, D086) and the days between harvest and best-before.
+ */
+export function shelfLeft(harvestedOn: string, bestBefore: string, daysLeft: number): number {
+  const life = daysUntil(bestBefore, harvestedOn);
+  if (!(life > 0)) return 0;
+  return Math.min(1, Math.max(0, daysLeft / life));
+}
+
+/** "Bogotá D.C." from "FieldPilot Bogotá D.C. warehouse": the place a shopper knows. */
+export function warehouseCity(name: string): string {
+  return name.replace(/^FieldPilot\s+/i, "").replace(/\s+warehouse$/i, "");
+}
+
+/**
+ * The model sometimes copies a recommendation reason code into its answer ("DEAL_FOR_YOU Tomato").
+ * Each known code becomes its words; the backend is the real fix, this is the safety net.
+ */
+export function withoutReasonCodes(text: string, labels: Readonly<Record<string, string>>): string {
+  return text.replace(/\b([A-Z]+(?:_[A-Z]+)+)\b(\s+first)?(:?)\s*/g, (whole, code: string, first?: string, colon?: string) => {
+    const label = labels[code];
+    if (label === undefined) return whole;
+    // "DEAL_FOR_YOU first:" is the prompt's ordering showing through: it says nothing to a shopper.
+    if (first !== undefined) return "";
+    return colon === ":" ? `${label}: ` : `${label} · `;
+  });
+}
+
+/** What an expired listing threw away: what the warehouse received, less what was sold (D086). */
+export function writtenOffKg(listing: {
+  quantity_kg: number;
+  sold_kg?: number;
+  shipment: { received_kg: number | null } | null;
+}): number {
+  const received = listing.shipment?.received_kg ?? listing.quantity_kg;
+  return Math.max(0, received - (listing.sold_kg ?? 0));
+}
+
 export function addressProblem(address: string): "missing" | null {
   return address.trim().length < 6 ? "missing" : null;
 }

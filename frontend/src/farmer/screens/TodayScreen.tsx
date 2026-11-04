@@ -9,7 +9,8 @@ import { MoistureDrop } from "../components/MoistureDrop";
 import { NeedsYouCard } from "../components/NeedsYouCard";
 import { RainLevelIcon } from "../components/RainLevelIcon";
 import { RecentUpdates } from "../components/RecentUpdates";
-import { SalesCard } from "../components/SalesCard";
+import { SalesSummary } from "../components/SalesCard";
+import { useSales } from "../hooks/useSales";
 import { SettingsLink } from "../components/SettingsLink";
 import { Sheet } from "../components/Sheet";
 import { StatusTile } from "../components/StatusTile";
@@ -131,6 +132,23 @@ function StatusCard({ view }: { view: TodayView }) {
           label={view.plants.label}
         />
       </div>
+      {view.otherZones.length === 0 ? null : (
+        <div className="flex flex-col gap-1.5">
+          <span className="px-0.5 text-caption font-extrabold">{en.today.otherZones}</span>
+          {view.otherZones.map((other) => (
+            <a
+              key={other.href}
+              href={other.href}
+              className="press flex min-h-14 items-center gap-3 rounded-tile bg-surface px-3.5 text-ink no-underline"
+            >
+              <span className="flex-1 text-body font-extrabold">{other.name}</span>
+              <span className="text-body font-extrabold">{other.display}</span>
+              <Chip tone={LEVEL_CHIP[other.level]}>{other.status}</Chip>
+              <Icon name="forward" size={20} strokeWidth={2.5} className="text-ink-3" />
+            </a>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -269,6 +287,7 @@ interface TodayScreenProps {
 export function TodayScreen({ view, age, planted, onPlantedSeen, savedAnswers, onHarvested, plotId }: TodayScreenProps) {
   const [wordsOpen, setWordsOpen] = useState(false);
   const [harvesting, setHarvesting] = useState(false);
+  const sales = useSales(plotId);
   const harvest = view.harvest;
   const decisionSaved = view.decision !== null && savedAnswers.includes(view.decision.taskId);
   return (
@@ -282,9 +301,17 @@ export function TodayScreen({ view, age, planted, onPlantedSeen, savedAnswers, o
       ) : null}
       <StatusCard view={view} />
       <WeekStrip week={view.week} />
-      {harvest?.kind === "record" ? <HarvestCard harvest={harvest} onOpen={() => setHarvesting(true)} /> : null}
-      <SalesCard plotId={plotId} />
+      {/* A harvest waiting to be sold is a job for the farmer: above the updates. */}
+      {sales.ready.length > 0 ? <SalesSummary sales={sales} /> : null}
       <RecentUpdates items={view.recent} />
+      {/* After the updates: recording the harvest and selling it, the one flow they start. */}
+      {harvest?.kind !== "record" && sales.ready.length > 0 ? null : (
+        <section className="flex flex-col gap-2.5">
+          <h2 className="min-h-8 px-0.5 text-lead font-bold">{en.sales.selling}</h2>
+          {harvest?.kind === "record" ? <HarvestCard harvest={harvest} onOpen={() => setHarvesting(true)} /> : null}
+          {sales.ready.length > 0 ? null : <SalesSummary sales={sales} />}
+        </section>
+      )}
       <button
         type="button"
         onClick={() => setWordsOpen(true)}

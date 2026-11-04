@@ -45,7 +45,13 @@ function sensorText(snapshot: FarmSnapshot): string {
 }
 
 /** `at` shows the zone as it was then, as a report opens it; without it, the zone now. */
-export function zoneView(snapshot: FarmSnapshot, zoneId: number, at?: string): ZoneView | null {
+export function zoneView(farm: FarmSnapshot, zoneId: number, at?: string): ZoneView | null {
+  // Any zone of the plot, seen as the farm would be if it led with that zone.
+  const entry = farm.zones.find((candidate) => candidate.zone.id === zoneId);
+  const snapshot =
+    entry === undefined || entry.zone.id === farm.zone?.id
+      ? farm
+      : { ...farm, zone: entry.zone, readings: entry.readings };
   const zone = snapshot.zone;
   if (zone === null || zone.id !== zoneId) return null;
   // A moment still to come is now.

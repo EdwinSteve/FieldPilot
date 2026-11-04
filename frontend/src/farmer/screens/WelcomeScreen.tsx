@@ -1,6 +1,7 @@
-import logo from "../assets/logo.webp";
+import icon from "../assets/icon-180.png";
 import { Icon } from "../components/Icon";
 import { IconCircle } from "../components/IconCircle";
+import { Wordmark } from "../components/Wordmark";
 import { en } from "../i18n/en";
 
 /**
@@ -10,7 +11,11 @@ import { en } from "../i18n/en";
 export function WelcomeScreen({ startHref }: { startHref: string }) {
   return (
     <main className="flex h-full flex-col items-center gap-6 bg-ground-welcome px-6 pt-14 pb-10">
-      <img src={logo} alt={en.welcome.logoAlt} className="h-auto w-75 animate-logo-in" />
+      {/* The app's picture and its lettering, which follows dark mode: no light box around the logo. */}
+      <div className="flex animate-logo-in flex-col items-center gap-4">
+        <img src={icon} alt="" width={180} height={180} className="size-45 rounded-[40px] shadow-[0_12px_30px_rgb(21_39_40/0.18)]" />
+        <Wordmark size="welcome" />
+      </div>
       <p className="animate-rise text-center text-key leading-normal font-semibold text-ink-2 [animation-delay:450ms]">
         {en.welcome.tagline[0]}
         <br />

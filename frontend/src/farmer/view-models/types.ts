@@ -26,7 +26,18 @@ export interface WeekDay {
   saidNo: boolean;
 }
 
+/** Another zone of the plot, as one line under the status card (D089). */
+export interface OtherZone {
+  name: string;
+  status: string;
+  level: Level;
+  display: string;
+  href: string;
+}
+
 export interface TodayView {
+  /** The plot's other zones, besides the one the card leads with; empty for one zone. */
+  otherZones: OtherZone[];
   dateLine: string;
   greeting: string;
   farmLine: string;

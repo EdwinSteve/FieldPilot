@@ -5,6 +5,7 @@ import { useCallback } from "react";
 import { useResource, type Resource } from "../../hooks/useResource";
 import { lifecycle } from "../api/lifecycle";
 import type { Imagery, SensorReadings } from "../../types/api";
+import { neediestZone } from "../lib/zones";
 import type { FarmSnapshot } from "../view-models/snapshot";
 
 const SOIL_MOISTURE = "soil_moisture";
@@ -83,7 +84,6 @@ async function loadFarm(plotId: number): Promise<FarmSnapshot | null> {
     events("notification"),
     events("revert"),
   ]);
-  const zone = zones[0] ?? null;
   // Tasks, cycles, reports and the log are still one list for the whole deployment
   // (D082): keep this plot's, so a farmer never sees another farm's work.
   const ours = new Set(cycles.filter((c) => c.plot_id === plot.id).map((c) => c.id));
@@ -95,16 +95,19 @@ async function loadFarm(plotId: number): Promise<FarmSnapshot | null> {
   const taskIds = new Set(ourTasks.map((task) => task.id));
   const onOurs = <T extends { task_id: number | null }>(items: T[]) =>
     items.filter((item) => item.task_id === null || taskIds.has(item.task_id));
-  const [sensors, crop] = await Promise.all([
-    zone === null ? [] : api.readings(zone.id, READINGS),
+  // Every zone's soil: a plot can have several, and the screens lead with the neediest.
+  const [perZone, crop] = await Promise.all([
+    Promise.all(zones.map(async (z) => ({ zone: z, readings: soilReadings(await api.readings(z.id, READINGS)) }))),
     cycle === null ? null : api.crop(cycle.crop).catch(noStages),
   ]);
+  const lead = neediestZone(perZone);
   return {
     chatLive: !health.mock_llm,
     plot,
     clock,
-    zone,
-    readings: soilReadings(sensors),
+    zone: lead?.zone ?? null,
+    readings: lead?.readings ?? [],
+    zones: perZone,
     cycle,
     stageOrder: crop?.stages.map((stage) => stage.name) ?? [],
     maturityGdd: crop?.maturity_gdd ?? null,

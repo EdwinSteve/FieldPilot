@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { useResource } from "../../hooks/useResource";
 import { lifecycle, type Lot } from "../api/lifecycle";
 import { market, type Listing } from "../api/market";
+import { bySelling } from "../lib/listing";
 
 export interface Sales {
   /** Harvests not on sale yet, newest first. */
@@ -31,7 +32,7 @@ export function useSales(plotId: number): Sales {
   const onSale = new Set(listings.filter((listing) => listing.status !== "withdrawn").map((l) => l.lot_code));
   return {
     ready: lots.filter((lot) => !onSale.has(lot.code)).toSorted((a, b) => b.harvested_on.localeCompare(a.harvested_on)),
-    listings: listings.filter((listing) => listing.status !== "withdrawn").toSorted((a, b) => b.id - a.id),
+    listings: listings.filter((listing) => listing.status !== "withdrawn").toSorted(bySelling),
     loading: resource.loading && resource.data === null,
     failed: resource.error !== null && resource.data === null,
     reload: () => setVersion((v) => v + 1),

@@ -59,6 +59,8 @@ function toSnapshot(raw: unknown): FarmSnapshot {
     clock: capture.clock,
     zone: capture.zones[0] ?? null,
     readings: capture.readings[0]?.readings ?? [],
+    // The captures are of the seed farm: one zone.
+    zones: capture.zones[0] === undefined ? [] : [{ zone: capture.zones[0], readings: capture.readings[0]?.readings ?? [] }],
     cycle: capture.cycles[0] ?? null,
     // The captures predate GET /crops (D077); maize is the crop they hold.
     stageOrder: MAIZE_STAGES,

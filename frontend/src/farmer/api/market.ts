@@ -38,6 +38,11 @@ export interface Listing {
   sold_kg: number;
   payouts_cop: number;
   shipment: Shipment | null;
+  /** The harvest day plus the crop's shelf life (D086). */
+  best_before?: string;
+  days_left?: number;
+  /** The automatic markdown as the best-before day nears; null while there is none. */
+  clearance?: { discount_pct: number; ends_on: string } | null;
 }
 
 export interface NewListing {

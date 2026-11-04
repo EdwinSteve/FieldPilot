@@ -71,9 +71,9 @@ export function offerProblem(discountText: string, farmerPrice: number): OfferPr
   return farmerPrice < lowestPrice(discount) ? "too_low" : null;
 }
 
-export type ListingStatus = "awaiting_delivery" | "in_transit" | "active" | "sold_out" | "withdrawn";
+export type ListingStatus = "awaiting_delivery" | "in_transit" | "active" | "sold_out" | "withdrawn" | "expired";
 
-/** The steps a sale goes through, for the step bar. Withdrawn is off the path. */
+/** The steps a sale goes through, for the step bar. Withdrawn and expired are off the path. */
 export const SALE_STEPS = ["listed", "on_the_way", "in_warehouse", "sold_out"] as const;
 export type SaleStep = (typeof SALE_STEPS)[number];
 
@@ -83,7 +83,23 @@ const STEP_OF: Record<ListingStatus, number> = {
   active: 2,
   sold_out: 3,
   withdrawn: -1,
+  // Past its best-before day: what was left was written off (D086).
+  expired: -1,
 };
+
+/**
+ * On the shelf but past its best-before day: the backend expires it only when told (D086),
+ * so the farmer is told now. `daysLeft` below zero means the day has passed.
+ */
+export function isOverdue(listing: { status: ListingStatus; days_left?: number }): boolean {
+  return listing.status === "active" && listing.days_left !== undefined && listing.days_left < 0;
+}
+
+/** What is still selling first, newest first; what is past its day or expired after it. */
+export function bySelling<T extends { id: number; status: ListingStatus; days_left?: number }>(a: T, b: T): number {
+  const over = (listing: T) => (isOverdue(listing) || listing.status === "expired" ? 1 : 0);
+  return over(a) - over(b) || b.id - a.id;
+}
 
 export function saleStep(status: ListingStatus): number {
   return STEP_OF[status];

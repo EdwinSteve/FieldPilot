@@ -6,6 +6,8 @@ import {
   lowestPrice,
   offerProblem,
   plusDaysIso,
+  bySelling,
+  isOverdue,
   saleStep,
   shelfPrice,
   typedWhole,
@@ -64,13 +66,33 @@ describe("offerProblem", () => {
   });
 });
 
+describe("a listing past its best-before day", () => {
+  it("is overdue while still on the shelf, not before its day nor once expired", () => {
+    expect(isOverdue({ status: "active", days_left: -5 })).toBe(true);
+    expect(isOverdue({ status: "active", days_left: 0 })).toBe(false);
+    expect(isOverdue({ status: "active" })).toBe(false);
+    expect(isOverdue({ status: "expired", days_left: -5 })).toBe(false);
+  });
+
+  it("goes after what is still selling", () => {
+    const listings = [
+      { id: 3, status: "active" as const, days_left: -5 },
+      { id: 2, status: "active" as const, days_left: 9 },
+      { id: 1, status: "expired" as const },
+      { id: 4, status: "in_transit" as const },
+    ];
+    expect(listings.toSorted(bySelling).map((listing) => listing.id)).toEqual([4, 2, 3, 1]);
+  });
+});
+
 describe("saleStep", () => {
-  it("puts each status on the step bar, withdrawn off it", () => {
+  it("puts each status on the step bar, withdrawn and expired off it", () => {
     expect(saleStep("awaiting_delivery")).toBe(0);
     expect(saleStep("in_transit")).toBe(1);
     expect(saleStep("active")).toBe(2);
     expect(saleStep("sold_out")).toBe(3);
     expect(saleStep("withdrawn")).toBe(-1);
+    expect(saleStep("expired")).toBe(-1);
   });
 });
 

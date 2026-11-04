@@ -2,7 +2,8 @@
 import type { FarmSnapshot } from "../view-models/snapshot";
 
 /** Raise this whenever `FarmSnapshot` changes: an older save would miss fields. */
-const VERSION = 5;
+// 6: the snapshot holds every zone (D089); an older copy has only one.
+const VERSION = 6;
 
 export interface CachedFarm {
   snapshot: FarmSnapshot;

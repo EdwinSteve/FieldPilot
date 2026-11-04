@@ -480,6 +480,7 @@ export const en = {
     start: "Start",
   },
   today: {
+    otherZones: "Your other zones",
     stop: "Stop",
     noSensors: "No soil sensors on this farm yet",
     noSensorsDetail: "I follow the crop and the weather. Soil readings start once sensors are in.",
@@ -665,7 +666,7 @@ export const en = {
   field: {
     title: "Field from above",
     caption: (date: string, synthetic: boolean) =>
-      synthetic ? `Satellite photo · ${date} · demo image` : `Satellite photo · ${date}`,
+      synthetic ? `Simulated satellite image · ${date}` : `Satellite photo · ${date}`,
     spotsLegend: "Circles show the bare spots",
     askAboutThis: "Ask about this",
     questionWeak: (zone: string) => `Why do the plants in ${zone} look weak, and what can I do?`,
@@ -752,6 +753,8 @@ export const en = {
   },
   plan: {
     title: "Plan",
+    nextSowing: "Plan your next sowing",
+    nextSowingDetail: "What to plant after this crop, and the best weeks to sow it.",
     nothingPlanned: "Nothing planned",
     plannedBy: "Planned by",
     undo: "Undo",
@@ -841,6 +844,8 @@ export const en = {
       withdrawn: (crop: string) => `${crop} taken off sale. It's yours to keep or sell again.`,
       offer: (pct: number, until: string) => `${pct}% off until ${until}. Shoppers see it now.`,
     },
+    /** The heading of the sales section on Today, apart from the farm's updates. */
+    selling: "Harvest and sales",
     card: {
       title: "Your sales",
       ready: (count: number) => (count === 1 ? "1 harvest ready to sell" : `${count} harvests ready to sell`),
@@ -859,13 +864,14 @@ export const en = {
     steps: {
       listed: "On sale",
       on_the_way: "On the way",
-      in_warehouse: "In the warehouse",
+      in_warehouse: "Warehouse",
       sold_out: "Sold out",
     } satisfies Record<SaleStep, string>,
     stepOf: (step: number, total: number) => `Step ${step} of ${total}`,
     inStock: "In stock",
     sold: "Sold",
     earned: "Earned",
+    soldOf: (sold: string, total: string) => `${sold} / ${total} kg sold`,
     youKeep: (pct: string) => `You keep ${pct}%`,
     shoppersPay: (price: string) => `Shoppers pay ${price} per kg`,
     nextAwaiting: (warehouse: string) => `Take it to the ${warehouse}. Shoppers can buy it once it arrives.`,
@@ -874,10 +880,18 @@ export const en = {
     lostOnTheWay: (kg: string) => `${kg} kg lost on the way.`,
     soldOut: "All sold. Well done.",
     withdrawn: "Taken off sale.",
+    expired: "Past its best-before day. What was left was written off.",
+    overdue: (date: string) => `Past its best-before day (${date}). It can't be sold any more. The warehouse writes off what is left.`,
+    lotLine: (code: string) => `Lot ${code}`,
+    bestBefore: (date: string, days: number | null) =>
+      days === null ? `Best before ${date}` : `Best before ${date} · ${days === 1 ? "1 day" : `${days} days`} left`,
+    clearance: (pct: number, until: string) =>
+      `Marked down ${pct}% automatically until ${until}, as the best-before day is near. You still keep 80% or more.`,
     dispatch: "I’ve taken it to the warehouse",
     withdraw: "Take it off sale",
     offer: "Offer of the day",
     journey: "Where your harvest went",
+    lot: (code: string) => `Lot ${code}`,
     form: {
       title: (crop: string) => `Sell your ${crop}`,
       harvested: (kg: string, grade: string) => `${kg} kg harvested · ${grade}`,

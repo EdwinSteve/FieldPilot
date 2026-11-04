@@ -4,6 +4,7 @@ import { useResource } from "../../hooks/useResource";
 import { BigButton, BigLink } from "../../farmer/components/BigButton";
 import { CropArt } from "../../farmer/components/CropArt";
 import { TextField } from "../../farmer/components/TextField";
+import { formatCalendarDate } from "../../farmer/lib/farmTime";
 import { kgText } from "../../farmer/lib/harvest";
 import { typedWhole } from "../../farmer/lib/listing";
 import { cropLabel } from "../../farmer/lib/names";
@@ -11,6 +12,7 @@ import { store, type IncomingListing } from "../api/store";
 import { Empty, Notice } from "../components";
 import { en } from "../i18n/en";
 import { hrefOf } from "../lib/route";
+import { writtenOffKg } from "../lib/shop";
 import { canRunWarehouse } from "../lib/storedUser";
 import { useUser } from "../state";
 
@@ -97,6 +99,77 @@ function Incoming({ listing, onDone }: { listing: IncomingListing; onDone: () =>
   );
 }
 
+/** Clears what has gone past its best-before day, as the backend does only when asked (D086). */
+function WriteOff({ onDone, expired }: { onDone: () => void; expired: IncomingListing[] | null }) {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const run = async () => {
+    setBusy(true);
+    setResult(null);
+    try {
+      const gone = await store.expire();
+      setResult({
+        ok: true,
+        text:
+          gone.length === 0
+            ? en.warehouse.nothingToWriteOff
+            : en.warehouse.wroteOff(gone.map((listing) => `${cropLabel(listing.crop)} (${listing.lot_code})`).join(", ")),
+      });
+      onDone();
+    } catch {
+      setResult({ ok: false, text: en.warehouse.writeOffFailed });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="flex flex-col gap-3 rounded-card bg-surface p-5">
+      <h2 className="text-lead font-extrabold">{en.warehouse.pastDate}</h2>
+      <p className="text-small text-ink-2">{en.warehouse.pastDateLead}</p>
+      {result === null ? null : <Notice tone={result.ok ? "good" : "needs"} text={result.text} />}
+      <BigButton variant="outline" size="compact" disabled={busy} onClick={() => void run()}>
+        {busy ? en.warehouse.writingOff : en.warehouse.writeOff}
+      </BigButton>
+      {expired === null ? null : <WrittenOff expired={expired} />}
+    </section>
+  );
+}
+
+/** What has been written off, newest first: the waste, and what was sold before it. */
+function WrittenOff({ expired }: { expired: IncomingListing[] }) {
+  return (
+    <div className="flex flex-col gap-2 border-t border-divider pt-3">
+      <h3 className="text-body font-extrabold">{en.warehouse.writtenOffTitle}</h3>
+      {expired.length === 0 ? (
+        <p className="text-small text-ink-2">{en.warehouse.writtenOffNone}</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {expired.map((listing) => (
+            <li key={listing.id} className="flex items-center gap-3 rounded-tile bg-ground p-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-tile bg-surface">
+                <CropArt crop={listing.crop} size={30} />
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="text-body font-extrabold">{cropLabel(listing.crop)}</span>
+                <span className="truncate font-mono text-caption text-ink-3">{listing.lot_code}</span>
+                {listing.best_before === undefined ? null : (
+                  <span className="text-caption text-ink-2">{en.warehouse.passedDay(formatCalendarDate(listing.best_before))}</span>
+                )}
+              </span>
+              <span className="flex shrink-0 flex-col items-end">
+                <span className="text-small font-extrabold text-bad-text">{en.warehouse.writtenOffKg(kgText(writtenOffKg(listing)))}</span>
+                {(listing.sold_kg ?? 0) > 0 ? (
+                  <span className="text-caption text-ink-2">{en.warehouse.soldBefore(kgText(listing.sold_kg ?? 0))}</span>
+                ) : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function HandOver() {
   const [number, setNumber] = useState("");
   const [busy, setBusy] = useState(false);
@@ -176,7 +249,14 @@ export function WarehousePage() {
             </div>
           )}
         </section>
-        <HandOver />
+        <div className="flex flex-col gap-6">
+          <HandOver />
+          <WriteOff
+            onDone={() => setVersion((v) => v + 1)}
+            // The list needs every listing, which only an administrator reads.
+            expired={admin ? (listings.data ?? []).filter((listing) => listing.status === "expired").toSorted((a, b) => b.id - a.id) : null}
+          />
+        </div>
       </div>
     </div>
   );

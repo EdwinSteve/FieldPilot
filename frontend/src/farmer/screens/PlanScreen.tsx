@@ -8,6 +8,7 @@ import { Icon, PlantIcon } from "../components/Icon";
 import { TaskRow } from "../components/TaskRow";
 import { TaskSheet } from "../components/TaskSheet";
 import { en } from "../i18n/en";
+import { hrefOf } from "../lib/route";
 import type { PlanDay, PlanTask, PlanView } from "../view-models/types";
 
 const STEP_COLOURS: Record<StageState, string> = {
@@ -142,6 +143,18 @@ export function PlanScreen({ view, onUndo, onHarvested }: PlanScreenProps) {
             ref={day.today ? today : undefined}
           />
         ))}
+        {/* After this crop: what to sow next, from the planner, read-only while this one grows. */}
+        <a
+          href={hrefOf({ screen: "advice" })}
+          className="press flex min-h-16 shrink-0 items-center gap-3 rounded-card bg-surface px-4.5 py-3 text-ink no-underline"
+        >
+          <PlantIcon size={28} />
+          <span className="flex flex-1 flex-col">
+            <span className="text-body font-extrabold">{en.plan.nextSowing}</span>
+            <span className="text-small text-ink-2">{en.plan.nextSowingDetail}</span>
+          </span>
+          <Icon name="forward" size={22} strokeWidth={2.5} className="text-ink-3" />
+        </a>
       </main>
       {selected ? (
         <TaskSheet task={selected} undoing={undoing} onClose={() => setSelected(null)} onUndo={undo} />

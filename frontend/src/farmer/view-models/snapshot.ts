@@ -15,6 +15,7 @@ import type {
 import type { PlanAtSowing } from "../api/lifecycle";
 import { en } from "../i18n/en";
 import { zoneLabel } from "../lib/names";
+import type { ZoneSoil } from "../lib/zones";
 import { roundReading, soilStatus } from "../lib/soilStatus";
 import { plotToday } from "../lib/sowingDate";
 import { soilLevel, type Level } from "../lib/statusLevel";
@@ -24,10 +25,12 @@ export interface FarmSnapshot {
   chatLive: boolean;
   plot: Plot;
   clock: Clock;
-  /** The demo farm has one zone; the screens follow the first. */
+  /** The zone the screens lead with: the one that needs the farmer most (lib/zones). */
   zone: Zone | null;
-  /** Soil moisture, oldest first. */
+  /** Its soil moisture, oldest first. */
   readings: Reading[];
+  /** Every zone of the plot with its readings, in the backend's order; a new demo plot has two (D089). */
+  zones: ZoneSoil[];
   cycle: Cycle | null;
   /** The cycle's crop stages in order, from its catalogue entry (D077); empty without a cycle. */
   stageOrder: string[];

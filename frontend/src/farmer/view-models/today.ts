@@ -11,7 +11,7 @@ import {
 import { forecastOfDay } from "../lib/forecast";
 import { harvestTiming } from "../lib/harvestTime";
 import { activeRun } from "../lib/irrigationRun";
-import { cropLabel, farmLabel } from "../lib/names";
+import { cropLabel, farmLabel, zoneLabel } from "../lib/names";
 import { hrefOf } from "../lib/route";
 import { rainLevel } from "../lib/rainLevel";
 import { soilTrend } from "../lib/soilTrend";
@@ -31,7 +31,7 @@ import {
   zoneName,
   type FarmSnapshot,
 } from "./snapshot";
-import type { DecisionLink, TodayView, UpdateItem, WeekDay } from "./types";
+import type { DecisionLink, OtherZone, TodayView, UpdateItem, WeekDay } from "./types";
 import { updatesView } from "./updates";
 
 const MONDAY_INDEX = 1;
@@ -183,6 +183,22 @@ function harvestPrompt(snapshot: FarmSnapshot): TodayHarvest | null {
   return null;
 }
 
+/** The zones the card does not lead with, each with its soil now and a way in. */
+function otherZones(snapshot: FarmSnapshot): OtherZone[] {
+  return snapshot.zones
+    .filter((entry) => entry.zone.id !== snapshot.zone?.id)
+    .map((entry) => {
+      const soil = soilAt({ ...snapshot, zone: entry.zone, readings: entry.readings });
+      return {
+        name: zoneLabel(entry.zone.name),
+        status: soil === null ? en.soil.unknown : soilStatusLabel(soil),
+        level: soil === null ? "neutral" : soilLevelOf(soil),
+        display: soil === null ? en.soil.unknown : `${soil.value}%`,
+        href: hrefOf({ screen: "zone", zoneId: entry.zone.id }),
+      };
+    });
+}
+
 export function todayView(snapshot: FarmSnapshot): TodayView {
   const offset = plotOffset(snapshot);
   const zone = zoneName(snapshot);
@@ -194,6 +210,7 @@ export function todayView(snapshot: FarmSnapshot): TodayView {
   const plants = plantsLevel(imaging === undefined ? null : imaging.low_vigor);
   const status = worstLevel([soilTileLevel, plants]);
   return {
+    otherZones: otherZones(snapshot),
     dateLine: formatDateLine(snapshot.clock.now, offset),
     greeting: greeting(snapshot),
     farmLine: farmLine(snapshot),

@@ -17,17 +17,22 @@ export interface Product {
   crop_name: string;
   unit: "kg";
   price: Price;
-  offer: { discount_pct: number; ends_on: string } | null;
+  /** The deepest discount: the farmer's offer, or the clearance as the best-before day nears (D086). */
+  offer: { source?: OfferSource; discount_pct: number; ends_on: string } | null;
   available_kg: number;
   harvested_on: string;
   best_before: string;
+  /** Days until the best-before day: the reason for a clearance price. */
+  days_left?: number;
   producer: string;
   warehouse: string;
   lot_code: string;
   passport_path: string;
 }
 
-export type CartProblem = "out_of_stock" | "not_available";
+export type OfferSource = "offer" | "clearance";
+
+export type CartProblem = "out_of_stock" | "not_available" | "expired";
 
 export interface CartLine {
   listing_id: number;
@@ -76,13 +81,31 @@ export interface Profile {
   consent_profiling_at: string | null;
 }
 
-export type Reason = "REPURCHASE_DUE" | "BOUGHT_TOGETHER" | "FRESH_HARVEST" | "ON_OFFER" | "POPULAR";
+export type Reason =
+  | "REPURCHASE_DUE"
+  | "BOUGHT_TOGETHER"
+  | "DEAL_FOR_YOU"
+  | "FRESH_HARVEST"
+  | "ON_OFFER"
+  | "POPULAR";
 
 export interface Recommendation {
   product: Product;
   score: number;
   reasons: Reason[];
   suggested_kg?: number;
+}
+
+/** One button of the cart's suggestion (D087): its label comes from the backend, in APP_LANGUAGE. */
+export type SuggestionAction =
+  | { kind: "add_to_cart"; label: string; listing_id: number; quantity_kg: number }
+  | { kind: "better_deal"; label: string; exclude: number[] };
+
+/** The assistant in the cart: one suggestion at a time, no model needed (docs/api.md §9.6). */
+export interface CartSuggestion {
+  message: string;
+  recommendation: Recommendation | null;
+  actions: SuggestionAction[];
 }
 
 export interface Proposal {
@@ -97,6 +120,8 @@ export interface AssistantAnswer {
   answer: string | null;
   proposal: Proposal | null;
   run_id: string;
+  /** "out_of_scope" when the question was off the store's subject (D088): the answer is then a fixed text. */
+  topic?: string | null;
 }
 
 export type JourneyStep = "commissioning" | "shipping" | "receiving" | "retail_selling";
@@ -141,6 +166,9 @@ export interface IncomingListing {
   quantity_kg: number;
   warehouse: { name: string };
   shipment: { id: number; status: string; dispatched_kg: number; received_kg: number | null } | null;
+  sold_kg?: number;
+  stock_kg?: number;
+  best_before?: string;
 }
 
 /** PUT with the same login renewal and error shape as the shared client, which has no PUT. */
@@ -181,6 +209,14 @@ export const store = {
   orders: () => signed(() => getJson<Order[]>("/store/orders")),
   order: (id: number) => signed(() => getJson<Order>(`/store/orders/${id}`)),
   cancel: (id: number) => signed(() => postJson<Order>(`/store/orders/${id}/cancel`)),
+  suggestion: (betterDeal?: readonly number[]) =>
+    signed(() =>
+      getJson<CartSuggestion>(
+        betterDeal === undefined
+          ? "/store/cart/suggestion"
+          : `/store/cart/suggestion?prefer=deal&exclude=${betterDeal.join(",")}`,
+      ),
+    ),
   recommendations: (k = 6) => signed(() => getJson<Recommendation[]>(`/store/recommendations?k=${k}`)),
   ask: (question: string) => signed(() => postJson<AssistantAnswer>("/store/assistant", { question })),
   accept: (proposalId: number) => signed(() => postJson<Cart>(`/store/cart-proposals/${proposalId}/accept`)),
@@ -190,4 +226,6 @@ export const store = {
   receive: (shipmentId: number, receivedKg: number, temperatureC: number | null) =>
     signed(() => postJson<unknown>(`/shipments/${shipmentId}/receive`, { received_kg: receivedKg, temperature_c: temperatureC })),
   deliver: (orderId: number) => signed(() => postJson<Order>(`/orders/${orderId}/deliver`)),
+  /** Takes off sale what is past its best-before day and writes the rest off (D086). */
+  expire: () => signed(() => postJson<IncomingListing[]>("/listings/expire")),
 };

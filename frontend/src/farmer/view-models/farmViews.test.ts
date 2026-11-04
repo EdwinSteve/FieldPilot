@@ -16,6 +16,27 @@ const ZONE_ID = 1;
 const HELD_TASK = 1;
 const EXTRA_TASK = 3;
 
+describe("a plot with two zones (D089)", () => {
+  const lead = demo.day2Cycle;
+  const moist = {
+    zone: { id: 99, plot_id: lead.plot.id, name: "Zona 1", area_ha: 0.5, field_capacity_pct: 32 },
+    readings: [{ value: 27, recorded_at: lead.clock.now }],
+  };
+  const farm: FarmSnapshot = { ...lead, zones: [...lead.zones, moist] };
+
+  it("lists the other zone under the status card, with its soil and a way in", () => {
+    expect(todayView(farm).otherZones).toEqual([
+      { name: "Zone 1", status: "OK", level: "good", display: "27%", href: "#/zone/99" },
+    ]);
+    expect(todayView(lead).otherZones).toEqual([]);
+  });
+
+  it("opens the other zone with its own soil", () => {
+    expect(zoneView(farm, 99)?.display).toBe("27%");
+    expect(zoneView(farm, 99)?.name).toBe("Zone 1");
+  });
+});
+
 describe("todayView", () => {
   it("on a farm set up in the app, with no zone yet, says there are no sensors", () => {
     const view = todayView({ ...demo.seed, zone: null, readings: [] });
@@ -373,12 +394,12 @@ describe("updatesView", () => {
 });
 
 describe("fieldView", () => {
-  it("states what the satellite found, marked as a demo image", () => {
+  it("states what the satellite found, marked as a simulated image", () => {
     const view = fieldView(demo.day1Held);
     expect(view?.headline).toBe("Plants in Zone 2 look weak");
     expect(view?.detail).toBe("I found 3 bare spots.");
     expect(view?.barePct).toBe("25%");
-    expect(view?.caption).toBe("Satellite photo · 28 Oct · demo image");
+    expect(view?.caption).toBe("Simulated satellite image · 28 Oct");
     expect(view?.spots).toHaveLength(3);
   });
 
