@@ -55,14 +55,17 @@ def test_the_two_day_demo_replays_offline(tmp_path: Path, language: Literal["en"
     client, plot_id = _demo(tmp_path, language)
     expected = EXPECTED[language]
 
-    # Day 1, 2 Nov: 12 mm of rain coming; the gate holds the irrigation.
-    _cycle(client, plot_id)
-    [held] = client.get("/tasks", params={"status": "pending_approval"}).json()
-    assert held["action_type"] == "irrigation"
+    # Day 1, 2 Nov: 12 mm of rain coming; the gate holds the irrigation. The agronomist
+    # led the day (D093), and anything else it proposed for approval waits too.
+    day1 = _cycle(client, plot_id)
+    assert day1["runs"][-1]["subagent"] == "agronomist"
+    pending = client.get("/tasks", params={"status": "pending_approval"}).json()
+    [held] = [t for t in pending if t["action_type"] == "irrigation"]
     assert expected["held"] in held["reason"]
     assert "lluvia prevista" in held["reason_es"]  # the Spanish field stays Spanish
-    rejected = client.post(f"/tasks/{held['id']}/reject", json={"reason": REJECT_REASON})
-    assert rejected.json()["status"] == "rejected"
+    for task in pending:  # "Reject" on every held task, as make record-demo did
+        rejected = client.post(f"/tasks/{task['id']}/reject", json={"reason": REJECT_REASON})
+        assert rejected.json()["status"] == "rejected"
 
     # Between days: "Inject drought (48 h)", then "+1 day" (advance and tick).
     now = datetime.fromisoformat(client.get("/clock").json()["now"])
