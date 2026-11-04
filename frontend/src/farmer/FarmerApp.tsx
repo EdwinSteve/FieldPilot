@@ -253,9 +253,13 @@ function signedInContent(
         title={online ? en.state.errorTitle : en.state.offline}
         detail={`${en.state.errorDetail} ${en.state.lastTried(phoneClock(farm.triedAt))}`}
       >
-        <div className="flex w-full max-w-80 flex-col pt-2">
+        <div className="flex w-full max-w-80 flex-col gap-3 pt-2">
           <BigButton variant="primary" onClick={farm.reload}>
             {en.state.retry}
+          </BigButton>
+          {/* A login saved on this phone can keep the farm from ever loading: a way out to the log-in. */}
+          <BigButton variant="outline" onClick={() => void session.logOut()}>
+            {en.state.signInAgain}
           </BigButton>
         </div>
       </StateView>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { lifecycle } from "../api/lifecycle";
-import { readHarvestDefaults } from "../hooks/harvestDefaultsStore";
+import { readHarvestDefaults, saveHarvestDefaults } from "../hooks/harvestDefaultsStore";
 import { en } from "../i18n/en";
 import {
   BAG_PRESETS,
@@ -16,7 +16,7 @@ import {
   type HarvestFailure,
   type Unit,
 } from "../lib/harvest";
-import { bagChoiceOf, openingUnit } from "../lib/harvestDefaults";
+import { bagChoiceOf, openingUnit, typedBagKg } from "../lib/harvestDefaults";
 import { cropLabel } from "../lib/names";
 import { hrefOf } from "../lib/route";
 import type { HarvestInfo } from "../view-models/types";
@@ -53,7 +53,7 @@ interface HarvestSheetProps {
 /** "I've harvested it": the day, how much in kilos or the farmer's own bags, and the quality. */
 export function HarvestSheet({ info, onClose, onSaved }: HarvestSheetProps) {
   const [date, setDate] = useState(info.today);
-  // Opens on how the farmer said they count a harvest, in Settings.
+  // Opens on how the farmer counted the last harvest saved on this phone.
   const [usual] = useState(() => {
     const defaults = readHarvestDefaults();
     return { unit: openingUnit(defaults.unit), ...bagChoiceOf(defaults.bagKg) };
@@ -86,6 +86,8 @@ export function HarvestSheet({ info, onClose, onSaved }: HarvestSheetProps) {
         quantity_kg: Number(kg.toFixed(1)),
         grade,
       });
+      // The next harvest opens the same way: bags of this size, or kilos.
+      if (unit !== null) saveHarvestDefaults({ unit, bagKg: typedBagKg(bagKg) ?? readHarvestDefaults().bagKg });
       onSaved({ crop: name, kg });
     } catch (caught) {
       setFailure(harvestFailure(caught));

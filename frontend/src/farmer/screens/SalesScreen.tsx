@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "../../api/endpoints";
 import { useResource } from "../../hooks/useResource";
 import type { FarmPlot, Lot } from "../api/lifecycle";
@@ -6,6 +6,7 @@ import type { Listing } from "../api/market";
 import { BackLink } from "../components/BackHeader";
 import { BigButton } from "../components/BigButton";
 import { CropArt } from "../components/CropArt";
+import { DoneBanner } from "../components/DoneBanner";
 import { Icon, type IconName } from "../components/Icon";
 import { DispatchSheet, JourneySheet, OfferSheet, SellSheet, WithdrawSheet } from "../components/SaleSheets";
 import { StateView } from "../components/StateView";
@@ -160,13 +161,22 @@ export function SalesScreen({ plot }: { plot: FarmPlot }) {
   const sales = useSales(plot.id);
   const clock = useResource(loadClock, 0);
   const [sheet, setSheet] = useState<Sheet | null>(null);
+  /** What the last sale step did, said at the top until the farmer does the next thing. */
+  const [said, setSaid] = useState<string | null>(null);
+  const top = useRef<HTMLElement>(null);
+  const open = (next: Sheet) => {
+    setSaid(null);
+    setSheet(next);
+  };
   const today = plotToday(clock.data?.now ?? phoneNow(), plot.utc_offset_hours);
-  const done = () => {
+  const done = (text: string) => {
     setSheet(null);
+    setSaid(text);
     sales.reload();
+    top.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
   return (
-    <main className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-4.5 pt-5 pb-6">
+    <main ref={top} className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-4.5 pt-5 pb-6">
       <header className="flex animate-screen-in items-center gap-3">
         <BackLink />
         <div className="flex flex-col">
@@ -174,6 +184,7 @@ export function SalesScreen({ plot }: { plot: FarmPlot }) {
         </div>
       </header>
       <p className="px-0.5 text-lead leading-snug text-ink-2">{en.sales.lead}</p>
+      {said === null ? null : <DoneBanner key={said} text={said} onClose={() => setSaid(null)} />}
       {sales.loading ? <StateView icon="hourglass" title={en.sales.loading} /> : null}
       {sales.failed ? (
         <StateView icon="warning" title={en.sales.loadFailed}>
@@ -191,7 +202,7 @@ export function SalesScreen({ plot }: { plot: FarmPlot }) {
         <section className="flex flex-col gap-3">
           <h2 className="px-0.5 text-lead font-bold">{en.sales.readyTitle}</h2>
           {sales.ready.map((lot) => (
-            <ReadyCard key={lot.code} lot={lot} onSell={() => setSheet({ kind: "sell", lot })} />
+            <ReadyCard key={lot.code} lot={lot} onSell={() => open({ kind: "sell", lot })} />
           ))}
         </section>
       ) : null}
@@ -199,7 +210,7 @@ export function SalesScreen({ plot }: { plot: FarmPlot }) {
         <section className="flex flex-col gap-3">
           <h2 className="px-0.5 text-lead font-bold">{en.sales.onSaleTitle}</h2>
           {sales.listings.map((listing) => (
-            <ListingCard key={listing.id} listing={listing} onSheet={setSheet} />
+            <ListingCard key={listing.id} listing={listing} onSheet={open} />
           ))}
         </section>
       ) : null}

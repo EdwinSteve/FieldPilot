@@ -20,6 +20,8 @@ describe("sendFailure", () => {
     [new ApiError(422, "UnsupportedAudioError", "m"), "not_heard"],
     [new ApiError(503, "LLMUnavailableError", "m"), "service_busy"],
     [new ApiError(503, "SpeechUnavailableError", "m"), "service_busy"],
+    [new ApiError(409, "MissingDataError", "m"), "needs_automated_crop"],
+    [new ApiError(409, "OpenTasksError", "m"), "unknown"],
     [new ApiError(500, "Oops", "m"), "unknown"],
     [new DOMException("too short", "EncodingError"), "not_heard"],
     [new TypeError("network"), "unknown"],

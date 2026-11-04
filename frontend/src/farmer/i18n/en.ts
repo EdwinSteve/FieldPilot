@@ -9,7 +9,6 @@ import type { KgProblem, OfferProblem, PriceProblem, SaleStep } from "../lib/lis
 import type { MarketFailure } from "../lib/marketFailure";
 import type { TextSize, ThemeChoice } from "../lib/look";
 import type { AmountProblem, DateProblem, Grade, HarvestFailure } from "../lib/harvest";
-import type { UnitDefault } from "../lib/harvestDefaults";
 import type { YieldLevel } from "../lib/plantingPlan";
 import type { SowingDateProblem } from "../lib/sowingDate";
 import type { RainLevel } from "../lib/rainLevel";
@@ -70,6 +69,8 @@ export const en = {
     loading: "Loading your farm…",
     errorTitle: "I can’t reach the farm right now",
     errorDetail: "I will keep trying on my own.",
+    /** On the first load's error screen: a login saved on this phone may be the reason it never loads. */
+    signInAgain: "Sign in again",
     retry: "Try again",
     retrying: "Trying…",
     lastTried: (time: string) => `Last tried at ${time}`,
@@ -574,6 +575,7 @@ export const en = {
     needsLiveModel: "Asking needs the live model. This demo is running on recorded days.",
     gettingMic: "Getting the mic ready…",
     thinking: "Thinking…",
+    stillThinking: "Still working on it. A full answer can take a few minutes.",
     noAnswer: "I could not finish that answer. Please ask again.",
     chipSoil: (value: number, fieldCapacity: number) => `Soil ${value}% · full at ${fieldCapacity}%`,
     chipRain: (mm: number) => `Rain ${mm} mm · 24 h`,
@@ -583,6 +585,8 @@ export const en = {
       not_heard: "I didn’t hear a question. Please try again.",
       needs_live_model: "Asking needs the live model. This demo is running on recorded days.",
       service_busy: "I can’t answer right now. Please try again in a moment.",
+      needs_automated_crop:
+        "I can only answer about a crop FieldPilot looks after. Plant one from What to plant to ask about it.",
       unknown: "That didn’t work. Please try again.",
     } satisfies Record<TalkFailure, string>,
     decisionsWaiting: (count: number) =>
@@ -715,7 +719,10 @@ export const en = {
     nothingPlanned: "Nothing planned",
     plannedBy: "Planned by",
     undo: "Undo",
+    undoing: "Undoing…",
+    undone: (task: string) => `Undone: ${task}. FieldPilot won't do it.`,
     close: "Close",
+    closeMessage: "Close this message",
     answer: "Answer now",
     taskDetails: "Task details",
     dayCount: (day: number) => `Day ${day}`,
@@ -791,6 +798,13 @@ export const en = {
   sales: {
     title: "Your sales",
     lead: "Sell your harvest to shoppers in Bogotá. You set the price.",
+    done: {
+      listed: (kg: string, crop: string, price: string) =>
+        `Listed: ${kg} kg of ${crop.toLowerCase()} at ${price} per kilo. Next, take it to the warehouse.`,
+      dispatched: (warehouse: string) => `On the way to the ${warehouse}. It goes on sale once they weigh it.`,
+      withdrawn: (crop: string) => `${crop} taken off sale. It's yours to keep or sell again.`,
+      offer: (pct: number, until: string) => `${pct}% off until ${until}. Shoppers see it now.`,
+    },
     card: {
       title: "Your sales",
       ready: (count: number) => (count === 1 ? "1 harvest ready to sell" : `${count} harvests ready to sell`),
@@ -975,15 +989,6 @@ export const en = {
       large: "Large",
     } satisfies Record<TextSize, string>,
     textSample: "This is how the words look.",
-    harvest: "Your harvest",
-    harvestLead: "The harvest form opens with these, so you don’t choose them each time.",
-    unit: "You count the harvest in",
-    units: {
-      bags: "Bags",
-      kg: "Kilos",
-      ask: "Ask each time",
-    } satisfies Record<UnitDefault, string>,
-    askHint: "The harvest form will ask bags or kilos each time.",
     privacy: "Privacy",
     agreed: "You agreed to this when you made your account:",
     policyVersion: (version: string) => `Privacy policy of ${version}`,

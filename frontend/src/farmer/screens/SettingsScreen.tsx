@@ -6,23 +6,17 @@ import { BigButton } from "../components/BigButton";
 import { Choices } from "../components/Choices";
 import { Icon, type IconName } from "../components/Icon";
 import { Sheet } from "../components/Sheet";
-import { TextField } from "../components/TextField";
-import { readHarvestDefaults, saveHarvestDefaults } from "../hooks/harvestDefaultsStore";
 import { useLook } from "../hooks/useLook";
 import { en } from "../i18n/en";
 import type { Farmer } from "../lib/account";
 import { hectaresText } from "../lib/farmOutline";
-import { BAG_PRESETS, typedAmount } from "../lib/harvest";
-import { bagChoiceOf, typedBagKg, UNIT_DEFAULTS, type UnitDefault } from "../lib/harvestDefaults";
 import { TEXT_SIZES, THEMES, type ThemeChoice } from "../lib/look";
 import { farmLabel } from "../lib/names";
 import { mobileDisplay } from "../lib/typing";
 
-const OTHER = "other";
 const loadPolicy = () => lifecycle.privacyPolicy();
 
 const THEME_ICONS: Record<ThemeChoice, IconName> = { phone: "phone", light: "sun", dark: "moon" };
-const UNIT_ICONS: Record<UnitDefault, IconName> = { bags: "bag", kg: "scale", ask: "question" };
 
 /** The sign-out buttons: tinted, each in its own colour. */
 const SIGN_OUT =
@@ -145,81 +139,10 @@ function LookSection() {
   );
 }
 
-function HarvestSection() {
-  const [saved] = useState(readHarvestDefaults);
-  const [unit, setUnit] = useState<UnitDefault>(saved.unit);
-  const [bag, setBag] = useState(() => bagChoiceOf(saved.bagKg));
-  const [bagKg, setBagKg] = useState(saved.bagKg);
-
-  const save = (next: { unit?: UnitDefault; bagKg?: number }) =>
-    saveHarvestDefaults({ unit: next.unit ?? unit, bagKg: next.bagKg ?? bagKg });
-
-  return (
-    <Section title={en.settings.harvest} icon="bag" order={2}>
-      <p className="-mt-1 px-0.5 text-small text-ink-2">{en.settings.harvestLead}</p>
-      <Question label={en.settings.unit}>
-        <Choices
-          options={UNIT_DEFAULTS}
-          chosen={unit}
-          label={(option) => en.settings.units[option]}
-          icon={(option) => UNIT_ICONS[option]}
-          onChoose={(option) => {
-            setUnit(option);
-            save({ unit: option });
-          }}
-        />
-        {unit === "ask" ? (
-          <p className="flex animate-card-in items-start gap-1.5 px-0.5 pt-1 text-small text-ink-2">
-            <Icon name="info" size={18} className="mt-0.5 shrink-0 text-ink-3" />
-            {en.settings.askHint}
-          </p>
-        ) : null}
-      </Question>
-      {/* Asked each time, the farmer may still choose bags: their size is kept ready. */}
-      {unit !== "kg" ? (
-        <div className="flex animate-card-in flex-col">
-          <Question label={en.harvest.bagSize}>
-            <Choices
-              options={[...BAG_PRESETS, OTHER] as const}
-              chosen={bag.choice}
-              label={(option) => (option === OTHER ? en.harvest.bagOther : en.harvest.bagPreset(option))}
-              onChoose={(option) => {
-                setBag({ ...bag, choice: option });
-                if (option === OTHER) return;
-                setBagKg(option);
-                save({ bagKg: option });
-              }}
-            />
-            {bag.choice === OTHER ? (
-              <div className="flex animate-card-in flex-col">
-                <TextField
-                  label={en.harvest.bagOtherLabel}
-                  value={bag.other}
-                  onChange={(value) => {
-                    const other = typedAmount(value);
-                    setBag({ ...bag, other });
-                    const kg = typedBagKg(other);
-                    if (kg === null) return;
-                    setBagKg(kg);
-                    save({ bagKg: kg });
-                  }}
-                  problem={null}
-                  inputMode="decimal"
-                  autoComplete="off"
-                />
-              </div>
-            ) : null}
-          </Question>
-        </div>
-      ) : null}
-    </Section>
-  );
-}
-
 function PrivacySection() {
   const policy = useResource(loadPolicy, 0).data;
   return (
-    <Section title={en.settings.privacy} icon="shield" order={3}>
+    <Section title={en.settings.privacy} icon="shield" order={2}>
       <p className="px-0.5 text-body text-ink-2">{en.settings.agreed}</p>
       <blockquote className="m-0 flex gap-3 rounded-control bg-ground px-4 py-3 text-body">
         <Icon name="shield" size={24} className="mt-0.5 shrink-0 text-primary" />
@@ -292,9 +215,8 @@ export function SettingsScreen({ farmer, plot, onSignOut, onSignOutEverywhere }:
       </header>
       <YouSection farmer={farmer} plot={plot} />
       <LookSection />
-      <HarvestSection />
       <PrivacySection />
-      <Section title={en.settings.account} icon="lock" order={4}>
+      <Section title={en.settings.account} icon="lock" order={3}>
         <p className="-mt-1 px-0.5 text-small text-ink-2">{en.settings.signOutHint}</p>
         {/* Blue: you can log in again any time. Red: it reaches every phone. Solid red stays Stop's. */}
         <button type="button" onClick={onSignOut} className={`${SIGN_OUT} border-undo bg-undo-tint text-undo-text`}>

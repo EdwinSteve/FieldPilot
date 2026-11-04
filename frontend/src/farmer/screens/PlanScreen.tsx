@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type Ref } from "react";
 import type { StageState } from "../../lib/stages";
 import { BackLink } from "../components/BackHeader";
 import { BigButton } from "../components/BigButton";
+import { DoneBanner } from "../components/DoneBanner";
 import { HarvestSheet, type HarvestNote } from "../components/HarvestSheet";
 import { Icon, PlantIcon } from "../components/Icon";
 import { TaskRow } from "../components/TaskRow";
@@ -93,10 +94,22 @@ export function PlanScreen({ view, onUndo, onHarvested }: PlanScreenProps) {
     today.current?.scrollIntoView({ block: "start" });
   }, []);
 
+  const [undoing, setUndoing] = useState(false);
+  /** What the last Undo did, said at the top until the farmer closes it or opens another task. */
+  const [undone, setUndone] = useState<string | null>(null);
   const undo = (taskId: number) => {
+    const title = selected?.title ?? "";
+    setUndoing(true);
     void onUndo(taskId).then((done) => {
-      if (done) setSelected(null);
+      setUndoing(false);
+      if (!done) return; // The failure is already said at the top of the app.
+      setSelected(null);
+      setUndone(en.plan.undone(title));
     });
+  };
+  const openTask = (task: PlanTask) => {
+    setUndone(null);
+    setSelected(task);
   };
   return (
     <>
@@ -105,6 +118,7 @@ export function PlanScreen({ view, onUndo, onHarvested }: PlanScreenProps) {
           <BackLink />
           <h1 className="text-title-md font-extrabold tracking-title">{en.plan.title}</h1>
         </div>
+        {undone === null ? null : <DoneBanner key={undone} text={undone} onClose={() => setUndone(null)} />}
         <CropCard view={view} />
         {view.promise === null ? null : (
           <p className="flex items-start gap-2 px-1 text-small leading-snug text-ink-2">
@@ -124,13 +138,13 @@ export function PlanScreen({ view, onUndo, onHarvested }: PlanScreenProps) {
           <DaySection
             key={day.label}
             day={day}
-            onOpen={setSelected}
+            onOpen={openTask}
             ref={day.today ? today : undefined}
           />
         ))}
       </main>
       {selected ? (
-        <TaskSheet task={selected} onClose={() => setSelected(null)} onUndo={undo} />
+        <TaskSheet task={selected} undoing={undoing} onClose={() => setSelected(null)} onUndo={undo} />
       ) : null}
       {harvesting && view.harvest !== null ? (
         <HarvestSheet info={view.harvest} onClose={() => setHarvesting(false)} onSaved={onHarvested} />

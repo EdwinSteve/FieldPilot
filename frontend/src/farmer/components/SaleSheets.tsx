@@ -76,7 +76,7 @@ function PricePreview({ price, discount = 0 }: { price: number; discount?: numbe
 
 const loadWarehouses = () => market.warehouses();
 
-export function SellSheet({ lot, onClose, onDone }: { lot: Lot; onClose: () => void; onDone: () => void }) {
+export function SellSheet({ lot, onClose, onDone }: { lot: Lot; onClose: () => void; onDone: (said: string) => void }) {
   const warehouses = useResource(loadWarehouses, 0).data ?? [];
   const [price, setPrice] = useState("");
   const [kg, setKg] = useState(String(Math.floor(lot.quantity_kg)));
@@ -92,7 +92,7 @@ export function SellSheet({ lot, onClose, onDone }: { lot: Lot; onClose: () => v
     if (problems.price !== null || problems.kg !== null || chosen === undefined) return;
     void step.run(
       () => market.list(lot.code, { farmer_price_per_kg_cop: Number(price), quantity_kg: Number(kg), warehouse_id: chosen.id }),
-      onDone,
+      () => onDone(en.sales.done.listed(kgText(Number(kg)), name, cop(Number(price)))),
     );
   };
 
@@ -193,7 +193,7 @@ function ConfirmSheet({
   );
 }
 
-export function DispatchSheet({ listing, onClose, onDone }: { listing: Listing; onClose: () => void; onDone: () => void }) {
+export function DispatchSheet({ listing, onClose, onDone }: { listing: Listing; onClose: () => void; onDone: (said: string) => void }) {
   const step = useStep();
   const words = en.sales.dispatchSheet;
   return (
@@ -204,13 +204,13 @@ export function DispatchSheet({ listing, onClose, onDone }: { listing: Listing; 
       confirm={words.confirm}
       busyLabel={words.busy}
       step={step}
-      onConfirm={() => void step.run(() => market.dispatch(listing.id), onDone)}
+      onConfirm={() => void step.run(() => market.dispatch(listing.id), () => onDone(en.sales.done.dispatched(listing.warehouse.name)))}
       onClose={onClose}
     />
   );
 }
 
-export function WithdrawSheet({ listing, onClose, onDone }: { listing: Listing; onClose: () => void; onDone: () => void }) {
+export function WithdrawSheet({ listing, onClose, onDone }: { listing: Listing; onClose: () => void; onDone: (said: string) => void }) {
   const step = useStep();
   const words = en.sales.withdrawSheet;
   return (
@@ -220,7 +220,7 @@ export function WithdrawSheet({ listing, onClose, onDone }: { listing: Listing; 
       confirm={words.confirm}
       busyLabel={words.busy}
       step={step}
-      onConfirm={() => void step.run(() => market.withdraw(listing.id), onDone)}
+      onConfirm={() => void step.run(() => market.withdraw(listing.id), () => onDone(en.sales.done.withdrawn(cropLabel(listing.crop))))}
       onClose={onClose}
     />
   );
@@ -239,7 +239,7 @@ export function OfferSheet({
   /** The plot's today: the offer starts on it. */
   today: string;
   onClose: () => void;
-  onDone: () => void;
+  onDone: (said: string) => void;
 }) {
   const [discount, setDiscount] = useState<number | null>(null);
   const [days, setDays] = useState<number>(3);
@@ -253,7 +253,7 @@ export function OfferSheet({
     if (problem !== null || discount === null) return;
     void step.run(
       () => market.offer(listing.id, { discount_pct: discount, starts_on: today, ends_on: plusDaysIso(today, days - 1) }),
-      onDone,
+      () => onDone(en.sales.done.offer(discount, formatCalendarDate(plusDaysIso(today, days - 1)))),
     );
   };
   return (

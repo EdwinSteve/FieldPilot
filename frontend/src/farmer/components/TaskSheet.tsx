@@ -6,12 +6,14 @@ import { Sheet } from "./Sheet";
 
 interface TaskSheetProps {
   task: PlanTask;
+  /** True while the Undo is on its way: the button says so and takes no second tap. */
+  undoing?: boolean;
   onClose: () => void;
   onUndo: (taskId: number) => void;
 }
 
 /** Details of one planned task, sliding over the Plan screen. */
-export function TaskSheet({ task, onClose, onUndo }: TaskSheetProps) {
+export function TaskSheet({ task, undoing = false, onClose, onUndo }: TaskSheetProps) {
   const undoTaskId = task.undoTaskId;
   return (
     <Sheet label={en.plan.taskDetails} onClose={onClose}>
@@ -37,8 +39,8 @@ export function TaskSheet({ task, onClose, onUndo }: TaskSheetProps) {
           {en.plan.close}
         </BigButton>
       ) : (
-        <BigButton variant="undo" onClick={() => onUndo(undoTaskId)}>
-          {en.plan.undo}
+        <BigButton variant="undo" disabled={undoing} onClick={() => onUndo(undoTaskId)}>
+          {undoing ? en.plan.undoing : en.plan.undo}
         </BigButton>
       )}
     </Sheet>

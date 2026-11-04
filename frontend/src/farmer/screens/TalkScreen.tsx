@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import avatar from "../assets/avatar.webp";
 import { ChatBar } from "../components/ChatBar";
 import { Chip } from "../components/Chip";
@@ -6,6 +6,23 @@ import { Icon } from "../components/Icon";
 import { en } from "../i18n/en";
 import { hrefOf } from "../lib/route";
 import type { TalkControl, TalkExchange, TalkView } from "../view-models/types";
+
+/** After this long, "Thinking…" says the wait is normal: a live answer can take minutes. */
+const STILL_THINKING_MS = 20_000;
+
+/** True once `active` has lasted `ms`; false again as soon as it ends. */
+function useLasted(active: boolean, ms: number): boolean {
+  const [lasted, setLasted] = useState(false);
+  useEffect(() => {
+    if (!active) return undefined;
+    const timer = window.setTimeout(() => setLasted(true), ms);
+    return () => {
+      window.clearTimeout(timer);
+      setLasted(false);
+    };
+  }, [active, ms]);
+  return active && lasted;
+}
 
 const WAVE_BARS = ["h-2.5", "h-4.5", "h-3", "h-5", "h-2", "h-3.5"];
 const FARMER_BUBBLE = "rounded-[22px_22px_6px_22px] bg-primary px-4.5 py-3.5 text-surface shadow-bubble";
@@ -133,6 +150,7 @@ export function TalkScreen({ view, control }: TalkScreenProps) {
   const end = useRef<HTMLDivElement>(null);
   const count = view.exchanges.length;
   const thinking = status === "thinking";
+  const longWait = useLasted(thinking, STILL_THINKING_MS);
 
   // Leaving the screen closes the mic: it never listens where it cannot be seen.
   useEffect(() => cancel, [cancel]);
@@ -166,7 +184,12 @@ export function TalkScreen({ view, control }: TalkScreenProps) {
         {pendingQuestion === null ? null : <TypedBubble question={pendingQuestion} />}
         {thinking ? (
           <AgentFrame>
-            <output className="text-body font-bold text-ink-2">{en.talk.thinking}</output>
+            <output className="flex flex-col gap-1 text-body font-bold text-ink-2">
+              {en.talk.thinking}
+              {longWait ? (
+                <span className="animate-fade-in text-small font-semibold">{en.talk.stillThinking}</span>
+              ) : null}
+            </output>
           </AgentFrame>
         ) : null}
         <div ref={end} />
