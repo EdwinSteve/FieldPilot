@@ -23,14 +23,30 @@ export interface BriefProposal {
   status: string;
 }
 
+/** D093: a specialist's finding for one zone (crop health or soil nutrition). */
+export interface BriefZoneFinding {
+  zoneId: number;
+  level: string; // health risk (low, moderate, high) or nutrition status (ok, low, high)
+  items: string[]; // threats or deficits
+}
+
 export interface ParsedBrief {
   zones: BriefZoneAssessment[];
   sceneId: string | null;
   imaging: BriefZoneImaging[];
   proposals: BriefProposal[];
+  health: BriefZoneFinding[];
+  nutrition: BriefZoneFinding[];
 }
 
-const EMPTY: ParsedBrief = { zones: [], sceneId: null, imaging: [], proposals: [] };
+const EMPTY: ParsedBrief = {
+  zones: [],
+  sceneId: null,
+  imaging: [],
+  proposals: [],
+  health: [],
+  nutrition: [],
+};
 
 /** Reads the brief JSON of a daily-cycle response; anything odd reads as empty. */
 export function parseBrief(brief: Record<string, Json>): ParsedBrief {
@@ -43,7 +59,22 @@ export function parseBrief(brief: Record<string, Json>): ParsedBrief {
     sceneId: imaging === null ? null : asString(imaging.scene_id),
     imaging: (imaging === null ? [] : asArray(imaging.zones) ?? []).flatMap(zoneImaging),
     proposals: (proposals ?? []).flatMap(proposal),
+    health: (asArray(brief.health) ?? []).flatMap((z) => finding(z, "risk", "threats")),
+    nutrition: (asArray(brief.nutrition) ?? []).flatMap((z) => finding(z, "status", "deficits")),
   };
+}
+
+function finding(value: Json, levelKey: string, itemsKey: string): BriefZoneFinding[] {
+  const zone = asRecord(value);
+  if (zone === null) return [];
+  const zoneId = asNumber(zone.zone_id);
+  const level = asString(zone[levelKey]);
+  if (zoneId === null || level === null) return [];
+  const items = (asArray(zone[itemsKey]) ?? []).flatMap((item) => {
+    const text = asString(item);
+    return text === null ? [] : [text];
+  });
+  return [{ zoneId, level, items }];
 }
 
 function zoneAssessment(value: Json): BriefZoneAssessment[] {

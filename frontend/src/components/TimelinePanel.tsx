@@ -45,6 +45,9 @@ const KIND_ICONS: Record<string, IconName> = {
 };
 
 const SUBAGENT_ICONS: Record<string, IconName> = {
+  agronomist: "leaf",
+  crop_health: "leaf",
+  soil_nutrition: "drop",
   monitoring: "drop",
   imaging: "satellite",
   irrigation: "valve",
@@ -113,7 +116,7 @@ function RunEntry({ run, plot }: { run: TimelineRun; plot: Plot }) {
       <div className="story-run__head">
         <Icon name={SUBAGENT_ICONS[run.subagent] ?? "leaf"} />
         <strong>{SUBAGENT_LABELS[run.subagent] ?? run.subagent}</strong>
-        <span className="muted">· {run.turns.length} turnos</span>
+        <span className="muted">· {run.turns.length} turns</span>
         {run.refusals ? (
           <span className="badge badge--warn">{run.refusals} retries</span>
         ) : null}
