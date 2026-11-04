@@ -238,7 +238,7 @@ export function AccountPage() {
       {user.role === "farmer" ? (
         <section className="flex flex-col gap-3 rounded-card bg-surface p-5">
           <p className="text-body">{en.account.farmerHere}</p>
-          <BigLink variant="primary" size="compact" href="/farmer">
+          <BigLink variant="primary" size="compact" href="/">
             {en.account.openFarmerApp}
           </BigLink>
         </section>

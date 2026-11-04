@@ -11,7 +11,11 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss()],
     build: {
-      rolldownOptions: { input: { main: "index.html", farmer: "farmer.html", market: "market.html" } },
+      // The farmer app is the root page; Steve's dashboard is /dashboard; /farmer redirects to the root.
+      rolldownOptions: {
+        // `main` stays the dashboard's name, so its bundle keeps the file names it had.
+        input: { main: "dashboard.html", farmer: "index.html", market: "market.html", legacy: "farmer.html" },
+      },
     },
     server: {
       port: 5173,

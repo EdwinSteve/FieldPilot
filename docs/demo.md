@@ -12,12 +12,12 @@ are quoted exactly as they appear on screen. For the original Spanish run, set
 
 ```bash
 make seed      # fresh demo farm; the clock is paused on 2 Nov, 06:00 in Neiva
-make dev       # backend :8000 and dashboard :5173 (MOCK_LLM=1 from .env;
+make dev       # backend :8000 and dashboard :5173/dashboard (MOCK_LLM=1 from .env;
                # APP_PROFILE=demo and AUTH_REQUIRED=0 while the dashboard has no login)
                # if :8000 is taken: make dev BACKEND_PORT=8001
 ```
 
-Open <http://localhost:5173>, full screen, and check that the clock reads
+Open <http://localhost:5173/dashboard>, full screen, and check that the clock reads
 **2 Nov, 06:00 · paused**.
 
 **The one rule of the recorded demo.** The replay reproduces the recorded

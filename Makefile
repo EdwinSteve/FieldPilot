@@ -8,7 +8,7 @@ RUFF_ARGS ?=
 # Backend port for `make dev`; the frontend proxy follows it (make dev BACKEND_PORT=8001).
 BACKEND_PORT ?= 8000
 
-.PHONY: help install install-backend install-frontend dev dev-backend dev-frontend \
+.PHONY: help install install-backend install-frontend demo dev dev-backend dev-frontend \
 	seed user record-demo test lint lint-backend lint-rules-backend format-check-backend format \
 	typecheck typecheck-backend typecheck-frontend build-frontend lint-frontend test-frontend \
 	check check-backend check-frontend check-repo preflight clean \
@@ -24,6 +24,19 @@ install-backend: ## Install backend dependencies from uv.lock, failing if it is 
 
 install-frontend: ## Install frontend dependencies from package-lock.json
 	npm --prefix $(FRONTEND) ci
+
+demo: ## First run, as for a judge: .env if none, install, demo farm if no database yet, then make dev
+	@[ -f .env ] || { cp .env.example .env && echo "Created .env from .env.example (mock mode)."; }
+	$(MAKE) install
+	@if $(UV) run python -c "$(DB_MISSING)"; then $(MAKE) seed; \
+	else echo "A database already exists: keeping it (make seed rebuilds the demo farm)."; fi
+	@echo "Open http://localhost:5173 (farmer app) · /market (marketplace) · /dashboard (operator dashboard)"
+	$(MAKE) dev
+
+# True (exit 0) when the configured sqlite database file does not exist yet; reads .env like the app.
+DB_MISSING := from pathlib import Path; from app.settings import Settings; \
+	u = Settings().database_url; \
+	raise SystemExit(0 if u.startswith('sqlite:///') and not Path(u.split('sqlite:///', 1)[1]).exists() else 1)
 
 dev: ## Run backend (BACKEND_PORT, default 8000) and frontend (:5173) together
 	$(MAKE) -j2 dev-backend dev-frontend

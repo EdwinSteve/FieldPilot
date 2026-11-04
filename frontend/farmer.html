@@ -2,21 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#F3F5F0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FieldPilot</title>
-    <link rel="icon" type="image/png" href="/src/farmer/assets/icon-64.png" />
-    <link rel="apple-touch-icon" href="/src/farmer/assets/icon-180.png" />
-    <meta name="apple-mobile-web-app-title" content="FieldPilot" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
+    <!-- The farmer app moved to the root: old /farmer links keep their screen (the #/... part). -->
+    <script>
+      window.location.replace("/" + window.location.hash);
+    </script>
   </head>
   <body>
-    <div id="farmer-root"></div>
-    <script type="module" src="/src/farmer/main.tsx"></script>
+    <a href="/">FieldPilot</a>
   </body>
 </html>

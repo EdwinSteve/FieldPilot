@@ -245,6 +245,17 @@ mandatory approval, are planned after the hackathon.
 **Prerequisites:** [uv](https://docs.astral.sh/uv/) (manages Python 3.12, see
 [D002](docs/decisions.md)), Node.js 24 (`frontend/.nvmrc`), `make`.
 
+**Fastest start:** `make demo`, then open <http://localhost:5173>. It copies
+`.env.example` to `.env` if there is none (mock mode), installs the locked
+dependencies, builds the demo farm only if no database exists yet, and starts
+the backend and the frontend.
+
+| Address | What it is |
+|---|---|
+| <http://localhost:5173> | The farmer app |
+| <http://localhost:5173/market> | The marketplace |
+| <http://localhost:5173/dashboard> | The operator dashboard |
+
 ```bash
 cp .env.example .env        # add your Meta Model API key, or keep MOCK_LLM=1
 make install
