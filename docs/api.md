@@ -727,6 +727,14 @@ POST /store/assistant
 - **Accepting a proposal.** Show the proposal with an "Add to cart" button,
   which calls `POST /store/cart-proposals/{id}/accept` and returns the
   cart.
+- **Only about the store** (D088). The response has a `topic`:
+  `products`, `prices_offers`, `cart_orders`, `meal_planning`, `origin` or
+  `out_of_scope`. For a question off the store's subject, such as football or
+  homework, `topic` is `out_of_scope`. `answer` is then a fixed text saying
+  what the assistant helps with, and there is no proposal. Style it as a
+  gentle refusal. The farm chat (`POST /agent/chat`) works the same way,
+  with the topics `crop`, `water`, `weather`, `field`, `tasks` and
+  `out_of_scope`.
 - **Without a model.** Under `MOCK_LLM=1` the assistant answers 503
   (`ChatUnavailableError`). Everything else in the store works without a
   model.

@@ -2799,3 +2799,50 @@ wants:
   presses the button, which calls the existing cart endpoint.
 - `ON_OFFER` now caps its score at 1. A clearance step can exceed the
   farmer's 30 % offer cap, and the score used to go above 1.
+
+## D088 — Each assistant answers only within its own domain
+
+- **Date:** 2026-11-04
+- **Status:** Accepted (2026-11-04), asked for by Edwin. It tightens D053
+  and D085.
+
+**Context.** The farm chat (the `orchestrator` on Muse Spark) and the
+store's `shopper` answered anything. Asked about football or homework,
+they answered. Edwin wants each one to answer only about its own job:
+- the orchestrator, about the crop and its needs;
+- the shopper, about the store's products.
+
+A rule in the prompt alone is a request; the model may ignore it.
+
+**Decision.** There are three layers, and the last two are in code.
+1. **A scope in each prompt** (`orchestrator.md`, `shopper.md`, in both
+   languages). It lists what is in scope, what is not, and that a question
+   out of scope closes with `topic: "out_of_scope"`.
+2. **The closing tool makes the model classify every answer.**
+   `answer_farmer` and `answer_customer` take a required `topic` from a
+   closed list:
+   - the farm: `crop`, `water`, `weather`, `field`, `tasks` or
+     `out_of_scope`;
+   - the store: `products`, `prices_offers`, `cart_orders`,
+     `meal_planning`, `origin` or `out_of_scope`.
+
+   A missing or unknown topic is refused, so the model must decide on every
+   turn. Each agent still has one closing tool (D053).
+3. **The backend writes the refusal, not the model.** With `out_of_scope`,
+   the model's text is discarded. `ChatService` and `ShopperService` answer
+   with a fixed text from `config/messages` (`out_of_scope_farmer`,
+   `out_of_scope_customer`) in `APP_LANGUAGE`, which says what the
+   assistant can help with. A proposed cart is dropped too. Nothing the
+   model writes about an off-topic subject reaches the user.
+
+**The response.** `POST /agent/chat` and `POST /store/assistant` add
+`topic`. The UI can style a refusal (`out_of_scope`) apart from an answer.
+
+**Consequences.**
+- A model that labels an off-topic question as in scope can still answer
+  it. The prompt and the forced choice make that rare, not impossible. A
+  second classifier call before the agent would cost another model call per
+  question; it is left for later, along with counting `out_of_scope` per
+  day to watch for misuse.
+- An answer in scope keeps every existing check: cited numbers (D053) and
+  prices from tools (D085).
