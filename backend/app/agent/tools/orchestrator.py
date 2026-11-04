@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.agent.brief import BriefDraft
 from app.agent.citations import cited_facts, unsupported_numbers
 from app.agent.loop import AgentRun
+from app.agent.scope import FarmTopic
 from app.agent.tools.field_tools import ReadContext
 from app.agent.tools.registry import Tool, ToolRefusedError
 from app.domain.models import JsonObject
@@ -20,11 +21,18 @@ from app.domain.models import JsonObject
 class AnswerInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    topic: FarmTopic = Field(
+        description="What the question is about; out_of_scope for anything that is not this "
+        "farm's crop, field, water, weather or tasks (D088)."
+    )
     # `text_es` is the recorded wire name (D076); it holds APP_LANGUAGE (D084).
     text_es: str = Field(
-        min_length=1, description="The answer to the farmer, in the farmer's language."
+        default="",
+        description="The answer to the farmer, in the farmer's language; empty when out_of_scope.",
     )
-    cited: list[str] = Field(description="observation_ids behind every number in the answer")
+    cited: list[str] = Field(
+        default_factory=list, description="observation_ids behind every number in the answer"
+    )
 
 
 class Consultant(Protocol):
@@ -53,7 +61,7 @@ def orchestrator_tools(
         Tool(
             "answer_farmer",
             "Answer the farmer. Closes the conversation turn. Every number with a unit must "
-            "come from a cited observation.",
+            "come from a cited observation. Off-topic questions: topic out_of_scope.",
             AnswerInput,
             _answer(read),
             closes_run=True,
@@ -63,6 +71,10 @@ def orchestrator_tools(
 
 def _answer(read: ReadContext) -> Callable[[AnswerInput], JsonObject]:
     def handler(args: AnswerInput) -> JsonObject:
+        if args.topic is FarmTopic.OUT_OF_SCOPE:
+            return {"answer": None, "topic": args.topic.value}  # the service words it (D088)
+        if not args.text_es.strip():
+            raise ToolRefusedError("Answer refused: the answer is empty.")
         facts, missing = cited_facts(read.ledger, args.cited)
         problems = [f"Cited ids you never read: {missing}."] if missing else []
         unsupported = unsupported_numbers(args.text_es, facts)
@@ -70,7 +82,7 @@ def _answer(read: ReadContext) -> Callable[[AnswerInput], JsonObject]:
             problems.append(f"Numbers not in any cited observation: {unsupported}.")
         if problems:
             raise ToolRefusedError("Answer refused: " + " ".join(problems))
-        return {"answer": args.text_es}
+        return {"answer": args.text_es, "topic": args.topic.value}
 
     return handler
 

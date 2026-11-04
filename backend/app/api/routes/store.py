@@ -132,6 +132,7 @@ def assistant(body: AssistantIn, principal: PrincipalDep, container: ContainerDe
         status=str(answer.status),
         answer=answer.answer,
         proposal=None if answer.proposal is None else ProposalOut.of(answer.proposal),
+        topic=answer.topic,
     )
 
 

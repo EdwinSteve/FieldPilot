@@ -13,12 +13,14 @@ from tests.integration.agent.session import agent_deps
 from tests.integration.services.world import World
 from tests.unit.voice.wavs import make_wav
 
+OFF_TOPIC = "Solo puedo ayudarte con tu cultivo."
+
 UowFactory = Callable[[], SqlUnitOfWork]
 QUESTION = "¿Necesita agua el maíz de la zona dos?"
 
 
 def _answer(text: str) -> LLMResponse:
-    arguments = f'{{"text_es": "{text}", "cited": []}}'
+    arguments = f'{{"topic": "field", "text_es": "{text}", "cited": []}}'
     return LLMResponse(None, ToolCall("c1", "answer_farmer", arguments))
 
 
@@ -28,7 +30,7 @@ def test_the_transcript_becomes_the_question(uow: UowFactory) -> None:
     speech = MockSpeechToText(QUESTION)
     audio = make_wav()
 
-    answer = VoiceChatService(ChatService(uow, agent_deps(world, llm)), speech).ask(
+    answer = VoiceChatService(ChatService(uow, agent_deps(world, llm), OFF_TOPIC), speech).ask(
         world.plot_id, audio
     )
 
@@ -42,7 +44,9 @@ def test_silence_never_reaches_the_model(uow: UowFactory) -> None:
     world = World(uow)
     llm = MockLLMClient([])
 
-    service = VoiceChatService(ChatService(uow, agent_deps(world, llm)), MockSpeechToText(""))
+    service = VoiceChatService(
+        ChatService(uow, agent_deps(world, llm), OFF_TOPIC), MockSpeechToText("")
+    )
 
     with pytest.raises(NothingHeardError):
         service.ask(world.plot_id, make_wav())

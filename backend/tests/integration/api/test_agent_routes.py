@@ -11,7 +11,12 @@ from tests.integration.api.conftest import Farm, with_chat, with_cycle
 from tests.unit.voice.wavs import make_wav
 
 ANSWER = LLMResponse(
-    None, ToolCall("c1", "answer_farmer", '{"text_es": "Lo decide el ciclo diario.", "cited": []}')
+    None,
+    ToolCall(
+        "c1",
+        "answer_farmer",
+        '{"topic": "field", "text_es": "Lo decide el ciclo diario.", "cited": []}',
+    ),
 )
 WAV = {"Content-Type": "audio/wav"}
 

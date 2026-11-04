@@ -19,16 +19,19 @@ def _tools(draft: BriefDraft | None = None, consultant: Consultant | None = None
 
 
 def test_a_supported_answer_closes_with_the_text() -> None:
-    body = {"text_es": "La zona 2 está al 21 %.", "cited": ["reading-412"]}
+    body = {"topic": "field", "text_es": "La zona 2 está al 21 %.", "cited": ["reading-412"]}
 
     outcome = _tools().call("answer_farmer", json.dumps(body))
 
-    assert outcome.closes_run and outcome.result == {"answer": "La zona 2 está al 21 %."}
+    assert outcome.closes_run and outcome.result == {
+        "answer": "La zona 2 está al 21 %.",
+        "topic": "field",
+    }
 
 
 def test_an_unsupported_number_is_refused() -> None:
     """D053: the chat answer passes the same check as a report."""
-    body = {"text_es": "La zona 2 está al 30 %.", "cited": ["reading-412"]}
+    body = {"topic": "field", "text_es": "La zona 2 está al 30 %.", "cited": ["reading-412"]}
 
     outcome = _tools().call("answer_farmer", json.dumps(body))
 
@@ -37,7 +40,7 @@ def test_an_unsupported_number_is_refused() -> None:
 
 
 def test_an_uncited_number_is_refused_even_if_it_was_read() -> None:
-    body = {"text_es": "La zona 2 está al 21 %.", "cited": []}
+    body = {"topic": "field", "text_es": "La zona 2 está al 21 %.", "cited": []}
 
     outcome = _tools().call("answer_farmer", json.dumps(body))
 
@@ -45,7 +48,7 @@ def test_an_uncited_number_is_refused_even_if_it_was_read() -> None:
 
 
 def test_a_cited_id_never_read_is_refused() -> None:
-    body = {"text_es": "Todo bien.", "cited": ["reading-9"]}
+    body = {"topic": "field", "text_es": "Todo bien.", "cited": ["reading-9"]}
 
     outcome = _tools().call("answer_farmer", json.dumps(body))
 
@@ -104,3 +107,31 @@ def test_the_chat_has_no_way_to_propose() -> None:
     }
 
     assert names == {"consult_monitoring", "answer_farmer"}
+
+
+# --- scope (D088) -------------------------------------------------------------------------
+
+
+def test_an_off_topic_question_closes_without_the_models_text() -> None:
+    body = {"topic": "out_of_scope", "text_es": "Real Madrid ganó 3-1 el domingo.", "cited": []}
+
+    outcome = _tools().call("answer_farmer", json.dumps(body))
+
+    assert outcome.closes_run
+    assert outcome.result == {"answer": None, "topic": "out_of_scope"}
+
+
+def test_every_answer_must_say_its_topic() -> None:
+    missing = _tools().call("answer_farmer", json.dumps({"text_es": "Todo bien.", "cited": []}))
+    unknown = _tools().call(
+        "answer_farmer", json.dumps({"topic": "football", "text_es": "Todo bien.", "cited": []})
+    )
+
+    assert not missing.closes_run and missing.error is not None
+    assert not unknown.closes_run and unknown.error is not None
+
+
+def test_an_answer_in_scope_cannot_be_empty() -> None:
+    outcome = _tools().call("answer_farmer", json.dumps({"topic": "crop", "text_es": " "}))
+
+    assert outcome.error == "Answer refused: the answer is empty."

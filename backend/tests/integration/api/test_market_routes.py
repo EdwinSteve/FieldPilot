@@ -417,7 +417,13 @@ def _assistant(market: Market, responses: list[LLMResponse]) -> None:
         )
 
     shopper = ShopperService(
-        MockLLMClient(responses), c.config.shopper, 6, port_for, lambda: "run-1", c.store.proposal
+        MockLLMClient(responses),
+        c.config.shopper,
+        6,
+        port_for,
+        lambda: "run-1",
+        c.store.proposal,
+        c.config.messages.label("out_of_scope_customer"),
     )
     market.client.app.state.container = replace(c, shopper=shopper)  # type: ignore[attr-defined]
 
@@ -439,7 +445,10 @@ def test_the_assistant_proposes_a_cart_that_only_the_customer_accepts(market: Ma
                     "note": "Two kilos for the sauce.",
                 },
             ),
-            _call("answer_customer", {"text": "Fresh tomato at $3,450 per kg; I proposed 2 kg."}),
+            _call(
+                "answer_customer",
+                {"topic": "products", "text": "Fresh tomato at $3,450 per kg; I proposed 2 kg."},
+            ),
         ],
     )
 
@@ -468,8 +477,12 @@ def test_the_assistant_cannot_quote_a_price_no_tool_returned(market: Market) -> 
         market,
         [
             _call("search_products", {"query": "tomato"}),
-            _call("answer_customer", {"text": "Tomato is $1,000 per kg today."}),
-            _call("answer_customer", {"text": "Tomato is $3,450 per kg today."}),
+            _call(
+                "answer_customer", {"topic": "products", "text": "Tomato is $1,000 per kg today."}
+            ),
+            _call(
+                "answer_customer", {"topic": "products", "text": "Tomato is $3,450 per kg today."}
+            ),
         ],
     )
 
@@ -602,3 +615,45 @@ def test_what_goes_with_the_cart_is_suggested_without_consent(market: Market) ->
     assert card["recommendation"]["product"]["id"] == potato
     assert card["recommendation"]["reasons"][0] == "BOUGHT_TOGETHER"
     assert card["message"].endswith("It goes well with what you are buying.")
+
+
+def test_the_assistant_only_talks_about_the_store(market: Market) -> None:
+    """D088: off topic, the model's text and any proposed cart are dropped."""
+    listing_id = _listed_and_received(market)
+    _assistant(
+        market,
+        [
+            _call(
+                "propose_cart",
+                {"items": [{"listing_id": listing_id, "quantity_kg": 1}], "note": "A gift."},
+            ),
+            _call("answer_customer", {"topic": "out_of_scope", "text": "Python is a language."}),
+        ],
+    )
+
+    response = market.client.post(
+        "/store/assistant", json={"question": "Teach me Python"}, headers=market.customer
+    )
+
+    body = response.json()
+    assert (body["topic"], body["proposal"]) == ("out_of_scope", None)
+    assert body["answer"].startswith("I can only help with the FieldPilot store")
+
+
+def test_an_answer_in_scope_cannot_be_empty(market: Market) -> None:
+    _assistant(
+        market,
+        [
+            _call("answer_customer", {"topic": "products"}),
+            _call("answer_customer", {"topic": "products", "text": "We have fresh tomato."}),
+        ],
+    )
+
+    response = market.client.post(
+        "/store/assistant", json={"question": "Any tomato?"}, headers=market.customer
+    )
+
+    assert (response.json()["answer"], response.json()["topic"]) == (
+        "We have fresh tomato.",
+        "products",
+    )
