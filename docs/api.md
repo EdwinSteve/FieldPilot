@@ -702,8 +702,13 @@ GET /store/recommendations?k=5
 | `REPURCHASE_DUE` | "time to buy again" |
 | `BOUGHT_TOGETHER` | "goes with what you buy" |
 | `FRESH_HARVEST` | "just harvested" |
+| `DEAL_FOR_YOU` | "a deal on what you like" (D087) |
 | `ON_OFFER` | "offer of the day" |
 | `POPULAR` | "popular" |
+
+`DEAL_FOR_YOU` is a discount, the farmer's or a clearance one, on a crop
+the customer buys or that goes with their basket. Its evidence adds `link`
+(`you_buy_it` or `goes_with`) and `offer_source`.
 
 ```http
 POST /store/assistant
@@ -725,6 +730,57 @@ POST /store/assistant
 - **Without a model.** Under `MOCK_LLM=1` the assistant answers 503
   (`ChatUnavailableError`). Everything else in the store works without a
   model.
+
+### 9.6 The assistant in the cart (D087)
+
+One suggestion at a time, to show as a card in the cart. **It needs no
+model:** it works in demo mode.
+
+```http
+GET /store/cart/suggestion
+GET /store/cart/suggestion?prefer=deal&exclude=7        ← "Search for me a better deal"
+```
+```json
+{
+  "message": "Hey, I saw you are planning to buy maize. Would you like to add potato? The last time you bought it was a week ago!",
+  "recommendation": {
+    "product": { "id": 7, "crop": "potato", "crop_name": "Potato", "price": { "total_cop": 2415.0, "...": "..." }, "...": "..." },
+    "score": 1.3, "reasons": ["REPURCHASE_DUE", "POPULAR"],
+    "evidence": { "last_bought": "2027-02-25", "days_since": 7 }, "suggested_kg": 1
+  },
+  "actions": [
+    { "kind": "add_to_cart", "label": "Yes, add 1 kg of potato", "listing_id": 7, "quantity_kg": 1 },
+    { "kind": "better_deal", "label": "Search for me a better deal", "exclude": [7] }
+  ]
+}
+```
+
+**What each button does.**
+- **`add_to_cart`:** call `PUT /store/cart/items/{listing_id}` with
+  `{ "quantity_kg": … }`, then reload the cart and the suggestion.
+- **`better_deal`:** call `GET /store/cart/suggestion?prefer=deal&exclude=…`
+  with the `exclude` list it carries. That list grows with every product
+  already shown, so the same one never comes back.
+
+**The rules.**
+- **Never a crop already in the cart**, and never a listing in `exclude`.
+- **`prefer=deal`** shows only products with a discount (an offer or a
+  clearance), best for the customer first.
+- **The message follows the strongest reason:**
+  - time to buy again;
+  - goes with the cart;
+  - a deal on what they like;
+  - offer of the day;
+  - just harvested;
+  - popular.
+- **It is in `APP_LANGUAGE`.** Show `message` and the `label`s as they
+  come.
+
+**The default answer.** When nothing qualifies, it is still 200, with
+`"recommendation": null` and `"actions": []`:
+- `"Your cart looks complete. I have nothing else to suggest right now."`;
+- `"That is the best deal I can find for you today."` after a "better
+  deal".
 
 ---
 
@@ -772,7 +828,8 @@ Both are 422. Tell them apart by the key: `error` or `detail`.
 | Listing `status` | `awaiting_delivery`, `in_transit`, `active`, `sold_out`, `withdrawn`, `expired` |
 | Offer `source` | `offer`, `clearance` (D086) |
 | Order `status` | `paid`, `delivered`, `cancelled` |
-| Recommendation reasons | `REPURCHASE_DUE`, `BOUGHT_TOGETHER`, `FRESH_HARVEST`, `ON_OFFER`, `POPULAR` |
+| Recommendation reasons | `REPURCHASE_DUE`, `BOUGHT_TOGETHER`, `DEAL_FOR_YOU`, `FRESH_HARVEST`, `ON_OFFER`, `POPULAR` |
+| Cart suggestion `actions[].kind` | `add_to_cart`, `better_deal` (D087) |
 
 Crop names come with each outlook (`name`) and with the passport
 (`crop_name`) in `APP_LANGUAGE`; `name_es` and `crop_name_es` always carry the
