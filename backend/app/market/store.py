@@ -68,6 +68,7 @@ class ProductView:
 @dataclass(frozen=True)
 class CartLine:
     listing_id: int
+    crop: str
     crop_name: str
     quantity_kg: int
     price: PriceBreakdown | None  # None when the listing is no longer sold
@@ -262,17 +263,17 @@ class StoreService:
             listing = uow.listings.get(item.listing_id)
             name = self._messages.crop_name(listing.crop)
             if listing.status is not ListingStatus.ACTIVE:
-                lines.append(CartLine(item.listing_id, name, item.quantity_kg, None, 0,
-                                      "not_available"))  # fmt: skip
+                lines.append(CartLine(item.listing_id, listing.crop, name, item.quantity_kg,
+                                      None, 0, "not_available"))  # fmt: skip
                 continue
             product = self._product(uow, listing)
             if product.expired:
-                lines.append(CartLine(item.listing_id, name, item.quantity_kg, None, 0,
-                                      "expired"))  # fmt: skip
+                lines.append(CartLine(item.listing_id, listing.crop, name, item.quantity_kg,
+                                      None, 0, "expired"))  # fmt: skip
                 continue
             short = product.available_g < item.quantity_kg * GRAMS_PER_KG
             lines.append(
-                CartLine(item.listing_id, name, item.quantity_kg, product.price,
+                CartLine(item.listing_id, listing.crop, name, item.quantity_kg, product.price,
                          product.available_g, "out_of_stock" if short else None)
             )  # fmt: skip
         return CartView(tuple(lines), self._config.currency)

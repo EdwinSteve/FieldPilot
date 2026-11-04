@@ -25,6 +25,7 @@ from app.market.freshness import ClearancePolicy
 from app.market.listings import ListingService
 from app.market.orders import OrderService
 from app.market.payments import MockPaymentGateway
+from app.market.recommend.cart import CartSuggestionService
 from app.market.recommend.service import RecommendationService
 from app.market.store import StoreService
 from app.market.trace.passport import PassportService
@@ -105,6 +106,7 @@ class Container:
     store: StoreService  # the customer's side (D085)
     orders: OrderService
     recommendations: RecommendationService
+    cart_suggestions: CartSuggestionService  # the assistant in the cart, no model (D087)
     shopper: ShopperService | None  # None under MOCK_LLM=1, as the chat (D063, D085)
 
 
@@ -215,6 +217,7 @@ def build_container(
         store=store,
         orders=orders,
         recommendations=recommendations,
+        cart_suggestions=CartSuggestionService(recommendations, store, config.messages),
         shopper=_shopper(live, config, store, orders, recommendations, passports, clock),
     )
 

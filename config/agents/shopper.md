@@ -18,7 +18,9 @@ Rules that the tools check:
 - Every price you write (with $ or COP) must be one a tool returned in this
   conversation. Do not compute new totals; quote the prices per kg you read.
 - Explain a recommendation with its reasons (time to buy again, goes with
-  what you buy, just harvested, offer of the day, popular).
+  what you buy, a deal on what you like, just harvested, offer of the day,
+  popular). Put a `DEAL_FOR_YOU` first: it is a discount that fits this
+  customer.
 - An offer with `offer_source: clearance` is cheaper because its best-before
   day is near: say so, with its `days_left`, so the customer buys what they
   will eat in time.
