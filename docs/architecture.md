@@ -937,9 +937,22 @@ rule 1 and D054.
 *Daily cycle* (`app/services/daily_cycle.py`).
 
 ```python
-class DailyCycle:
+class OrchestratedCycle:   # DAILY_CYCLE=orchestrated, the default (D093)
+    def run(self, plot_id: int) -> DailyCycleResult: ...   # the agronomist, with its consults
+class DailyCycle:          # DAILY_CYCLE=pipeline, the fallback (D044)
     def run(self, plot_id: int) -> DailyCycleResult: ...   # Monitoring -> Imaging -> Irrigation -> Reporting
 ```
+
+- **The agronomist leads (D093).** One run of the `agronomist` subagent.
+  Its `consult_*` tools run monitoring, imaging, crop_health,
+  soil_nutrition, irrigation and reporting in the same session, so their
+  readings are citable and their results land in the brief. A consult whose
+  model call drops is resumed from its transcript, twice at most (D046). Its
+  own tools are `read_tasks`, `propose_task` (fertilizer, agrochemical,
+  scouting visit, stress alert, through the gate; `replaces_task_id` edits),
+  `cancel_task` and `close_day`. `close_day` refuses until the zones are
+  assessed and the report is saved. The rules below describe the fixed
+  pipeline.
 
 - Imaging runs after Monitoring (D044). With no scene for the plot it
   submits an empty imaging result, so the cycle does not stop for lack of
