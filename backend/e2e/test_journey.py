@@ -252,6 +252,12 @@ def test_8_the_shopping_assistant_proposes_and_the_customer_buys(journey: Journe
     journey.notes.append(f"shopper: topic {answer['topic']!r}, proposal "
                          f"{None if answer['proposal'] is None else answer['proposal']['items']}, "
                          f"answer {answer['answer']!r}")  # fmt: skip
+    follow_up = journey.call("POST", "/store/assistant", "customer",
+                             json={"question": "What about now?",
+                                   "conversation_id": answer["conversation_id"]})  # fmt: skip
+    journey.notes.append(f"shopper follow-up: answer {follow_up['answer']!r}")
+    assert follow_up["conversation_id"] == answer["conversation_id"]
+    assert follow_up["topic"] in STORE_TOPICS and follow_up["answer"]
     if answer["proposal"] is not None:
         journey.call("POST", f"/store/cart-proposals/{answer['proposal']['id']}/accept",
                      "customer")  # fmt: skip

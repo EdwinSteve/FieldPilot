@@ -15,7 +15,7 @@ from app.agent.llm.mock import MockLLMClient
 from app.agent.llm.muse import MuseClient
 from app.agent.llm.ports import LLMClient
 from app.autonomy.gate import AutonomyGate
-from app.bootstrap import AuthSetting, Runtime, RuntimeConfig
+from app.bootstrap import AuthSetting, Runtime, RuntimeConfig, UowFactory
 from app.identity.access import AccessPolicy
 from app.identity.models import Principal
 from app.identity.passwords import Argon2Hasher
@@ -65,7 +65,7 @@ from app.services.rain_forecast import PlotRainForecast
 from app.services.revert import RevertService
 from app.services.scenarios import ScenarioService
 from app.services.sensor_kit import SensorKitInstaller
-from app.services.shopper import ShopperService, StoreShopperPort
+from app.services.shopper import ShopperConversations, ShopperService, StoreShopperPort
 from app.services.ticker import SimulationTicker
 from app.services.voice_chat import VoiceChatService
 from app.settings import Settings
@@ -224,7 +224,7 @@ def build_container(
         orders=orders,
         recommendations=recommendations,
         cart_suggestions=CartSuggestionService(recommendations, store, config.messages),
-        shopper=_shopper(live, config, store, orders, recommendations, passports, clock),
+        shopper=_shopper(live, config, store, orders, recommendations, passports, clock, uow),
     )
 
 
@@ -248,6 +248,7 @@ def _shopper(
     recommendations: RecommendationService,
     passports: PassportService,
     clock: SimClock,
+    uow: UowFactory,
 ) -> ShopperService | None:
     """The shopping assistant runs on the farm agent's model, or not at all in mock mode."""
     if live is None:
@@ -264,6 +265,7 @@ def _shopper(
         lambda: uuid.uuid4().hex,
         store.proposal,
         config.messages.label("out_of_scope_customer"),
+        ShopperConversations(uow, clock),
     )
 
 

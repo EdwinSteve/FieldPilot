@@ -408,6 +408,21 @@ class PayoutRow(SQLModel, table=True):
     created_at: datetime = _utc()
 
 
+class ShopperTurnRow(SQLModel, table=True):
+    """The shopping assistant's conversations, private to the customer (D092)."""
+
+    __tablename__ = "shopper_turn"
+
+    id: int | None = Field(default=None, primary_key=True)
+    conversation_id: str = Field(index=True)
+    customer_id: int = Field(foreign_key="user.id", index=True)
+    question: str
+    answer: str
+    topic: str | None = None
+    proposal_id: int | None = Field(default=None, foreign_key="cart_proposal.id")
+    created_at: datetime = _utc()
+
+
 class CartProposalRow(SQLModel, table=True):
     __tablename__ = "cart_proposal"
 

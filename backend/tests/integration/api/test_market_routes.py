@@ -26,7 +26,7 @@ from app.market.models import (
 from app.market.trace.models import Grade
 from app.services.cycles import Harvest, NewCycle
 from app.services.gate_context import local_day
-from app.services.shopper import ShopperService, StoreShopperPort
+from app.services.shopper import ShopperConversations, ShopperService, StoreShopperPort
 from app.settings import Settings
 
 PASSWORD = "cafe-con-panela"
@@ -407,9 +407,11 @@ def test_the_assistant_is_off_without_a_model(market: Market) -> None:
     assert response.status_code == 503
 
 
-def _assistant(market: Market, responses: list[LLMResponse]) -> None:
+def _assistant(market: Market, responses: list[LLMResponse]) -> MockLLMClient:
     """Swap in the assistant around a scripted model, as live mode wires it."""
     c = market.container
+    ids = iter(f"id-{n}" for n in range(1, 100))
+    llm = MockLLMClient(responses)
 
     def port_for(principal: Principal, run_id: str) -> StoreShopperPort:
         return StoreShopperPort(
@@ -417,15 +419,17 @@ def _assistant(market: Market, responses: list[LLMResponse]) -> None:
         )
 
     shopper = ShopperService(
-        MockLLMClient(responses),
+        llm,
         c.config.shopper,
         6,
         port_for,
-        lambda: "run-1",
+        lambda: next(ids),
         c.store.proposal,
         c.config.messages.label("out_of_scope_customer"),
+        ShopperConversations(c.runtime.uow, c.runtime.clock),
     )
     market.client.app.state.container = replace(c, shopper=shopper)  # type: ignore[attr-defined]
+    return llm
 
 
 def _call(name: str, arguments: dict[str, Any]) -> LLMResponse:
@@ -657,3 +661,51 @@ def test_an_answer_in_scope_cannot_be_empty(market: Market) -> None:
         "We have fresh tomato.",
         "products",
     )
+
+
+# --- the conversation (D092) ---------------------------------------------------------------
+
+
+def test_a_follow_up_reaches_the_model_with_the_conversation_so_far(market: Market) -> None:
+    llm = _assistant(
+        market,
+        [
+            _call("answer_customer", {"topic": "products", "text": "Tomato is fresh today."}),
+            _call("answer_customer", {"topic": "products", "text": "Nothing new since then."}),
+            _call("answer_customer", {"topic": "products", "text": "Still tomato."}),
+        ],
+    )
+
+    def ask(body: dict[str, str]) -> Any:
+        response = market.client.post("/store/assistant", json=body, headers=market.customer)
+        assert response.status_code == 200, response.json()
+        return response.json()
+
+    first = ask({"question": "What is fresh?"})
+    follow_up = ask({"question": "What about now?", "conversation_id": first["conversation_id"]})
+
+    assert follow_up["conversation_id"] == first["conversation_id"]
+    task = str(getattr(llm.requests[1].messages[0], "text", ""))
+    assert "Customer: What is fresh?" in task and "You: Tomato is fresh today." in task
+    assert task.endswith("The customer now asks: What about now?")
+    first_task = str(getattr(llm.requests[0].messages[0], "text", ""))
+    assert first_task == "What is fresh?"  # a new conversation is the question alone
+
+    ask({"question": "And today?", "conversation_id": first["conversation_id"]})
+    third = str(getattr(llm.requests[2].messages[0], "text", ""))
+    assert third.index("What is fresh?") < third.index("What about now?")  # oldest first
+
+
+def test_a_conversation_belongs_to_its_customer(market: Market) -> None:
+    _assistant(market, [_call("answer_customer", {"topic": "products", "text": "Hello."})])
+    mine = market.client.post(
+        "/store/assistant", json={"question": "Hi"}, headers=market.customer
+    ).json()
+
+    theirs = market.client.post(
+        "/store/assistant",
+        json={"question": "And mine?", "conversation_id": mine["conversation_id"]},
+        headers=market.other_customer,
+    )
+
+    assert theirs.status_code == 404

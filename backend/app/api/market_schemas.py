@@ -376,6 +376,8 @@ class CartSuggestionOut(BaseModel):
 
 class AssistantIn(_In):
     question: Annotated[str, Field(min_length=1, max_length=1000)]
+    # The id the previous answer returned; omitted, a new conversation starts (D092).
+    conversation_id: Annotated[str | None, Field(pattern=r"^[A-Za-z0-9-]{1,64}$")] = None
 
 
 class ProposalOut(BaseModel):
@@ -397,3 +399,4 @@ class AssistantOut(BaseModel):
     answer: str | None
     proposal: ProposalOut | None
     topic: str | None = None  # products | prices_offers | … | out_of_scope (D088)
+    conversation_id: str = ""  # send it back with the next question (D092)

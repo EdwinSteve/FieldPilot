@@ -38,6 +38,7 @@ from app.market.models import (
     Payout,
     ProposalStatus,
     Shipment,
+    ShopperTurn,
     StockMovement,
     StockReason,
     Warehouse,
@@ -220,6 +221,8 @@ class CustomerRepository(Protocol):
     def add_proposal(self, proposal: CartProposal) -> CartProposal: ...
     def proposal(self, proposal_id: int) -> CartProposal: ...
     def set_proposal_status(self, proposal_id: int, status: ProposalStatus) -> None: ...
+    def add_turn(self, turn: ShopperTurn) -> ShopperTurn: ...
+    def turns(self, conversation_id: str, limit: int) -> Sequence[ShopperTurn]: ...
 
 
 class OrderRepository(Protocol):
