@@ -193,6 +193,23 @@ class Payout:
 
 
 @dataclass(frozen=True)
+class ShopperTurn:
+    """One answered question of a customer's conversation with the assistant (D092).
+
+    Only what the customer saw: never the tools' results.
+    """
+
+    conversation_id: str
+    customer_id: int
+    question: str
+    answer: str
+    topic: str | None
+    created_at: datetime
+    proposal_id: int | None = None
+    id: int | None = None
+
+
+@dataclass(frozen=True)
 class CartProposal:
     customer_id: int
     items: tuple[Mapping[str, JsonValue], ...]  # {"listing_id", "quantity_kg"}

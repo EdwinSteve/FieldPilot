@@ -19,6 +19,7 @@ from app.market.models import (
     PriceBreakdown,
     ProposalStatus,
     Shipment,
+    ShopperTurn,
     StockMovement,
     StockReason,
     Warehouse,
@@ -34,6 +35,7 @@ from app.persistence.tables import (
     OrderLineRow,
     PayoutRow,
     ShipmentRow,
+    ShopperTurnRow,
     StockMovementRow,
     WarehouseRow,
 )
@@ -247,6 +249,28 @@ class SqlCustomerRepository:
         self._session.add(row)
         self._session.flush()
 
+    def add_turn(self, turn: ShopperTurn) -> ShopperTurn:
+        row = ShopperTurnRow(
+            conversation_id=turn.conversation_id,
+            customer_id=turn.customer_id,
+            question=turn.question,
+            answer=turn.answer,
+            topic=turn.topic,
+            proposal_id=turn.proposal_id,
+            created_at=turn.created_at,
+        )
+        return _turn(insert(self._session, row))
+
+    def turns(self, conversation_id: str, limit: int) -> Sequence[ShopperTurn]:
+        """The last `limit` turns of the conversation, oldest first."""
+        query = (
+            select(ShopperTurnRow)
+            .where(ShopperTurnRow.conversation_id == conversation_id)
+            .order_by(col(ShopperTurnRow.id).desc())
+            .limit(limit)
+        )
+        return [_turn(row) for row in reversed(self._session.exec(query).all())]
+
 
 class SqlOrderRepository:
     def __init__(self, session: Session) -> None:
@@ -385,6 +409,19 @@ def _shipment(row: ShipmentRow) -> Shipment:
 def _offer(row: OfferRow) -> Offer:
     return Offer(
         row.listing_id, row.discount_pct, row.starts_on, row.ends_on, row.created_at, row.id
+    )
+
+
+def _turn(row: ShopperTurnRow) -> ShopperTurn:
+    return ShopperTurn(
+        conversation_id=row.conversation_id,
+        customer_id=row.customer_id,
+        question=row.question,
+        answer=row.answer,
+        topic=row.topic,
+        created_at=row.created_at,
+        proposal_id=row.proposal_id,
+        id=row.id,
     )
 
 
