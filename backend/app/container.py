@@ -21,6 +21,7 @@ from app.identity.models import Principal
 from app.identity.passwords import Argon2Hasher
 from app.identity.service import AuthService
 from app.identity.tokens import JwtAccessTokens
+from app.market.freshness import ClearancePolicy
 from app.market.listings import ListingService
 from app.market.orders import OrderService
 from app.market.payments import MockPaymentGateway
@@ -176,10 +177,12 @@ def build_container(
     crop_names = _crop_names(recommender, config)
     passports = PassportService(uow, config.messages, config.messages_es)
     access = AccessPolicy(uow)
-    listings = ListingService(uow, clock, config.market, access)
+    clearance = ClearancePolicy(config.market)
+    listings = ListingService(uow, clock, config.market, access, clearance)
     listings.ensure_warehouses()  # the default warehouse in Bogotá, D.C. (D085)
+    listings.expire_due()  # write off what passed its best-before day (D086)
     payments = MockPaymentGateway()
-    store = StoreService(uow, clock, config.market, config.messages, payments)
+    store = StoreService(uow, clock, config.market, config.messages, payments, clearance)
     orders = OrderService(uow, clock, payments)
     recommendations = RecommendationService(uow, store, config.market)
     planning = PlanningService(uow, clock, sites, recommender, config.crops, crop_names)

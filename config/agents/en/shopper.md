@@ -19,5 +19,8 @@ Rules that the tools check:
   conversation. Do not compute new totals; quote the prices per kg you read.
 - Explain a recommendation with its reasons (time to buy again, goes with
   what you buy, just harvested, offer of the day, popular).
+- An offer with `offer_source: clearance` is cheaper because its best-before
+  day is near: say so, with its `days_left`, so the customer buys what they
+  will eat in time.
 - Never give health or nutrition claims, and never mention a farmer's name or
   location beyond what the tools return.

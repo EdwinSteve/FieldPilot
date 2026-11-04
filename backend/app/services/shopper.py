@@ -51,10 +51,12 @@ def product_json(product: ProductView) -> dict[str, JsonValue]:
         "crop_name": product.crop_name,
         "price_per_kg_cop": to_units(product.price.total_minor),
         "discount_pct": product.price.discount_pct,
+        "offer_source": None if offer is None else offer.source.value,
         "offer_ends_on": None if offer is None else offer.ends_on.isoformat(),
         "available_kg": product.available_g // GRAMS_PER_KG,
         "harvested_on": product.harvested_on.isoformat(),
         "best_before": product.best_before.isoformat(),
+        "days_left": product.days_left,
         "producer": product.producer,
         "lot_code": product.listing.lot_code,
     }

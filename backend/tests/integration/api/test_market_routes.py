@@ -245,6 +245,60 @@ def test_an_offer_of_the_day_lowers_the_price_but_keeps_the_farmers_share(market
     assert response.status_code == 422
 
 
+def _days_later(m: Market, days: int) -> None:
+    m.container.runtime.clock.advance(timedelta(days=days))
+
+
+def test_a_tomato_near_its_best_before_day_is_marked_down_by_itself(market: Market) -> None:
+    listing_id = _listed_and_received(market)
+    _days_later(market, 12)  # a tomato keeps 14 days: 2 are left
+
+    [deal] = market.client.get("/store/offers/today").json()
+    [listing] = market.client.get("/listings", headers=market.farmer).json()
+
+    assert deal["id"] == listing_id and deal["days_left"] == 2
+    assert deal["offer"]["source"] == "clearance"
+    assert (deal["price"]["discount_pct"], deal["price"]["farmer_cop"]) == (20, 2400.0)
+    assert listing["clearance"]["discount_pct"] == 20 and listing["days_left"] == 2
+    assert market.client.post("/listings/expire", headers=market.operator).json() == []
+
+
+def test_the_deeper_of_the_farmers_offer_and_the_clearance_applies(market: Market) -> None:
+    listing_id = _listed_and_received(market)
+    _days_later(market, 12)
+    today = market.container.store.today()
+    offer = {"discount_pct": 25, "starts_on": today.isoformat(), "ends_on": today.isoformat()}
+    market.client.post(f"/listings/{listing_id}/offers", json=offer, headers=market.farmer)
+
+    [deal] = market.client.get("/store/offers/today").json()
+
+    assert (deal["offer"]["source"], deal["price"]["discount_pct"]) == ("offer", 25)
+
+
+def test_past_its_best_before_day_a_product_is_not_sold_and_is_written_off(
+    market: Market,
+) -> None:
+    listing_id = _listed_and_received(market)
+    who = market.customer
+    market.client.put(f"/store/cart/items/{listing_id}", json={"quantity_kg": 2}, headers=who)
+    _days_later(market, 15)
+
+    assert market.client.get("/store/products").json() == []
+    cart = market.client.get("/store/cart", headers=who).json()
+    assert (cart["lines"][0]["problem"], cart["can_checkout"]) == ("expired", False)
+    again = market.client.put(f"/store/cart/items/{listing_id}", json={"quantity_kg": 1},
+                              headers=who)  # fmt: skip
+    assert again.status_code == 404
+    assert market.client.post("/listings/expire", headers=market.farmer).status_code == 403
+
+    [expired] = market.client.post("/listings/expire", headers=market.operator).json()
+
+    assert (expired["status"], expired["stock_kg"]) == ("expired", 0.0)
+    with market.container.runtime.uow() as uow:
+        assert uow.listings.moved_g(listing_id, StockReason.SPOILAGE) == 99_500
+    assert market.client.post("/listings/expire", headers=market.operator).json() == []
+
+
 # --- the customer buys --------------------------------------------------------------------
 
 

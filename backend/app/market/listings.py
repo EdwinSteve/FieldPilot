@@ -19,8 +19,10 @@ from app.market.errors import (
     ListingStateError,
     PriceTooLowError,
 )
+from app.market.freshness import ClearancePolicy, Freshness
 from app.market.models import (
     MINOR_PER_UNIT,
+    Discount,
     Listing,
     ListingStatus,
     Offer,
@@ -50,6 +52,8 @@ class ListingSummary:
     sold_g: int
     payouts_minor: int
     shipment: Shipment | None
+    freshness: Freshness
+    clearance: Discount | None  # the automatic markdown in force today (D086)
 
 
 def require_operator(principal: Principal) -> None:
@@ -59,12 +63,18 @@ def require_operator(principal: Principal) -> None:
 
 class ListingService:
     def __init__(
-        self, uow: UowFactory, clock: Clock, config: MarketConfig, access: AccessPolicy
+        self,
+        uow: UowFactory,
+        clock: Clock,
+        config: MarketConfig,
+        access: AccessPolicy,
+        clearance: ClearancePolicy,
     ) -> None:
         self._uow = uow
         self._clock = clock
         self._config = config
         self._access = access
+        self._clearance = clearance
 
     def today(self) -> date:
         return (self._clock.now() + COLOMBIA_UTC_OFFSET).date()
@@ -235,12 +245,38 @@ class ListingService:
         """The farmer's listings; an admin sees all."""
         farmer = None if principal.role is Role.ADMIN else _farmer_id(principal)
         with self._uow() as uow:
-            return [_summarise(uow, listing) for listing in uow.listings.list(farmer_id=farmer)]
+            return [self._summarise(uow, listing)
+                    for listing in uow.listings.list(farmer_id=farmer)]  # fmt: skip
 
     def summary(self, listing_id: int) -> ListingSummary:
         """One listing's state, for the response of a call that was already authorised."""
         with self._uow() as uow:
-            return _summarise(uow, uow.listings.get(listing_id))
+            return self._summarise(uow, uow.listings.get(listing_id))
+
+    def expire_due(self) -> Sequence[Listing]:
+        """Write off what is left of every active listing past its best-before day (D086).
+
+        Bookkeeping only: the store already refuses an expired product.
+        """
+        now = self._clock.now()
+        expired = []
+        with self._uow() as uow:
+            for listing in uow.listings.list(status=ListingStatus.ACTIVE):
+                listing_id = _stored(listing.id)
+                if not self._freshness(uow, listing).expired:
+                    continue
+                left = uow.listings.stock_g(listing_id)
+                if left > 0:
+                    uow.listings.move_stock(
+                        StockMovement(listing_id, -left, StockReason.SPOILAGE, "best-before", now)
+                    )
+                expired.append(uow.listings.set_status(listing_id, ListingStatus.EXPIRED))
+            uow.commit()
+        return expired
+
+    def expire(self, principal: Principal) -> Sequence[Listing]:
+        require_operator(principal)
+        return self.expire_due()
 
     def _check_price(self, farmer_price_minor: int, discount_pct: int = 0) -> None:
         fees = self._config.fees
@@ -264,26 +300,33 @@ class ListingService:
             raise NotFoundError("Warehouse", self._config.warehouses[0].code)
         return default
 
+    def _freshness(self, uow: UnitOfWork, listing: Listing) -> Freshness:
+        harvested_on = uow.lots.get(listing.lot_code).harvested_on
+        return self._clearance.freshness(listing.crop, harvested_on, self.today())
+
+    def _summarise(self, uow: UnitOfWork, listing: Listing) -> ListingSummary:
+        listing_id = _stored(listing.id)
+        sold = uow.listings.moved_g(listing_id, StockReason.SALE)
+        released = uow.listings.moved_g(listing_id, StockReason.RELEASE)
+        fresh = self._freshness(uow, listing)
+        on_sale = listing.status is ListingStatus.ACTIVE
+        return ListingSummary(
+            listing,
+            uow.warehouses.get(listing.warehouse_id),
+            uow.listings.stock_g(listing_id),
+            sold - released,
+            uow.orders.payouts_minor(listing_id),
+            uow.listings.shipment_for(listing_id),
+            fresh,
+            self._clearance.markdown(listing, fresh) if on_sale else None,
+        )
+
     @staticmethod
     def _own(uow: UnitOfWork, principal: Principal, listing_id: int) -> Listing:
         listing = uow.listings.get(listing_id)
         if principal.role is not Role.ADMIN and listing.farmer_id != principal.user_id:
             raise ForbiddenError("This listing is not yours.", key="listing_not_yours")
         return listing
-
-
-def _summarise(uow: UnitOfWork, listing: Listing) -> ListingSummary:
-    listing_id = _stored(listing.id)
-    sold = uow.listings.moved_g(listing_id, StockReason.SALE)
-    released = uow.listings.moved_g(listing_id, StockReason.RELEASE)
-    return ListingSummary(
-        listing,
-        uow.warehouses.get(listing.warehouse_id),
-        uow.listings.stock_g(listing_id),
-        sold - released,
-        uow.orders.payouts_minor(listing_id),
-        uow.listings.shipment_for(listing_id),
-    )
 
 
 def _farmer_id(principal: Principal) -> int:

@@ -10,6 +10,7 @@ from app.market.models import (
     CartProposal,
     CustomerOrder,
     CustomerProfile,
+    Discount,
     PriceBreakdown,
     Shipment,
     Warehouse,
@@ -90,6 +91,9 @@ class ListingOut(BaseModel):
     sold_kg: float
     payouts_cop: float
     shipment: ShipmentOut | None
+    best_before: date
+    days_left: int
+    clearance: "ClearanceOut | None"  # the automatic markdown in force today (D086)
 
     @classmethod
     def of(cls, s: ListingSummary, crop_name: str, price: PriceBreakdown) -> "ListingOut":
@@ -109,7 +113,19 @@ class ListingOut(BaseModel):
             sold_kg=_kg(s.sold_g),
             payouts_cop=to_units(s.payouts_minor),
             shipment=None if s.shipment is None else ShipmentOut.of(s.shipment),
+            best_before=s.freshness.best_before,
+            days_left=s.freshness.days_left,
+            clearance=None if s.clearance is None else ClearanceOut.of(s.clearance),
         )
+
+
+class ClearanceOut(BaseModel):
+    discount_pct: int
+    ends_on: date
+
+    @classmethod
+    def of(cls, d: Discount) -> "ClearanceOut":
+        return cls(discount_pct=d.discount_pct, ends_on=d.ends_on)
 
 
 class ReceiptIn(_In):
@@ -152,8 +168,13 @@ class PriceOut(BaseModel):
 
 
 class ProductOfferOut(BaseModel):
+    source: str  # offer | clearance (D086)
     discount_pct: int
     ends_on: date
+
+    @classmethod
+    def of(cls, d: Discount) -> "ProductOfferOut":
+        return cls(source=d.source.value, discount_pct=d.discount_pct, ends_on=d.ends_on)
 
 
 class ProductOut(BaseModel):
@@ -168,6 +189,7 @@ class ProductOut(BaseModel):
     available_kg: float
     harvested_on: date
     best_before: date
+    days_left: int
     producer: str
     warehouse: str
     lot_code: str
@@ -175,20 +197,16 @@ class ProductOut(BaseModel):
 
     @classmethod
     def of(cls, p: ProductView) -> "ProductOut":
-        offer = (
-            None
-            if p.offer is None
-            else ProductOfferOut(discount_pct=p.offer.discount_pct, ends_on=p.offer.ends_on)
-        )
         return cls(
             id=p.listing_id,
             crop=p.listing.crop,
             crop_name=p.crop_name,
             price=PriceOut.of(p.price),
-            offer=offer,
+            offer=None if p.offer is None else ProductOfferOut.of(p.offer),
             available_kg=float(p.available_g // GRAMS_PER_KG),
             harvested_on=p.harvested_on,
             best_before=p.best_before,
+            days_left=p.days_left,
             producer=p.producer,
             warehouse=p.warehouse,
             lot_code=p.listing.lot_code,
@@ -226,7 +244,7 @@ class CartLineOut(BaseModel):
     unit_price_cop: float | None
     line_total_cop: float
     available_kg: float
-    problem: str | None  # out_of_stock | not_available
+    problem: str | None  # out_of_stock | not_available | expired
 
 
 class CartOut(BaseModel):

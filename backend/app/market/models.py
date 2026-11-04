@@ -16,6 +16,7 @@ class ListingStatus(StrEnum):
     ACTIVE = "active"  # received: customers can buy it
     SOLD_OUT = "sold_out"
     WITHDRAWN = "withdrawn"  # by the farmer, before delivery
+    EXPIRED = "expired"  # past its best-before day; the rest written off (D086)
 
 
 class StockReason(StrEnum):
@@ -23,6 +24,7 @@ class StockReason(StrEnum):
     SALE = "sale"
     RELEASE = "release"  # a cancelled order gives its grams back
     SHRINKAGE = "shrinkage"
+    SPOILAGE = "spoilage"  # unsold at the best-before day (D086)
 
 
 class OrderStatus(StrEnum):
@@ -99,6 +101,20 @@ class Offer:
 
     def valid_on(self, day: date) -> bool:
         return self.starts_on <= day <= self.ends_on
+
+
+class DiscountSource(StrEnum):
+    OFFER = "offer"  # the farmer's offer of the day
+    CLEARANCE = "clearance"  # automatic, before the best-before day (D086)
+
+
+@dataclass(frozen=True)
+class Discount:
+    """The discount a product sells at today, whatever gave it."""
+
+    source: DiscountSource
+    discount_pct: int
+    ends_on: date  # the last day of this price
 
 
 @dataclass(frozen=True)

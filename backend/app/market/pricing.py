@@ -22,6 +22,16 @@ def respects_share(price: PriceBreakdown, fees: MarketFees) -> bool:
     return price.farmer_minor > 0 and price.farmer_share_pct >= fees.min_farmer_share_pct
 
 
+def deepest_allowed(
+    farmer_price_minor: int, fees: MarketFees, currency: str, wanted_pct: int
+) -> int:
+    """The deepest discount up to `wanted_pct` that keeps the farmer's share; 0 if none."""
+    for pct in range(wanted_pct, 0, -1):
+        if respects_share(shelf_price(farmer_price_minor, fees, currency, pct), fees):
+            return pct
+    return 0
+
+
 def to_units(minor: int) -> float:
     """Minor units to pesos for the API: 345000 -> 3450.0."""
     return minor / MINOR_PER_UNIT

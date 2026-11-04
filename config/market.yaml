@@ -30,6 +30,17 @@ shelf_life_days:
   tomato: 14
   potato: 60
 
+# Automatic markdowns before the best-before day (D086), from the share of
+# shelf life left; the deepest step reached applies. demo_value.
+clearance:
+  steps:
+    - life_left_pct: 40
+      discount_pct: 10
+    - life_left_pct: 20
+      discount_pct: 20
+    - life_left_pct: 10
+      discount_pct: 35
+
 # Deterministic recommender (market.md §7.1).
 recommender:
   weights:
