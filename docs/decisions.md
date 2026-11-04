@@ -2901,3 +2901,70 @@ question, not as subscribers.
 - The recorded mock responses (`MOCK_LLM=1`) name the seed farm's zones and
   values. They replay only for that farm; a new plot's daily cycle needs
   the model.
+
+## D090 — End-to-end tests: the whole season over HTTP, with a fake Muse
+
+- **Date:** 2026-11-04
+- **Status:** Accepted (2026-11-04). Edwin asked for end-to-end tests of
+  the three stages and left the tool to Claude.
+
+**Context.** Each part had tests, but nothing ran the season as one story,
+from the planner's recommendation to a customer's paid and delivered order,
+with the agents working. The unit and integration tests replace the model
+with `MockLLMClient` inside the process. In mock mode the shopping assistant
+and the chat answer 503, and the recorded days fit only the seed farm.
+
+**Options.**
+- **Playwright, through the browser.** This is the right tool once the
+  screens exist. Today the store, login and Plan screens are not built, so
+  it would test only a part.
+- **pytest in-process, with `TestClient`.** It is fast, but it skips HTTP,
+  startup, the OpenAI SDK and the settings, which are what a real run
+  depends on.
+- **pytest against running processes.** The cost is about 6 s.
+
+**Decision.** The third option: `backend/e2e/`, run by `make e2e`, in
+`make check` and in CI.
+- **The real backend runs under uvicorn, in its own process,** on a free
+  port, with a fresh SQLite file. It uses:
+  - `APP_PROFILE=demo`, so the sensor kit of D089 applies;
+  - `AUTH_REQUIRED=1`, so every role uses a real token;
+  - `MOCK_LLM=0`, so every agent turn goes through the OpenAI SDK.
+
+  Every setting that matters is set explicitly, so a developer's `.env`
+  cannot change the run.
+- **A fake Muse runs in a second process** (`e2e/fake_muse`). It speaks the
+  OpenAI Responses API (`POST /v1/responses`, `GET /v1/models`) on
+  localhost, with a placeholder key, so nothing reaches the network.
+  - **The agents are deterministic doubles.** Each one reads with the real
+    tools and closes with values taken from what they returned. The
+    backend's checks therefore run for real: citations, prices and scope.
+    A double never sees the database.
+  - **SAM** answers with the recorded segmentation of the demo image.
+  - **`GET /_e2e/log`** exposes every turn, with the refusals the backend
+    returned. The last test asserts there were none.
+- **The tests talk only over HTTP,** as the frontend does. The operator is
+  created with `scripts/create_user.py`, as `make user` does, because no
+  route creates one. The journey has ten ordered steps:
+  1. the plan and the sowing;
+  2. the sensors;
+  3. the daily cycle, through to the irrigation executed;
+  4. the degree-days;
+  5. the chat, in scope and out of scope;
+  6. the harvest and its passport;
+  7. the Bogotá warehouse;
+  8. the shopping assistant, the checkout, the delivery and the payout;
+  9. the clearance markdown;
+  10. no refused turn.
+
+**Consequences.**
+- **A broken link between stages fails here,** even when every unit passes.
+  Sabotaging a double's moisture value, the chat's refusal text, the kit's
+  first reading, the clearance ladder or the store's discount each failed
+  the journey.
+- **The doubles are not the model.** They prove the plumbing and the
+  checks, not the quality of Muse's answers. `make record-demo` and a live
+  run with the key cover that.
+- **A browser layer can come later on the same harness.** When the screens
+  exist, Playwright (`pytest-playwright`) can drive the frontend against
+  these two processes.
