@@ -19,6 +19,38 @@ with what they returned. The backend's checks (citations, prices, scope)
 run exactly as with the model. `GET /_e2e/log` on the fake Muse lists every
 turn and any refusal.
 
+## Against the real Muse: `make e2e-live` (D091)
+
+```bash
+make e2e-live       # needs MUSE_API_KEY, MUSE_AGENT_MODEL and MUSE_SEGMENTATION_MODEL in .env
+```
+
+The same ten steps run against the Meta Model API. This uses the network and
+costs quota, so it never runs in CI. Run it before a demo.
+
+**What it checks:**
+- **Exactly:** what the backend guarantees, as in `make e2e`.
+- **Reported, not required:** what is the model's judgement. That covers the
+  status it gives each zone, how many irrigations it proposes, the words of
+  an answer and the cart it proposes.
+
+**The report card.** At the end it prints, for each farm agent, the turns
+taken, the answers the checks refused (with the first reason) and the
+tokens. It also lists what the model did on each step:
+
+```
+=== Muse report card (e2e-live) ===
+monitoring      5 turns   0 refused      600 tok
+irrigation      5 turns   0 refused      600 tok
+...
+--- the journey ---
+daily cycle: zones {1: 'ok', 2: 'dry'}, 1 proposal(s)
+chat off topic: topic 'out_of_scope'
+```
+
+Many refusals mean the model and the prompts disagree. Read the first
+reason before changing code.
+
 ## The steps (`test_journey.py`)
 
 | Step | What it checks |
