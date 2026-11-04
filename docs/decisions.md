@@ -2735,3 +2735,67 @@ customers buy it cheaper and sooner.
   trace event for the write-off come later.
 - The shopping assistant and the `ON_OFFER` recommendation read clearance
   markdowns with no change, because they read the product's offer.
+
+## D087 — Deals for the customer's tastes, and a suggestion in the cart
+
+- **Date:** 2026-11-04
+- **Status:** Accepted (2026-11-04), asked for by Edwin. It extends D085
+  and D086.
+
+**Context.** Offers and clearance markdowns (D086) were recommended to
+everyone alike: `ON_OFFER` scores the discount, not the customer. Edwin
+wants:
+- a discount to be recommended when it fits what the customer needs and
+  likes;
+- the recommender inside the cart, as an assistant that says, for example,
+  "Hey, I saw you are planning to buy maize. Would you like to add potato?
+  The last time you bought it was a week ago!", with two buttons: "Yes, add
+  1 kg of potato" and "Search for me a better deal";
+- a default answer when there is nothing to suggest;
+- an API the UI can call directly.
+
+**Decision.**
+- **A new reason, `DEAL_FOR_YOU`.** A product on offer (the farmer's or a
+  clearance) earns it when the customer is linked to its crop in one of
+  two ways:
+  - **They buy it:** a habit in their own history. This needs
+    `consent_profiling`, like every personal score.
+  - **It goes with their basket:** the crop is bought together with one in
+    the basket, by the co-purchase similarity over every order. The basket
+    is the cart, or the last order with consent. The cart is what the
+    customer is doing now, not their history, so this part needs no
+    consent.
+
+  Its score is `deal_for_you × discount × link`. It replaces `ON_OFFER` for
+  that product, so a discount is never counted twice. A discount with no
+  link to the customer stays a plain `ON_OFFER`. The weight (1.2) ranks a
+  deal that fits above one that is merely due.
+- **`GET /store/cart/suggestion`** gives one suggestion for the cart:
+  - **Candidates:** the catalogue minus the crops already in the cart and
+    the listings in `exclude`.
+  - **`prefer=deal`** keeps only products with a discount. It serves the
+    "Search for me a better deal" button.
+  - **The text is a template** per lead reason (the one that adds most to
+    the score), in `APP_LANGUAGE`, from `config/messages`. No model is
+    involved, so it is instant, deterministic and works under
+    `MOCK_LLM=1`.
+  - **The actions** give the UI what to call:
+    - `add_to_cart`: `PUT /store/cart/items/{listing_id}` with the
+      suggested kg;
+    - `better_deal`: the same endpoint with `prefer=deal` and the shown
+      listings in `exclude`.
+  - **The default answer.** When nothing qualifies, the response still has
+    a `message`, a fixed text, with no product and no actions:
+    - "Your cart looks complete. I have nothing else to suggest right now.";
+    - after a "better deal", "That is the best deal I can find for you
+      today.".
+- **The `shopper` agent reads `DEAL_FOR_YOU`** through
+  `get_recommendations`, with the same evidence. No tool changes.
+
+**Consequences.**
+- The cart nudge needs no model and no key. The LLM assistant stays for
+  open questions (`POST /store/assistant`).
+- Suggesting is read-only. Nothing enters the cart until the customer
+  presses the button, which calls the existing cart endpoint.
+- `ON_OFFER` now caps its score at 1. A clearance step can exceed the
+  farmer's 30 % offer cap, and the score used to go above 1.

@@ -1408,8 +1408,17 @@ class PaymentGateway(Protocol):   # MockPaymentGateway: always approves, idempot
 class Recommender:                       # pure scorers, weights in config/market.yaml
     def recommend(self, history: PurchaseProfile, catalogue: Sequence[ProductView],
                   offers: Mapping[int, Offer], today: date, k: int) -> tuple[Recommendation, ...]: ...
-# ReasonCode: REPURCHASE_DUE · BOUGHT_TOGETHER · FRESH_HARVEST · ON_OFFER · POPULAR
+# ReasonCode: REPURCHASE_DUE · BOUGHT_TOGETHER · DEAL_FOR_YOU · FRESH_HARVEST · ON_OFFER · POPULAR
+class CartSuggestionService: ...         # one templated suggestion for the cart, no model (D087)
 ```
+
+- **Deals that fit the customer** (D087). A discount on a crop the
+  customer buys (with consent), or one that goes with the basket (the
+  cart needs no consent), scores `DEAL_FOR_YOU` instead of `ON_OFFER`.
+- **The cart suggestion** (`GET /store/cart/suggestion`) ranks the
+  catalogue without the cart's crops. It writes the message from a
+  template for the lead reason and returns the actions the UI calls: add
+  to the cart, or ask for a better deal (`prefer=deal`, `exclude`).
 
 - **The scores are deterministic and explainable.** Each recommendation
   carries its reason codes and evidence (market.md §7.1).
