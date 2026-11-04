@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 from app.agent.llm.ports import LLMClient, LLMUnavailableError
 from app.agent.loop import AgentLoop, RunStatus, Subagent
+from app.agent.scope import is_out_of_scope
 from app.agent.tools.registry import ToolRegistry
 from app.agent.tools.shopper import ShopperSession, shopper_tools
 from app.agent.trace import TraceEntry
@@ -30,6 +31,7 @@ class ShopperAnswer:
     status: RunStatus
     answer: str | None
     proposal: CartProposal | None
+    topic: str | None = None  # the closing tool's topic; out_of_scope gets a fixed answer
 
 
 class _PrivateTrace:
@@ -165,6 +167,7 @@ class ShopperService:
         port_for: Callable[[Principal, str], StoreShopperPort],
         new_id: Callable[[], str],
         proposal: Callable[[int], CartProposal],
+        out_of_scope: str,
     ) -> None:
         self._llm = llm
         self._subagent = subagent
@@ -172,6 +175,7 @@ class ShopperService:
         self._port_for = port_for
         self._new_id = new_id
         self._proposal = proposal
+        self._out_of_scope = out_of_scope  # the fixed answer to an off-topic question (D088)
 
     def ask(self, principal: Principal, question: str) -> ShopperAnswer:
         require_customer(principal)
@@ -187,7 +191,9 @@ class ShopperService:
         run = loop.run(self._subagent.name, question, run_id)
         if run.status is RunStatus.PAUSED:
             raise LLMUnavailableError("the shopping assistant's model did not answer")
-        answer = run.output.get("answer") if isinstance(run.output, dict) else None
+        output = run.output if isinstance(run.output, dict) else {}
+        topic = output.get("topic")
+        answer = self._out_of_scope if is_out_of_scope(output) else output.get("answer")
         proposal = None if session.proposal_id is None else self._proposal(session.proposal_id)
         return ShopperAnswer(run_id, run.status, answer if isinstance(answer, str) else None,
-                             proposal)  # fmt: skip
+                             proposal, topic if isinstance(topic, str) else None)  # fmt: skip

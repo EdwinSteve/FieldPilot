@@ -166,7 +166,8 @@ def build_container(
         llm = cycle_llm(queries.local_day(plot_id))
         return DailyCycle(uow, agent_deps(llm), config.messages)
 
-    chat = None if live is None else ChatService(uow, live)
+    off_topic = config.messages.label("out_of_scope_farmer")
+    chat = None if live is None else ChatService(uow, live, off_topic)
     voice = (
         None
         if chat is None
@@ -251,7 +252,13 @@ def _shopper(
         return StoreShopperPort(principal, store, orders, recommendations, passports, clock, run_id)
 
     return ShopperService(
-        live.llm, config.shopper, live.max_turns, port_for, lambda: uuid.uuid4().hex, store.proposal
+        live.llm,
+        config.shopper,
+        live.max_turns,
+        port_for,
+        lambda: uuid.uuid4().hex,
+        store.proposal,
+        config.messages.label("out_of_scope_customer"),
     )
 
 

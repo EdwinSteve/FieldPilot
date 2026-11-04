@@ -107,7 +107,7 @@ def farm(container: Container) -> Farm:
 def with_chat(app: FastAPI, llm: LLMClient, speech: SpeechToText | None = None) -> Container:
     """Swap in a chat (and voice) around a scripted model, as live mode would wire it."""
     container: Container = app.state.container
-    chat = ChatService(container.runtime.uow, container.agent_deps(llm))
+    chat = ChatService(container.runtime.uow, container.agent_deps(llm), "off topic")
     voice = None if speech is None else VoiceChatService(chat, speech)
     app.state.container = replace(container, chat=chat, voice=voice)
     swapped: Container = app.state.container

@@ -396,3 +396,4 @@ class AssistantOut(BaseModel):
     status: str
     answer: str | None
     proposal: ProposalOut | None
+    topic: str | None = None  # products | prices_offers | … | out_of_scope (D088)
