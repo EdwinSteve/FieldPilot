@@ -4,6 +4,7 @@ import { en } from "../i18n/en";
 import { smoothBars, stripCrops, weekStrip, type WeekMark, type WeekStrip } from "../lib/cropAdvice";
 import { formatCalendarDate } from "../lib/farmTime";
 import { cropLabel } from "../lib/names";
+import { CropArt } from "./CropArt";
 import { Icon } from "./Icon";
 
 /** Height and colour both say how good a week is, so it reads without colour too. */
@@ -39,12 +40,18 @@ function StripRow({ strip }: { strip: WeekStrip }) {
   return (
     <li
       aria-label={en.advice.stripLabel(name, bestText(strip), count("good"), count("fair"), count("poor"))}
-      className="flex flex-col gap-2"
+      className="flex flex-col gap-2 rounded-tile border border-divider bg-ground p-3.5"
     >
-      <span aria-hidden="true" className="flex flex-wrap items-baseline justify-between gap-x-2">
-        <span className="text-row font-bold">{name}</span>
-        <span className={`text-small font-bold ${strip.best === null ? "text-bad-text" : "text-primary"}`}>
-          {bestText(strip)}
+      {/* Each crop is its own tile, headed by its picture, so the rows never run together. */}
+      <span aria-hidden="true" className="flex items-center gap-3 border-b border-divider pb-2.5">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface">
+          <CropArt crop={strip.crop} size={32} />
+        </span>
+        <span className="flex min-w-0 flex-col">
+          <span className="text-row font-bold">{name}</span>
+          <span className={`text-small font-bold ${strip.best === null ? "text-bad-text" : "text-primary"}`}>
+            {bestText(strip)}
+          </span>
         </span>
       </span>
       <span aria-hidden="true" className="flex w-full gap-[3px]">
@@ -115,7 +122,7 @@ export function SowingStrips({ plan, grown }: { plan: PlantingPlan; grown: reado
         <p className="text-caption leading-snug text-ink-2">{en.advice.stripLead}</p>
       </div>
       <Key />
-      <ul className="flex flex-col gap-5">
+      <ul className="flex flex-col gap-3">
         {mine.map((crop) => (
           <StripRow key={crop} strip={weekStrip(plan, crop)} />
         ))}
@@ -129,10 +136,15 @@ export function SowingStrips({ plan, grown }: { plan: PlantingPlan; grown: reado
             className="press flex min-h-12 items-center justify-center gap-2 rounded-control border-2 border-border bg-surface text-small font-bold text-ink"
           >
             {showOthers ? en.advice.hideOthers : en.advice.showOthers}
-            <Icon name="chevronDown" size={20} strokeWidth={2.4} className={showOthers ? "rotate-180" : ""} />
+            <Icon
+              name="chevronDown"
+              size={20}
+              strokeWidth={2.4}
+              className={`transition-transform duration-300 ease-(--ease-calm) ${showOthers ? "rotate-180" : ""}`}
+            />
           </button>
           {showOthers ? (
-            <ul className="flex animate-fade-in flex-col gap-5">
+            <ul className="flex animate-screen-in flex-col gap-3">
               {others.map((crop) => (
                 <StripRow key={crop} strip={weekStrip(plan, crop)} />
               ))}

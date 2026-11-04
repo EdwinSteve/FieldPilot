@@ -157,7 +157,7 @@ function WeekPicker({
   onChoose: (index: number) => void;
 }) {
   return (
-    <fieldset className="-mx-4.5 flex min-w-0 shrink-0 gap-2 overflow-x-auto border-0 px-4.5 pb-1">
+    <fieldset className="-mx-4.5 flex min-w-0 shrink-0 gap-2 overflow-x-auto border-0 px-4.5 pb-3">
       <legend className="sr-only">{en.advice.sowingWeek}</legend>
       {plan.weeks.map((week, index) => (
         <button

@@ -73,11 +73,17 @@ function StoppedBanner({ text }: { text: string }) {
   );
 }
 
+/**
+ * How the farm is today: the one card in the brand's solid green, as the market's hero is,
+ * so the day's answer stands apart from the cards around it. The tiles keep their own colours.
+ */
 function StatusCard({ view }: { view: TodayView }) {
   const zoneHref = hrefOf({ screen: "zone", zoneId: view.zoneId });
   const statusIcon = LEVEL_ICON[view.status];
   return (
-    <section className="flex flex-col gap-3 rounded-card bg-surface p-4">
+    <section className="relative isolate flex shrink-0 flex-col gap-3 overflow-hidden rounded-card bg-primary p-4 text-surface shadow-[0_12px_30px_rgb(21_39_40/0.18)]">
+      <span aria-hidden="true" className="absolute -top-16 -right-14 -z-10 size-48 rounded-full bg-field opacity-60" />
+      <span aria-hidden="true" className="absolute top-14 -right-4 -z-10 size-20 rounded-full bg-leaf opacity-40" />
       <span className="self-start">
         <Chip tone={LEVEL_CHIP[view.status]}>
           {statusIcon === null ? null : <Icon name={statusIcon} size={16} strokeWidth={2.6} />}
@@ -86,13 +92,13 @@ function StatusCard({ view }: { view: TodayView }) {
       </span>
       <a
         href={zoneHref}
-        className="flex items-center justify-between gap-2.5 px-0.5 text-ink no-underline"
+        className="flex items-center justify-between gap-2.5 px-0.5 text-surface no-underline"
       >
         <span className="flex flex-col gap-0.5">
           <h2 className="text-key-lg font-extrabold tracking-key">{view.statusTitle}</h2>
-          <span className="text-small text-ink-2">{view.statusDetail}</span>
+          <span className="text-small">{view.statusDetail}</span>
         </span>
-        <Icon name="forward" size={22} strokeWidth={2.5} className="text-ink-3" />
+        <Icon name="forward" size={22} strokeWidth={2.5} />
       </a>
       <div className="grid grid-cols-3 gap-2">
         <StatusTile
