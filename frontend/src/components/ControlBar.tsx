@@ -6,6 +6,7 @@ import { useResource } from "../hooks/useResource";
 import { formatPlotTime } from "../lib/format";
 import { dayAlreadyReplayed, isFixtureExhausted } from "../lib/mockMode";
 import type { Clock, Plot } from "../types/api";
+import type { HealthResponse } from "../types/health";
 import { Icon } from "./icons";
 
 const SPEEDS = [1, 60, 360];
@@ -70,6 +71,7 @@ export function ControlBar({
         {autoTickOn ? (
           <output className="control-bar__autotick">Auto-refresh every 5 s</output>
         ) : null}
+        {health.data ? <ModeBadge health={health.data} /> : null}
       </div>
       <div className="control-bar__buttons">
         {now?.paused ? (
@@ -144,4 +146,24 @@ export function ControlBar({
 async function advanceAndTick(seconds: number): Promise<void> {
   await api.changeClock({ action: "advance", advance_seconds: seconds });
   await api.tick();
+}
+
+/** D094: always on screen, so a replay is never taken for a live run. */
+export function ModeBadge({ health }: { health: HealthResponse }) {
+  const replay = health.llm_mode === "replay" || (health.llm_mode === undefined && health.mock_llm);
+  if (replay) {
+    const when = health.replay?.recorded_on ? ` · recorded on ${health.replay.recorded_on}` : "";
+    const model = health.replay?.model ? ` with ${health.replay.model}` : "";
+    return (
+      <span className="badge badge--pending_approval" title="A real Muse Spark run, replayed offline">
+        REPLAY{when}
+        {model}
+      </span>
+    );
+  }
+  return (
+    <span className="badge badge--executed" title="Every agent turn is a live Meta model call">
+      LIVE · Muse Spark{health.agent_model ? ` (${health.agent_model})` : ""}
+    </span>
+  );
 }

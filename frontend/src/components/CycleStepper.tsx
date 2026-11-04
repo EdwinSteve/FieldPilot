@@ -30,7 +30,14 @@ const OUTCOME_BADGES: Record<string, string> = {
   await_approval: "badge--pending_approval",
 };
 
-/** The daily pipeline as six nodes, and what the last cycle found and proposed. */
+/** "fungal_disease" -> "fungal disease", "ph_low" -> "low pH". */
+function humanize(code: string): string {
+  if (code === "ph_low") return "low pH";
+  if (code === "ph_high") return "high pH";
+  return code.replaceAll("_", " ");
+}
+
+/** The daily cycle as nodes (the agronomist and its specialists), and what it found. */
 export function CycleStepper({ plotId, version, running, lastCycle }: CycleStepperProps) {
   const zones = useResource(useCallback(() => api.zones(plotId), [plotId]), version);
   const nameOf = (zoneId: number) => zones.data?.find((z) => z.id === zoneId)?.name ?? `Zone ${zoneId}`;
@@ -102,6 +109,25 @@ export function CycleStepper({ plotId, version, running, lastCycle }: CycleStepp
               ))}
             </ul>
           </div>
+          {brief.health.length + brief.nutrition.length > 0 ? (
+            <div className="brief-block">
+              <h3>Crop health and soil</h3>
+              <ul>
+                {brief.health.map((zone) => (
+                  <li key={`h${zone.zoneId}`}>
+                    <strong>{nameOf(zone.zoneId)}</strong>: {zone.level} risk
+                    {zone.items.length ? ` · ${zone.items.map(humanize).join(", ")}` : ""}
+                  </li>
+                ))}
+                {brief.nutrition.map((zone) => (
+                  <li key={`n${zone.zoneId}`}>
+                    <strong>{nameOf(zone.zoneId)}</strong>: soil {zone.level}
+                    {zone.items.length ? ` · short of ${zone.items.map(humanize).join(", ")}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <div className="brief-block">
             <h3>Proposals and gate</h3>
             {brief.proposals.length === 0 ? <p className="muted">No proposals in this cycle.</p> : null}

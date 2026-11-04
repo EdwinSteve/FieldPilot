@@ -1,7 +1,16 @@
 // Where the last daily cycle got to, per pipeline step. Pure logic only.
 import type { DailyCycleResult } from "../types/api";
 
-export const CYCLE_STEPS = ["monitoring", "imaging", "irrigation", "reporting"] as const;
+// D093: the agronomist leads and consults the specialists; the fixed pipeline has no lead.
+export const CYCLE_STEPS = [
+  "agronomist",
+  "monitoring",
+  "imaging",
+  "crop_health",
+  "soil_nutrition",
+  "irrigation",
+  "reporting",
+] as const;
 
 export type CycleStep = (typeof CYCLE_STEPS)[number];
 
@@ -53,6 +62,6 @@ export function contextStates(result: DailyCycleResult | null): {
   );
   return {
     sources: completed.has("monitoring") ? "done" : "todo",
-    gate: completed.has("irrigation") ? "done" : "todo",
+    gate: completed.has("irrigation") || completed.has("agronomist") ? "done" : "todo",
   };
 }

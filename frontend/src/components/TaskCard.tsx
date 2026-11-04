@@ -63,6 +63,7 @@ export function TaskCard({ task, plot, clock, verdict, failure, refresh }: TaskC
           setReason={setReason}
           busy={action.busy}
           approve={() => action.run(() => api.approve(task.id))}
+          markDone={() => action.run(() => api.done(task.id))}
           reject={() => action.run(() => api.reject(task.id, reason || undefined))}
         />
         {card ? (
@@ -124,9 +125,13 @@ interface OutcomeProps {
   busy: boolean;
   approve: () => void;
   reject: () => void;
+  markDone: () => void;
 }
 
-function Outcome({ task, failureRule, reason, setReason, busy, approve, reject }: OutcomeProps) {
+// Tasks a machine runs; any other scheduled task is the farmer's to do by hand (D093).
+const MACHINE_TASKS = new Set(["irrigation", "extra_irrigation", "stop_irrigation"]);
+
+function Outcome({ task, failureRule, reason, setReason, busy, approve, reject, markDone }: OutcomeProps) {
   if (task.status === "pending_approval") {
     return (
       <div>
@@ -148,7 +153,18 @@ function Outcome({ task, failureRule, reason, setReason, busy, approve, reject }
       </div>
     );
   }
+  if (task.status === "scheduled" && !MACHINE_TASKS.has(task.action_type)) {
+    return (
+      <div className="button-row">
+        <p>A task for you, in the field.</p>
+        <button className="button--primary" disabled={busy} onClick={markDone}>
+          Mark done
+        </button>
+      </div>
+    );
+  }
   if (task.status === "scheduled") return <p>On the calendar, waiting for its time.</p>;
+  if (task.status === "cancelled") return <p>The agronomist withdrew it.</p>;
   if (task.status === "executed") return <p>Completed.</p>;
   if (task.status === "rejected") return <p>The farmer rejected it.</p>;
   return <p>{failureRule ? `Not executed: ${RULE_LABELS[failureRule] ?? failureRule}.` : "Not executed."}</p>;
