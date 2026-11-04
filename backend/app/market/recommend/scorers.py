@@ -34,6 +34,7 @@ class DayOf:
 class ReasonCode(StrEnum):
     REPURCHASE_DUE = "REPURCHASE_DUE"
     BOUGHT_TOGETHER = "BOUGHT_TOGETHER"
+    DEAL_FOR_YOU = "DEAL_FOR_YOU"  # a discount on what the customer buys or needs (D087)
     FRESH_HARVEST = "FRESH_HARVEST"
     ON_OFFER = "ON_OFFER"
     POPULAR = "POPULAR"
@@ -61,6 +62,7 @@ class Recommendation:
     reasons: tuple[ReasonCode, ...]
     evidence: Mapping[str, JsonValue] = field(default_factory=dict)
     suggested_kg: int = 1
+    lead: ReasonCode | None = None  # the reason that adds most to the score
 
 
 @dataclass(frozen=True)
@@ -70,6 +72,7 @@ class Weights:
     fresh_harvest: float
     on_offer: float
     popular: float
+    deal_for_you: float
     due_ratio: float
     fresh_days: int
     max_discount_pct: int
@@ -140,11 +143,20 @@ def recommend(
     today: date,
     weights: Weights,
     k: int,
+    basket: frozenset[str] | None = None,
 ) -> tuple[Recommendation, ...]:
-    """The k best products, each with the reasons that put it there."""
+    """The k best products, each with the reasons that put it there.
+
+    `basket` is what the customer is buying now (the cart): the crops that go
+    with it need no consent, since it is not their history. Without it, the
+    basket is the last order, with consent (D087).
+    """
     top_sold = max(sold.values(), default=0)
+    if basket is None:
+        basket = frozenset() if profile is None else profile.recent_crops
     ranked = [
-        _score(product, profile, similarity, sold, top_sold, today, weights) for product in products
+        _score(product, profile, basket, similarity, sold, top_sold, today, weights)
+        for product in products
     ]
     ranked.sort(key=lambda r: (-r.score, r.product.listing_id))
     return tuple(r for r in ranked if r.score > 0)[:k]
@@ -153,6 +165,7 @@ def recommend(
 def _score(
     product: ProductView,
     profile: PurchaseProfile | None,
+    basket: frozenset[str],
     similarity: Mapping[str, Mapping[str, float]],
     sold: Mapping[str, int],
     top_sold: int,
@@ -170,21 +183,27 @@ def _score(
                           {"last_bought": habit.last_bought.isoformat(),
                            "median_interval_days": habit.median_interval_days,
                            "days_since": since}))  # fmt: skip
-    if profile is not None and profile.recent_crops and crop not in profile.recent_crops:
-        together = max((similarity.get(crop, {}).get(c, 0.0) for c in profile.recent_crops),
-                       default=0.0)  # fmt: skip
+    together = 0.0
+    if basket and crop not in basket:
+        together = max((similarity.get(crop, {}).get(c, 0.0) for c in basket), default=0.0)
         parts.append((ReasonCode.BOUGHT_TOGETHER, weights.bought_together, together,
-                      {"with": list[JsonValue](sorted(profile.recent_crops))}))  # fmt: skip
+                      {"with": list[JsonValue](sorted(basket))}))  # fmt: skip
     age = (today - product.harvested_on).days
     if 0 <= age <= weights.fresh_days:
         parts.append((ReasonCode.FRESH_HARVEST, weights.fresh_harvest,
                       1 - age / (weights.fresh_days + 1),
                       {"harvested_on": product.harvested_on.isoformat()}))  # fmt: skip
     if product.offer is not None:
-        parts.append((ReasonCode.ON_OFFER, weights.on_offer,
-                      product.offer.discount_pct / weights.max_discount_pct,
-                      {"discount_pct": product.offer.discount_pct,
-                       "ends_on": product.offer.ends_on.isoformat()}))  # fmt: skip
+        depth = min(1.0, product.offer.discount_pct / weights.max_discount_pct)
+        offer: dict[str, JsonValue] = {"discount_pct": product.offer.discount_pct,
+                                       "ends_on": product.offer.ends_on.isoformat(),
+                                       "offer_source": product.offer.source.value}  # fmt: skip
+        link, strength = _deal_link(habit is not None, together)
+        if link is None:
+            parts.append((ReasonCode.ON_OFFER, weights.on_offer, depth, offer))
+        else:
+            parts.append((ReasonCode.DEAL_FOR_YOU, weights.deal_for_you, depth * strength,
+                          offer | {"link": link, "days_left": product.days_left}))  # fmt: skip
     if top_sold:
         parts.append((ReasonCode.POPULAR, weights.popular, sold.get(crop, 0) / top_sold,
                       {"kg_sold_30_days": sold.get(crop, 0)}))  # fmt: skip
@@ -192,10 +211,22 @@ def _score(
     evidence: dict[str, JsonValue] = {}
     for _, _, _, detail in kept:
         evidence.update(detail)
+    lead = max(kept, key=lambda p: p[1] * p[2], default=None)
     return Recommendation(
         product=product,
         score=round(sum(weight * value for _, weight, value, _ in kept), 3),
         reasons=tuple(code for code, _, _, _ in kept),
         evidence=evidence,
         suggested_kg=1 if habit is None else habit.usual_kg,
+        lead=None if lead is None else lead[0],
     )
+
+
+def _deal_link(buys_it: bool, together: float) -> tuple[str | None, float]:
+    """How a discounted crop is linked to the customer: they buy it, or it goes with
+    their basket; (None, 0) when it is not (D087)."""
+    if buys_it:
+        return "you_buy_it", 1.0
+    if together >= MIN_SCORE:
+        return "goes_with", together
+    return None, 0.0

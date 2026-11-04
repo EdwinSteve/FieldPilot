@@ -16,6 +16,7 @@ from app.market.models import (
     Warehouse,
 )
 from app.market.pricing import to_units
+from app.market.recommend.cart import CartSuggestion, SuggestionAction
 from app.market.recommend.scorers import Recommendation
 from app.market.store import CartView, ProductView
 
@@ -341,6 +342,36 @@ class RecommendationOut(BaseModel):
             evidence=dict(r.evidence),
             suggested_kg=r.suggested_kg,
         )
+
+
+class SuggestionActionOut(BaseModel):
+    kind: str  # add_to_cart | better_deal
+    label: str
+    listing_id: int | None = None  # add_to_cart: PUT /store/cart/items/{listing_id}
+    quantity_kg: int | None = None
+    exclude: list[int] = []  # better_deal: GET /store/cart/suggestion?prefer=deal&exclude=…
+
+    @classmethod
+    def of(cls, a: SuggestionAction) -> "SuggestionActionOut":
+        return cls(kind=a.kind.value, label=a.label, listing_id=a.listing_id,
+                   quantity_kg=a.quantity_kg, exclude=list(a.exclude))  # fmt: skip
+
+
+class CartSuggestionOut(BaseModel):
+    """One suggestion for the cart (D087); with nothing to suggest, only the message."""
+
+    message: str
+    recommendation: RecommendationOut | None
+    actions: list[SuggestionActionOut]
+
+    @classmethod
+    def of(cls, s: CartSuggestion) -> "CartSuggestionOut":
+        return cls(
+            message=s.message,
+            recommendation=None if s.recommendation is None
+            else RecommendationOut.of(s.recommendation),
+            actions=[SuggestionActionOut.of(a) for a in s.actions],
+        )  # fmt: skip
 
 
 class AssistantIn(_In):

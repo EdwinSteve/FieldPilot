@@ -104,7 +104,7 @@ class MarketConfig:
 
 
 REQUIRED_WEIGHTS = frozenset(
-    {"repurchase_due", "bought_together", "fresh_harvest", "on_offer", "popular"}
+    {"repurchase_due", "bought_together", "fresh_harvest", "on_offer", "popular", "deal_for_you"}
 )
 
 

@@ -49,5 +49,6 @@ recommender:
     fresh_harvest: 0.5
     on_offer: 0.7
     popular: 0.3
+    deal_for_you: 1.2          # a discount that fits the customer (D087)
   due_ratio: 0.8               # REPURCHASE_DUE from 80 % of the usual interval
   fresh_days: 7
