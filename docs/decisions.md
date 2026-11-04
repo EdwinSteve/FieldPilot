@@ -2846,3 +2846,58 @@ A rule in the prompt alone is a request; the model may ignore it.
   day to watch for misuse.
 - An answer in scope keeps every existing check: cited numbers (D053) and
   prices from tools (D085).
+
+## D089 — In the demo, a new plot comes with simulated sensors and imagery
+
+- **Date:** 2026-11-04
+- **Status:** Accepted (2026-11-04). Edwin asked for it and left the design
+  to Claude.
+
+**Context.** Only `make seed` creates zones, sensors and a first reading. A
+plot created with `POST /plots` (D083) had none of them:
+- the simulator left it out (`ensure_simulated` needs a reading, D019);
+- the ticker recorded nothing for it;
+- `read_zone` had nothing to read, so the daily cycle ran out of turns.
+
+Its imagery was also empty: the only scene is near Neiva. Its rain
+forecast was unknown away from the Open-Meteo fixture.
+
+Edwin proposed a message broker, with the sensor subagent as subscriber and
+a mock publisher. A broker does not solve this, because the plot has no
+zone or sensor to receive a reading. The simulator already publishes: the
+ticker writes its readings to the database, and the agents read them
+through their tools, citing each one (D053, D054). Agents run per cycle or
+question, not as subscribers.
+
+**Decision.**
+- **A sensor kit, under `APP_PROFILE=demo` only.** `PlotService.create`
+  installs `config/demo_field.yaml` in the same transaction as the plot.
+  The kit has two zones, "Zone 1" and "Zone 2" ("Zona 1" and "Zona 2" in
+  Spanish), the names the demo scene knows. Each zone gets:
+  - half the plot's area;
+  - its own valve;
+  - a soil-moisture, a temperature and a humidity sensor;
+  - a first soil-moisture reading: Zone 1 is moist and Zone 2 dry, so
+    stage 2 has something to decide.
+
+  From the next tick the simulator owns the zones and records every sensor,
+  as for the seed farm. With temperatures recorded, degree-days count from
+  then on.
+- **Imagery anywhere in the demo.** With no scene near the plot, the
+  newest synthetic scene stands in. It keeps `synthetic: true`, which the
+  dashboard shows. A real scene is never moved to another place.
+- **The forecast anywhere in the demo.** With no Open-Meteo fixture near
+  the plot, the nearest one is used.
+- **Outside the demo nothing changes.** A plot gets no kit and no
+  stand-ins. Registering real zones and sensors is the hardware's job and
+  comes later.
+- **A broker stays possible as an ingestion adapter.** An MQTT subscriber
+  that calls `record_readings` would replace the simulator as the source.
+  The agents and the database would not change.
+
+**Consequences.**
+- The demo can go from a new plot to the daily cycle with no seed. The
+  agents read, cite and propose on the new zones with the live model.
+- The recorded mock responses (`MOCK_LLM=1`) name the seed farm's zones and
+  values. They replay only for that farm; a new plot's daily cycle needs
+  the model.

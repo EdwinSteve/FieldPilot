@@ -202,6 +202,18 @@ Creating the plot also **starts building its site data** in the
 background: the weather since 1991, the soil and El Niño. It takes about 1
 to 3 minutes.
 
+**In the demo (`APP_PROFILE=demo`, D089), the plot also gets simulated
+sensors.** It comes with two zones, "Zone 1" (moist) and "Zone 2" (dry),
+each with soil moisture, temperature and humidity. `GET /plots/2/zones`
+shows them at once.
+- **Readings.** From the next `POST /simulation/tick` (or the running
+  clock), the simulator records their readings, as for the seed farm.
+- **Imagery.** With no satellite scene near the plot, the demo scene stands
+  in, with `synthetic: true`. Label it "simulated imagery".
+- **Forecast.** With no forecast near the plot, the nearest one is used.
+
+Outside the demo a new plot has no zones until its sensors are installed.
+
 ### 3.2 Wait for the site data
 
 ```http
