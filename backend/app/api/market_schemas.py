@@ -10,11 +10,13 @@ from app.market.models import (
     CartProposal,
     CustomerOrder,
     CustomerProfile,
+    Discount,
     PriceBreakdown,
     Shipment,
     Warehouse,
 )
 from app.market.pricing import to_units
+from app.market.recommend.cart import CartSuggestion, SuggestionAction
 from app.market.recommend.scorers import Recommendation
 from app.market.store import CartView, ProductView
 
@@ -90,6 +92,9 @@ class ListingOut(BaseModel):
     sold_kg: float
     payouts_cop: float
     shipment: ShipmentOut | None
+    best_before: date
+    days_left: int
+    clearance: "ClearanceOut | None"  # the automatic markdown in force today (D086)
 
     @classmethod
     def of(cls, s: ListingSummary, crop_name: str, price: PriceBreakdown) -> "ListingOut":
@@ -109,7 +114,19 @@ class ListingOut(BaseModel):
             sold_kg=_kg(s.sold_g),
             payouts_cop=to_units(s.payouts_minor),
             shipment=None if s.shipment is None else ShipmentOut.of(s.shipment),
+            best_before=s.freshness.best_before,
+            days_left=s.freshness.days_left,
+            clearance=None if s.clearance is None else ClearanceOut.of(s.clearance),
         )
+
+
+class ClearanceOut(BaseModel):
+    discount_pct: int
+    ends_on: date
+
+    @classmethod
+    def of(cls, d: Discount) -> "ClearanceOut":
+        return cls(discount_pct=d.discount_pct, ends_on=d.ends_on)
 
 
 class ReceiptIn(_In):
@@ -152,8 +169,13 @@ class PriceOut(BaseModel):
 
 
 class ProductOfferOut(BaseModel):
+    source: str  # offer | clearance (D086)
     discount_pct: int
     ends_on: date
+
+    @classmethod
+    def of(cls, d: Discount) -> "ProductOfferOut":
+        return cls(source=d.source.value, discount_pct=d.discount_pct, ends_on=d.ends_on)
 
 
 class ProductOut(BaseModel):
@@ -168,6 +190,7 @@ class ProductOut(BaseModel):
     available_kg: float
     harvested_on: date
     best_before: date
+    days_left: int
     producer: str
     warehouse: str
     lot_code: str
@@ -175,20 +198,16 @@ class ProductOut(BaseModel):
 
     @classmethod
     def of(cls, p: ProductView) -> "ProductOut":
-        offer = (
-            None
-            if p.offer is None
-            else ProductOfferOut(discount_pct=p.offer.discount_pct, ends_on=p.offer.ends_on)
-        )
         return cls(
             id=p.listing_id,
             crop=p.listing.crop,
             crop_name=p.crop_name,
             price=PriceOut.of(p.price),
-            offer=offer,
+            offer=None if p.offer is None else ProductOfferOut.of(p.offer),
             available_kg=float(p.available_g // GRAMS_PER_KG),
             harvested_on=p.harvested_on,
             best_before=p.best_before,
+            days_left=p.days_left,
             producer=p.producer,
             warehouse=p.warehouse,
             lot_code=p.listing.lot_code,
@@ -226,7 +245,7 @@ class CartLineOut(BaseModel):
     unit_price_cop: float | None
     line_total_cop: float
     available_kg: float
-    problem: str | None  # out_of_stock | not_available
+    problem: str | None  # out_of_stock | not_available | expired
 
 
 class CartOut(BaseModel):
@@ -325,6 +344,36 @@ class RecommendationOut(BaseModel):
         )
 
 
+class SuggestionActionOut(BaseModel):
+    kind: str  # add_to_cart | better_deal
+    label: str
+    listing_id: int | None = None  # add_to_cart: PUT /store/cart/items/{listing_id}
+    quantity_kg: int | None = None
+    exclude: list[int] = []  # better_deal: GET /store/cart/suggestion?prefer=deal&exclude=…
+
+    @classmethod
+    def of(cls, a: SuggestionAction) -> "SuggestionActionOut":
+        return cls(kind=a.kind.value, label=a.label, listing_id=a.listing_id,
+                   quantity_kg=a.quantity_kg, exclude=list(a.exclude))  # fmt: skip
+
+
+class CartSuggestionOut(BaseModel):
+    """One suggestion for the cart (D087); with nothing to suggest, only the message."""
+
+    message: str
+    recommendation: RecommendationOut | None
+    actions: list[SuggestionActionOut]
+
+    @classmethod
+    def of(cls, s: CartSuggestion) -> "CartSuggestionOut":
+        return cls(
+            message=s.message,
+            recommendation=None if s.recommendation is None
+            else RecommendationOut.of(s.recommendation),
+            actions=[SuggestionActionOut.of(a) for a in s.actions],
+        )  # fmt: skip
+
+
 class AssistantIn(_In):
     question: Annotated[str, Field(min_length=1, max_length=1000)]
 
@@ -347,3 +396,4 @@ class AssistantOut(BaseModel):
     status: str
     answer: str | None
     proposal: ProposalOut | None
+    topic: str | None = None  # products | prices_offers | … | out_of_scope (D088)

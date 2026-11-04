@@ -2679,3 +2679,225 @@ front-end guide is docs/api.md §8 and §9.
 - Payments are mocked. A real gateway, delivery to the customer's address
   and the assistant's private log come after the hackathon.
 - Integer kilograms only, and one listing per lot.
+
+## D086 — Clearance: automatic markdowns before a lot's shelf life ends
+
+- **Date:** 2026-11-04
+- **Status:** Accepted (2026-11-04), asked for by Edwin. It extends D085.
+
+**Context.** A harvested lot has a shelf life, per crop, in
+`config/market.yaml` (`shelf_life_days`): 14 days for tomato, 180 for
+beans. What is not sold by then is lost: the farmer earns nothing and the
+food is wasted. Edwin wants the platform to know each product's shelf life
+and to mark it down automatically, in steps, before it spoils, so that
+customers buy it cheaper and sooner.
+
+**Decision.**
+- **The best-before day is `harvested_on + shelf_life_days[crop]`.** The
+  product type is the crop, so the shelf life comes from it.
+- **The markdown follows the share of shelf life left,** so one ladder
+  works for a tomato and for a bean. `config/market.yaml` `clearance.steps`
+  (demo values):
+
+  | Life left | Discount |
+  |---|---|
+  | 40 % or less | 10 % |
+  | 20 % or less | 20 % |
+  | 10 % or less | 35 % |
+
+  For a tomato (14 days) that is 10 % from 5 days left, 20 % from 2 days
+  and 35 % from 1 day left. For beans (180 days): 72, 36 and 18 days.
+- **It is computed on every read, never stored.** The price is a pure
+  function of the harvest date, the crop and today, like the offers of the
+  day. Nothing has to run for the markdown to appear or to deepen; a
+  changed ladder applies at once.
+- **It is a discount of the same kind as a farmer's offer.** It comes off
+  the farmer's price, it does not stack with an offer (the deepest of the
+  two applies), and it never drops the farmer's share under 80 %: a step is
+  reduced to the deepest discount that keeps it. The customer sees the
+  source, `offer` or `clearance`, and the day the current price ends.
+- **After the best-before day the product is not sold.** It leaves the
+  catalogue, the offers and the recommendations; a cart line shows
+  `expired` and checkout refuses it.
+- **A sweep writes it off.** `ListingService.expire_due` records the
+  remaining stock as `spoilage` and the listing becomes `expired`. It runs
+  at startup and on `POST /listings/expire` (operator). The sweep is
+  bookkeeping: the store already refuses an expired product without it.
+- **The farmer sees it in `GET /listings`:** the best-before day, the days
+  left and the markdown in force.
+
+**Consequences.**
+- No new table: one listing status (`expired`) and one stock reason
+  (`spoilage`).
+- The markdown lowers the farmer's price per kg without asking. The reason
+  is that an unsold kilogram pays nothing, and the 80 % guard still holds.
+  A per-listing opt-out, cold-storage adjustments to shelf life and a
+  trace event for the write-off come later.
+- The shopping assistant and the `ON_OFFER` recommendation read clearance
+  markdowns with no change, because they read the product's offer.
+
+## D087 — Deals for the customer's tastes, and a suggestion in the cart
+
+- **Date:** 2026-11-04
+- **Status:** Accepted (2026-11-04), asked for by Edwin. It extends D085
+  and D086.
+
+**Context.** Offers and clearance markdowns (D086) were recommended to
+everyone alike: `ON_OFFER` scores the discount, not the customer. Edwin
+wants:
+- a discount to be recommended when it fits what the customer needs and
+  likes;
+- the recommender inside the cart, as an assistant that says, for example,
+  "Hey, I saw you are planning to buy maize. Would you like to add potato?
+  The last time you bought it was a week ago!", with two buttons: "Yes, add
+  1 kg of potato" and "Search for me a better deal";
+- a default answer when there is nothing to suggest;
+- an API the UI can call directly.
+
+**Decision.**
+- **A new reason, `DEAL_FOR_YOU`.** A product on offer (the farmer's or a
+  clearance) earns it when the customer is linked to its crop in one of
+  two ways:
+  - **They buy it:** a habit in their own history. This needs
+    `consent_profiling`, like every personal score.
+  - **It goes with their basket:** the crop is bought together with one in
+    the basket, by the co-purchase similarity over every order. The basket
+    is the cart, or the last order with consent. The cart is what the
+    customer is doing now, not their history, so this part needs no
+    consent.
+
+  Its score is `deal_for_you × discount × link`. It replaces `ON_OFFER` for
+  that product, so a discount is never counted twice. A discount with no
+  link to the customer stays a plain `ON_OFFER`. The weight (1.2) ranks a
+  deal that fits above one that is merely due.
+- **`GET /store/cart/suggestion`** gives one suggestion for the cart:
+  - **Candidates:** the catalogue minus the crops already in the cart and
+    the listings in `exclude`.
+  - **`prefer=deal`** keeps only products with a discount. It serves the
+    "Search for me a better deal" button.
+  - **The text is a template** per lead reason (the one that adds most to
+    the score), in `APP_LANGUAGE`, from `config/messages`. No model is
+    involved, so it is instant, deterministic and works under
+    `MOCK_LLM=1`.
+  - **The actions** give the UI what to call:
+    - `add_to_cart`: `PUT /store/cart/items/{listing_id}` with the
+      suggested kg;
+    - `better_deal`: the same endpoint with `prefer=deal` and the shown
+      listings in `exclude`.
+  - **The default answer.** When nothing qualifies, the response still has
+    a `message`, a fixed text, with no product and no actions:
+    - "Your cart looks complete. I have nothing else to suggest right now.";
+    - after a "better deal", "That is the best deal I can find for you
+      today.".
+- **The `shopper` agent reads `DEAL_FOR_YOU`** through
+  `get_recommendations`, with the same evidence. No tool changes.
+
+**Consequences.**
+- The cart nudge needs no model and no key. The LLM assistant stays for
+  open questions (`POST /store/assistant`).
+- Suggesting is read-only. Nothing enters the cart until the customer
+  presses the button, which calls the existing cart endpoint.
+- `ON_OFFER` now caps its score at 1. A clearance step can exceed the
+  farmer's 30 % offer cap, and the score used to go above 1.
+
+## D088 — Each assistant answers only within its own domain
+
+- **Date:** 2026-11-04
+- **Status:** Accepted (2026-11-04), asked for by Edwin. It tightens D053
+  and D085.
+
+**Context.** The farm chat (the `orchestrator` on Muse Spark) and the
+store's `shopper` answered anything. Asked about football or homework,
+they answered. Edwin wants each one to answer only about its own job:
+- the orchestrator, about the crop and its needs;
+- the shopper, about the store's products.
+
+A rule in the prompt alone is a request; the model may ignore it.
+
+**Decision.** There are three layers, and the last two are in code.
+1. **A scope in each prompt** (`orchestrator.md`, `shopper.md`, in both
+   languages). It lists what is in scope, what is not, and that a question
+   out of scope closes with `topic: "out_of_scope"`.
+2. **The closing tool makes the model classify every answer.**
+   `answer_farmer` and `answer_customer` take a required `topic` from a
+   closed list:
+   - the farm: `crop`, `water`, `weather`, `field`, `tasks` or
+     `out_of_scope`;
+   - the store: `products`, `prices_offers`, `cart_orders`,
+     `meal_planning`, `origin` or `out_of_scope`.
+
+   A missing or unknown topic is refused, so the model must decide on every
+   turn. Each agent still has one closing tool (D053).
+3. **The backend writes the refusal, not the model.** With `out_of_scope`,
+   the model's text is discarded. `ChatService` and `ShopperService` answer
+   with a fixed text from `config/messages` (`out_of_scope_farmer`,
+   `out_of_scope_customer`) in `APP_LANGUAGE`, which says what the
+   assistant can help with. A proposed cart is dropped too. Nothing the
+   model writes about an off-topic subject reaches the user.
+
+**The response.** `POST /agent/chat` and `POST /store/assistant` add
+`topic`. The UI can style a refusal (`out_of_scope`) apart from an answer.
+
+**Consequences.**
+- A model that labels an off-topic question as in scope can still answer
+  it. The prompt and the forced choice make that rare, not impossible. A
+  second classifier call before the agent would cost another model call per
+  question; it is left for later, along with counting `out_of_scope` per
+  day to watch for misuse.
+- An answer in scope keeps every existing check: cited numbers (D053) and
+  prices from tools (D085).
+
+## D089 — In the demo, a new plot comes with simulated sensors and imagery
+
+- **Date:** 2026-11-04
+- **Status:** Accepted (2026-11-04). Edwin asked for it and left the design
+  to Claude.
+
+**Context.** Only `make seed` creates zones, sensors and a first reading. A
+plot created with `POST /plots` (D083) had none of them:
+- the simulator left it out (`ensure_simulated` needs a reading, D019);
+- the ticker recorded nothing for it;
+- `read_zone` had nothing to read, so the daily cycle ran out of turns.
+
+Its imagery was also empty: the only scene is near Neiva. Its rain
+forecast was unknown away from the Open-Meteo fixture.
+
+Edwin proposed a message broker, with the sensor subagent as subscriber and
+a mock publisher. A broker does not solve this, because the plot has no
+zone or sensor to receive a reading. The simulator already publishes: the
+ticker writes its readings to the database, and the agents read them
+through their tools, citing each one (D053, D054). Agents run per cycle or
+question, not as subscribers.
+
+**Decision.**
+- **A sensor kit, under `APP_PROFILE=demo` only.** `PlotService.create`
+  installs `config/demo_field.yaml` in the same transaction as the plot.
+  The kit has two zones, "Zone 1" and "Zone 2" ("Zona 1" and "Zona 2" in
+  Spanish), the names the demo scene knows. Each zone gets:
+  - half the plot's area;
+  - its own valve;
+  - a soil-moisture, a temperature and a humidity sensor;
+  - a first soil-moisture reading: Zone 1 is moist and Zone 2 dry, so
+    stage 2 has something to decide.
+
+  From the next tick the simulator owns the zones and records every sensor,
+  as for the seed farm. With temperatures recorded, degree-days count from
+  then on.
+- **Imagery anywhere in the demo.** With no scene near the plot, the
+  newest synthetic scene stands in. It keeps `synthetic: true`, which the
+  dashboard shows. A real scene is never moved to another place.
+- **The forecast anywhere in the demo.** With no Open-Meteo fixture near
+  the plot, the nearest one is used.
+- **Outside the demo nothing changes.** A plot gets no kit and no
+  stand-ins. Registering real zones and sensors is the hardware's job and
+  comes later.
+- **A broker stays possible as an ingestion adapter.** An MQTT subscriber
+  that calls `record_readings` would replace the simulator as the source.
+  The agents and the database would not change.
+
+**Consequences.**
+- The demo can go from a new plot to the daily cycle with no seed. The
+  agents read, cite and propose on the new zones with the live model.
+- The recorded mock responses (`MOCK_LLM=1`) name the seed farm's zones and
+  values. They replay only for that farm; a new plot's daily cycle needs
+  the model.

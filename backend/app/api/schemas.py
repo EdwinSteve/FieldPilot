@@ -286,16 +286,19 @@ class ChatOut(BaseModel):
     status: str
     answer: str | None  # verified by answer_farmer (D053); None unless completed
     turns: int
+    topic: str | None = None  # crop | water | weather | field | tasks | out_of_scope (D088)
 
     @classmethod
     def of(cls, run: AgentRun) -> "ChatOut":
         output = run.output
         answer = output.get("answer") if isinstance(output, dict) else None
+        topic = output.get("topic") if isinstance(output, dict) else None
         return cls(
             run_id=run.run_id,
             status=str(run.status),
             answer=answer if isinstance(answer, str) else None,
             turns=run.turns,
+            topic=topic if isinstance(topic, str) else None,
         )
 
 

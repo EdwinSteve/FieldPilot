@@ -202,6 +202,18 @@ Creating the plot also **starts building its site data** in the
 background: the weather since 1991, the soil and El Niño. It takes about 1
 to 3 minutes.
 
+**In the demo (`APP_PROFILE=demo`, D089), the plot also gets simulated
+sensors.** It comes with two zones, "Zone 1" (moist) and "Zone 2" (dry),
+each with soil moisture, temperature and humidity. `GET /plots/2/zones`
+shows them at once.
+- **Readings.** From the next `POST /simulation/tick` (or the running
+  clock), the simulator records their readings, as for the seed farm.
+- **Imagery.** With no satellite scene near the plot, the demo scene stands
+  in, with `synthetic: true`. Label it "simulated imagery".
+- **Forecast.** With no forecast near the plot, the nearest one is used.
+
+Outside the demo a new plot has no zones until its sensors are installed.
+
 ### 3.2 Wait for the site data
 
 ```http
@@ -497,7 +509,8 @@ POST /lots/FP-2-20270302-1/listings
   "status": "awaiting_delivery", "quantity_kg": 5000,
   "farmer_price_per_kg_cop": 3000.0, "shelf_price_per_kg_cop": 3450.0, "farmer_share_pct": 87.0,
   "warehouse": { "id": 1, "code": "BOG-01", "name": "FieldPilot Bogotá D.C. warehouse" },
-  "stock_kg": 0.0, "sold_kg": 0.0, "payouts_cop": 0.0, "shipment": null
+  "stock_kg": 0.0, "sold_kg": 0.0, "payouts_cop": 0.0, "shipment": null,
+  "best_before": "2027-08-29", "days_left": 180, "clearance": null
 }
 ```
 
@@ -547,6 +560,34 @@ POST /listings/4/offers
 - **`GET /listings`** shows the farmer each listing with its stock, the kg
   sold and the payouts earned.
 
+### 8.5 Clearance before the shelf life ends (automatic, D086)
+
+Nobody creates these: the price drops by itself as the best-before day
+nears. **The best-before day** is the harvest day plus the crop's shelf
+life (`config/market.yaml`, for example 14 days for tomato). The discount
+follows the share of shelf life left:
+
+| Life left | Discount | Tomato (14 days) |
+|---|---|---|
+| 40 % or less | 10 % | from 5 days left |
+| 20 % or less | 20 % | from 2 days left |
+| 10 % or less | 35 % | from 1 day left |
+
+**The rules.**
+- **The deepest discount applies:** the farmer's offer or the clearance
+  step, never both.
+- **The farmer's share stays at 80 % or more.** A step that would break it
+  is reduced until it does not.
+- **The farmer sees it in `GET /listings`:** `best_before`, `days_left` and
+  `clearance` (`null`, or `{ "discount_pct": 20, "ends_on": "2027-03-15" }`).
+- **After the best-before day** the product is no longer sold. The
+  operator's `POST /listings/expire` (also run at startup) writes the
+  remaining stock off as spoilage, and the listing becomes `expired`:
+
+```http
+POST /listings/expire              → 200 [ the listings that expired, as in §8.2 ]
+```
+
 ---
 
 ## 9. The store (customers)
@@ -566,9 +607,9 @@ GET /store/products?q=tomato
     "id": 4, "crop": "soybean", "crop_name": "Soybean", "unit": "kg",
     "price": { "farmer_cop": 2550.0, "logistics_cop": 300.0, "platform_cop": 127.5,
                "total_cop": 2977.5, "farmer_share_pct": 85.6, "discount_pct": 15 },
-    "offer": { "discount_pct": 15, "ends_on": "2027-03-07" },
+    "offer": { "source": "offer", "discount_pct": 15, "ends_on": "2027-03-07" },
     "available_kg": 4980.0,
-    "harvested_on": "2027-03-02", "best_before": "2027-08-29",
+    "harvested_on": "2027-03-02", "best_before": "2027-08-29", "days_left": 175,
     "producer": "Producer from La Plata, Huila",
     "warehouse": "FieldPilot Bogotá D.C. warehouse",
     "lot_code": "FP-2-20270302-1", "passport_path": "/trace/FP-2-20270302-1"
@@ -583,6 +624,10 @@ GET /store/products?q=tomato
   sale.
 - **`GET /store/offers/today`** lists today's validated offers, each with
   its product.
+- **`offer.source`** is `offer` (the farmer's) or `clearance` (automatic,
+  because the best-before day is near, §8.5). `ends_on` is the last day of
+  that price. Show `days_left` next to a clearance price: it is the reason
+  for it.
 
 ### 9.2 Profile
 
@@ -613,8 +658,8 @@ GET /store/cart
 
 **How it behaves.**
 - **The cart is repriced on every read.** `problem` is `out_of_stock`
-  (less stock than asked) or `not_available` (the listing is no longer
-  sold).
+  (less stock than asked), `not_available` (the listing is no longer
+  sold) or `expired` (past its best-before day, §8.5).
 - **`can_checkout`** is false while a line has a problem.
 
 ### 9.4 Checkout and the purchase record
@@ -669,8 +714,13 @@ GET /store/recommendations?k=5
 | `REPURCHASE_DUE` | "time to buy again" |
 | `BOUGHT_TOGETHER` | "goes with what you buy" |
 | `FRESH_HARVEST` | "just harvested" |
+| `DEAL_FOR_YOU` | "a deal on what you like" (D087) |
 | `ON_OFFER` | "offer of the day" |
 | `POPULAR` | "popular" |
+
+`DEAL_FOR_YOU` is a discount, the farmer's or a clearance one, on a crop
+the customer buys or that goes with their basket. Its evidence adds `link`
+(`you_buy_it` or `goes_with`) and `offer_source`.
 
 ```http
 POST /store/assistant
@@ -689,9 +739,68 @@ POST /store/assistant
 - **Accepting a proposal.** Show the proposal with an "Add to cart" button,
   which calls `POST /store/cart-proposals/{id}/accept` and returns the
   cart.
+- **Only about the store** (D088). The response has a `topic`:
+  `products`, `prices_offers`, `cart_orders`, `meal_planning`, `origin` or
+  `out_of_scope`. For a question off the store's subject, such as football or
+  homework, `topic` is `out_of_scope`. `answer` is then a fixed text saying
+  what the assistant helps with, and there is no proposal. Style it as a
+  gentle refusal. The farm chat (`POST /agent/chat`) works the same way,
+  with the topics `crop`, `water`, `weather`, `field`, `tasks` and
+  `out_of_scope`.
 - **Without a model.** Under `MOCK_LLM=1` the assistant answers 503
   (`ChatUnavailableError`). Everything else in the store works without a
   model.
+
+### 9.6 The assistant in the cart (D087)
+
+One suggestion at a time, to show as a card in the cart. **It needs no
+model:** it works in demo mode.
+
+```http
+GET /store/cart/suggestion
+GET /store/cart/suggestion?prefer=deal&exclude=7        ← "Search for me a better deal"
+```
+```json
+{
+  "message": "Hey, I saw you are planning to buy maize. Would you like to add potato? The last time you bought it was a week ago!",
+  "recommendation": {
+    "product": { "id": 7, "crop": "potato", "crop_name": "Potato", "price": { "total_cop": 2415.0, "...": "..." }, "...": "..." },
+    "score": 1.3, "reasons": ["REPURCHASE_DUE", "POPULAR"],
+    "evidence": { "last_bought": "2027-02-25", "days_since": 7 }, "suggested_kg": 1
+  },
+  "actions": [
+    { "kind": "add_to_cart", "label": "Yes, add 1 kg of potato", "listing_id": 7, "quantity_kg": 1 },
+    { "kind": "better_deal", "label": "Search for me a better deal", "exclude": [7] }
+  ]
+}
+```
+
+**What each button does.**
+- **`add_to_cart`:** call `PUT /store/cart/items/{listing_id}` with
+  `{ "quantity_kg": … }`, then reload the cart and the suggestion.
+- **`better_deal`:** call `GET /store/cart/suggestion?prefer=deal&exclude=…`
+  with the `exclude` list it carries. That list grows with every product
+  already shown, so the same one never comes back.
+
+**The rules.**
+- **Never a crop already in the cart**, and never a listing in `exclude`.
+- **`prefer=deal`** shows only products with a discount (an offer or a
+  clearance), best for the customer first.
+- **The message follows the strongest reason:**
+  - time to buy again;
+  - goes with the cart;
+  - a deal on what they like;
+  - offer of the day;
+  - just harvested;
+  - popular.
+- **It is in `APP_LANGUAGE`.** Show `message` and the `label`s as they
+  come.
+
+**The default answer.** When nothing qualifies, it is still 200, with
+`"recommendation": null` and `"actions": []`:
+- `"Your cart looks complete. I have nothing else to suggest right now."`;
+- `"That is the best deal I can find for you today."` after a "better
+  deal".
 
 ---
 
@@ -736,9 +845,11 @@ Both are 422. Tell them apart by the key: `error` or `detail`.
 | Planner crops | `maize`, `common_bean`, `sorghum`, `soybean`, `groundnut`, `cotton`, `tomato`, `potato` |
 | Automated crops (stage 2) | `maize` (one YAML per crop in `config/crops/`) |
 | Trace `biz_step` | `commissioning`, `shipping`, `receiving`, `retail_selling` (D085) |
-| Listing `status` | `awaiting_delivery`, `in_transit`, `active`, `sold_out`, `withdrawn` |
+| Listing `status` | `awaiting_delivery`, `in_transit`, `active`, `sold_out`, `withdrawn`, `expired` |
+| Offer `source` | `offer`, `clearance` (D086) |
 | Order `status` | `paid`, `delivered`, `cancelled` |
-| Recommendation reasons | `REPURCHASE_DUE`, `BOUGHT_TOGETHER`, `FRESH_HARVEST`, `ON_OFFER`, `POPULAR` |
+| Recommendation reasons | `REPURCHASE_DUE`, `BOUGHT_TOGETHER`, `DEAL_FOR_YOU`, `FRESH_HARVEST`, `ON_OFFER`, `POPULAR` |
+| Cart suggestion `actions[].kind` | `add_to_cart`, `better_deal` (D087) |
 
 Crop names come with each outlook (`name`) and with the passport
 (`crop_name`) in `APP_LANGUAGE`; `name_es` and `crop_name_es` always carry the

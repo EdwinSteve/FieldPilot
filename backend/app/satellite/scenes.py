@@ -47,25 +47,32 @@ class _SceneFile(BaseModel):
 
 
 class ImageryLoader:
-    def __init__(self, scenes: Sequence[Scene]) -> None:
+    def __init__(self, scenes: Sequence[Scene], synthetic_stand_in: bool = False) -> None:
         self._scenes = tuple(scenes)
+        self._stand_in = synthetic_stand_in  # the demo's (D089)
 
     @classmethod
-    def from_directory(cls, directory: Path) -> "ImageryLoader":
+    def from_directory(cls, directory: Path, synthetic_stand_in: bool = False) -> "ImageryLoader":
         """Every `*/scene.json` under `directory`. A missing directory means no scenes."""
         files = sorted(directory.glob("*/scene.json")) if directory.is_dir() else []
-        return cls([load_scene(path) for path in files])
+        return cls([load_scene(path) for path in files], synthetic_stand_in)
 
     def latest(self, lat: float, lon: float, on_or_before: date) -> Scene | None:
-        """The newest scene near the plot, taken on or before the day; None if there is none."""
-        candidates = [
+        """The newest scene near the plot, taken on or before the day; None if there is none.
+
+        With `synthetic_stand_in` (the demo, D089), a plot with no scene near it gets the
+        newest synthetic scene, still marked synthetic; a real scene never moves.
+        """
+        taken = [scene for scene in self._scenes if scene.acquired_on <= on_or_before]
+        near = [
             scene
-            for scene in self._scenes
-            if scene.acquired_on <= on_or_before
-            and abs(scene.latitude - lat) <= MAX_COORDINATE_DELTA_DEG
+            for scene in taken
+            if abs(scene.latitude - lat) <= MAX_COORDINATE_DELTA_DEG
             and abs(scene.longitude - lon) <= MAX_COORDINATE_DELTA_DEG
         ]
-        return max(candidates, key=lambda scene: scene.acquired_on, default=None)
+        if not near and self._stand_in:
+            near = [scene for scene in taken if scene.synthetic]
+        return max(near, key=lambda scene: scene.acquired_on, default=None)
 
 
 def load_scene(path: Path) -> Scene:

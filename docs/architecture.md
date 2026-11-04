@@ -1322,6 +1322,7 @@ class ListingStatus(StrEnum):
     ACTIVE = "active"                         # received: customers can buy it
     SOLD_OUT = "sold_out"
     WITHDRAWN = "withdrawn"                   # by the farmer, before delivery
+    EXPIRED = "expired"                       # past its best-before day (D086)
 
 @dataclass(frozen=True)
 class Listing:
@@ -1393,6 +1394,13 @@ class PaymentGateway(Protocol):   # MockPaymentGateway: always approves, idempot
    each line gets a `release` movement, and the order becomes `cancelled`.
 10. **Privacy.** Orders, carts and the assistant's turns live in market
     tables, never in the farm's event log (market.md §7.4).
+11. **Clearance** (D086, `app/market/freshness.py`). A product's
+    best-before day is its harvest day plus the crop's `shelf_life_days`.
+    `ClearancePolicy` marks it down from the share of shelf life left
+    (`clearance.steps`), on every read; the deeper of that and the
+    farmer's offer applies, reduced if needed to keep rule 2. After the
+    best-before day nothing sells it; `ListingService.expire_due` writes
+    the stock off as `spoilage` and the listing becomes `expired`.
 
 ### 4.16 Recommendations and the shopping assistant (`app/market/recommend`, `shopper`) (D085)
 
@@ -1400,8 +1408,17 @@ class PaymentGateway(Protocol):   # MockPaymentGateway: always approves, idempot
 class Recommender:                       # pure scorers, weights in config/market.yaml
     def recommend(self, history: PurchaseProfile, catalogue: Sequence[ProductView],
                   offers: Mapping[int, Offer], today: date, k: int) -> tuple[Recommendation, ...]: ...
-# ReasonCode: REPURCHASE_DUE · BOUGHT_TOGETHER · FRESH_HARVEST · ON_OFFER · POPULAR
+# ReasonCode: REPURCHASE_DUE · BOUGHT_TOGETHER · DEAL_FOR_YOU · FRESH_HARVEST · ON_OFFER · POPULAR
+class CartSuggestionService: ...         # one templated suggestion for the cart, no model (D087)
 ```
+
+- **Deals that fit the customer** (D087). A discount on a crop the
+  customer buys (with consent), or one that goes with the basket (the
+  cart needs no consent), scores `DEAL_FOR_YOU` instead of `ON_OFFER`.
+- **The cart suggestion** (`GET /store/cart/suggestion`) ranks the
+  catalogue without the cart's crops. It writes the message from a
+  template for the lead reason and returns the actions the UI calls: add
+  to the cart, or ask for a better deal (`prefer=deal`, `exclude`).
 
 - **The scores are deterministic and explainable.** Each recommendation
   carries its reason codes and evidence (market.md §7.1).
@@ -1670,7 +1687,7 @@ startup writes a `config_override` event with both values.
 | GET | `/events?task_id=&kind=` | event log, including the agent trace |
 | GET | `/notifications`, POST `/notifications/{id}/read` | notifications |
 | GET | `/reports` | reports |
-| POST | `/agent/chat` | `ChatService.ask` (JSON; 503 under `MOCK_LLM=1`, D063) |
+| POST | `/agent/chat` | `ChatService.ask` (JSON; 503 under `MOCK_LLM=1`, D063; answers only about the crop, `topic` in the response, D088) |
 | POST | `/agent/chat/voice?plot_id=` | `VoiceChatService.ask` (raw WAV body, `Content-Type: audio/wav`, D066) |
 | POST | `/agent/daily-cycle` | `DailyCycle.run` (D064) |
 | GET, POST | `/clock` | `ClockService`: pause, resume, speed, advance (D011, D064) |

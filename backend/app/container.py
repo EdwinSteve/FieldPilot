@@ -21,9 +21,11 @@ from app.identity.models import Principal
 from app.identity.passwords import Argon2Hasher
 from app.identity.service import AuthService
 from app.identity.tokens import JwtAccessTokens
+from app.market.freshness import ClearancePolicy
 from app.market.listings import ListingService
 from app.market.orders import OrderService
 from app.market.payments import MockPaymentGateway
+from app.market.recommend.cart import CartSuggestionService
 from app.market.recommend.service import RecommendationService
 from app.market.store import StoreService
 from app.market.trace.passport import PassportService
@@ -62,6 +64,7 @@ from app.services.queries import FarmQueries
 from app.services.rain_forecast import PlotRainForecast
 from app.services.revert import RevertService
 from app.services.scenarios import ScenarioService
+from app.services.sensor_kit import SensorKitInstaller
 from app.services.shopper import ShopperService, StoreShopperPort
 from app.services.ticker import SimulationTicker
 from app.services.voice_chat import VoiceChatService
@@ -104,6 +107,7 @@ class Container:
     store: StoreService  # the customer's side (D085)
     orders: OrderService
     recommendations: RecommendationService
+    cart_suggestions: CartSuggestionService  # the assistant in the cart, no model (D087)
     shopper: ShopperService | None  # None under MOCK_LLM=1, as the chat (D063, D085)
 
 
@@ -111,8 +115,12 @@ def build_container(
     settings: Settings, config: RuntimeConfig, runtime: Runtime, auth: AuthSetting
 ) -> Container:
     uow, clock = runtime.uow, runtime.clock
+    demo = settings.app_profile == "demo"  # stand-ins for a plot away from the fixtures (D089)
     forecast = PlotRainForecast(
-        uow, FixtureForecast.from_directory(settings.data_dir / "fixtures" / "open_meteo")
+        uow,
+        FixtureForecast.from_directory(
+            settings.data_dir / "fixtures" / "open_meteo", nearest_anywhere=demo
+        ),
     )
     gate = AutonomyGate(config.policy, config.limits)
     context = StoredGateContextProvider(uow, forecast, config.crops)
@@ -125,7 +133,7 @@ def build_container(
     revert = RevertService(uow, clock, runtime.actuator)
     imagery = StoredImageryReader(  # one reader, so each scene is segmented once
         uow,
-        ImageryLoader.from_directory(settings.data_dir / "satellite"),
+        ImageryLoader.from_directory(settings.data_dir / "satellite", synthetic_stand_in=demo),
         _segmentation(settings),
         config.imaging,
         config.crops,
@@ -163,7 +171,8 @@ def build_container(
         llm = cycle_llm(queries.local_day(plot_id))
         return DailyCycle(uow, agent_deps(llm), config.messages)
 
-    chat = None if live is None else ChatService(uow, live)
+    off_topic = config.messages.label("out_of_scope_farmer")
+    chat = None if live is None else ChatService(uow, live, off_topic)
     voice = (
         None
         if chat is None
@@ -176,10 +185,12 @@ def build_container(
     crop_names = _crop_names(recommender, config)
     passports = PassportService(uow, config.messages, config.messages_es)
     access = AccessPolicy(uow)
-    listings = ListingService(uow, clock, config.market, access)
+    clearance = ClearancePolicy(config.market)
+    listings = ListingService(uow, clock, config.market, access, clearance)
     listings.ensure_warehouses()  # the default warehouse in Bogotá, D.C. (D085)
+    listings.expire_due()  # write off what passed its best-before day (D086)
     payments = MockPaymentGateway()
-    store = StoreService(uow, clock, config.market, config.messages, payments)
+    store = StoreService(uow, clock, config.market, config.messages, payments, clearance)
     orders = OrderService(uow, clock, payments)
     recommendations = RecommendationService(uow, store, config.market)
     planning = PlanningService(uow, clock, sites, recommender, config.crops, crop_names)
@@ -205,13 +216,14 @@ def build_container(
         auth=_auth_service(runtime, config, auth),
         access=access,
         planning=planning,
-        plots=PlotService(uow, clock, sites, site_jobs, config.messages),
+        plots=PlotService(uow, clock, sites, site_jobs, config.messages, _sensor_kit(demo, config)),
         cycles=CycleService(uow, clock, planning, config.crops, crop_names),
         passports=passports,
         listings=listings,
         store=store,
         orders=orders,
         recommendations=recommendations,
+        cart_suggestions=CartSuggestionService(recommendations, store, config.messages),
         shopper=_shopper(live, config, store, orders, recommendations, passports, clock),
     )
 
@@ -245,7 +257,22 @@ def _shopper(
         return StoreShopperPort(principal, store, orders, recommendations, passports, clock, run_id)
 
     return ShopperService(
-        live.llm, config.shopper, live.max_turns, port_for, lambda: uuid.uuid4().hex, store.proposal
+        live.llm,
+        config.shopper,
+        live.max_turns,
+        port_for,
+        lambda: uuid.uuid4().hex,
+        store.proposal,
+        config.messages.label("out_of_scope_customer"),
+    )
+
+
+def _sensor_kit(demo: bool, config: RuntimeConfig) -> SensorKitInstaller | None:
+    """Only a demo plot gets simulated sensors; a real one waits for its hardware (D089)."""
+    if not demo:
+        return None
+    return SensorKitInstaller(
+        config.demo_field, lambda n: config.messages.label("demo_zone", n=str(n))
     )
 
 

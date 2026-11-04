@@ -16,7 +16,13 @@ from app.container import Container
 from app.domain.models import Plot
 from app.identity.models import Principal, Role
 from app.main import create_app
-from app.market.models import StockReason
+from app.market.models import (
+    CustomerOrder,
+    OrderLine,
+    OrderStatus,
+    PriceBreakdown,
+    StockReason,
+)
 from app.market.trace.models import Grade
 from app.services.cycles import Harvest, NewCycle
 from app.services.gate_context import local_day
@@ -85,8 +91,8 @@ def market(tmp_path: Path) -> Iterator[Market]:
         )
 
 
-def _harvested_lot(container: Container, farmer_id: int) -> str:
-    """A plot of the farmer, a tomato cycle sown 30 days ago and harvested today."""
+def _harvested_lot(container: Container, farmer_id: int, crop: str = "tomato") -> str:
+    """A plot of the farmer, a cycle of `crop` sown 30 days ago and harvested today."""
     now = container.runtime.clock.now()
     with container.runtime.uow() as uow:
         plot = uow.plots.add(
@@ -107,16 +113,17 @@ def _harvested_lot(container: Container, farmer_id: int) -> str:
     farmer = Principal(farmer_id, Role.FARMER)
     today = local_day(now, plot)
     cycle = container.cycles.start(
-        farmer, plot.id, NewCycle("tomato", today - timedelta(days=30), accept_own_risk=True)
+        farmer, plot.id, NewCycle(crop, today - timedelta(days=30), accept_own_risk=True)
     )
     assert cycle.id is not None
     lot = container.cycles.harvest(farmer, cycle.id, Harvest(today, 100.0, Grade.FIRST))
     return lot.code
 
 
-def _listed_and_received(m: Market, kg: float = 99.5) -> int:
+def _listed_and_received(m: Market, kg: float = 99.5, lot_code: str | None = None) -> int:
+    code = lot_code or m.lot_code
     listing = m.client.post(
-        f"/lots/{m.lot_code}/listings", json={"farmer_price_per_kg_cop": 3000}, headers=m.farmer
+        f"/lots/{code}/listings", json={"farmer_price_per_kg_cop": 3000}, headers=m.farmer
     ).json()
     shipment = m.client.post(f"/listings/{listing['id']}/dispatch", headers=m.farmer).json()
     received = m.client.post(
@@ -245,6 +252,60 @@ def test_an_offer_of_the_day_lowers_the_price_but_keeps_the_farmers_share(market
     assert response.status_code == 422
 
 
+def _days_later(m: Market, days: int) -> None:
+    m.container.runtime.clock.advance(timedelta(days=days))
+
+
+def test_a_tomato_near_its_best_before_day_is_marked_down_by_itself(market: Market) -> None:
+    listing_id = _listed_and_received(market)
+    _days_later(market, 12)  # a tomato keeps 14 days: 2 are left
+
+    [deal] = market.client.get("/store/offers/today").json()
+    [listing] = market.client.get("/listings", headers=market.farmer).json()
+
+    assert deal["id"] == listing_id and deal["days_left"] == 2
+    assert deal["offer"]["source"] == "clearance"
+    assert (deal["price"]["discount_pct"], deal["price"]["farmer_cop"]) == (20, 2400.0)
+    assert listing["clearance"]["discount_pct"] == 20 and listing["days_left"] == 2
+    assert market.client.post("/listings/expire", headers=market.operator).json() == []
+
+
+def test_the_deeper_of_the_farmers_offer_and_the_clearance_applies(market: Market) -> None:
+    listing_id = _listed_and_received(market)
+    _days_later(market, 12)
+    today = market.container.store.today()
+    offer = {"discount_pct": 25, "starts_on": today.isoformat(), "ends_on": today.isoformat()}
+    market.client.post(f"/listings/{listing_id}/offers", json=offer, headers=market.farmer)
+
+    [deal] = market.client.get("/store/offers/today").json()
+
+    assert (deal["offer"]["source"], deal["price"]["discount_pct"]) == ("offer", 25)
+
+
+def test_past_its_best_before_day_a_product_is_not_sold_and_is_written_off(
+    market: Market,
+) -> None:
+    listing_id = _listed_and_received(market)
+    who = market.customer
+    market.client.put(f"/store/cart/items/{listing_id}", json={"quantity_kg": 2}, headers=who)
+    _days_later(market, 15)
+
+    assert market.client.get("/store/products").json() == []
+    cart = market.client.get("/store/cart", headers=who).json()
+    assert (cart["lines"][0]["problem"], cart["can_checkout"]) == ("expired", False)
+    again = market.client.put(f"/store/cart/items/{listing_id}", json={"quantity_kg": 1},
+                              headers=who)  # fmt: skip
+    assert again.status_code == 404
+    assert market.client.post("/listings/expire", headers=market.farmer).status_code == 403
+
+    [expired] = market.client.post("/listings/expire", headers=market.operator).json()
+
+    assert (expired["status"], expired["stock_kg"]) == ("expired", 0.0)
+    with market.container.runtime.uow() as uow:
+        assert uow.listings.moved_g(listing_id, StockReason.SPOILAGE) == 99_500
+    assert market.client.post("/listings/expire", headers=market.operator).json() == []
+
+
 # --- the customer buys --------------------------------------------------------------------
 
 
@@ -356,7 +417,13 @@ def _assistant(market: Market, responses: list[LLMResponse]) -> None:
         )
 
     shopper = ShopperService(
-        MockLLMClient(responses), c.config.shopper, 6, port_for, lambda: "run-1", c.store.proposal
+        MockLLMClient(responses),
+        c.config.shopper,
+        6,
+        port_for,
+        lambda: "run-1",
+        c.store.proposal,
+        c.config.messages.label("out_of_scope_customer"),
     )
     market.client.app.state.container = replace(c, shopper=shopper)  # type: ignore[attr-defined]
 
@@ -378,7 +445,10 @@ def test_the_assistant_proposes_a_cart_that_only_the_customer_accepts(market: Ma
                     "note": "Two kilos for the sauce.",
                 },
             ),
-            _call("answer_customer", {"text": "Fresh tomato at $3,450 per kg; I proposed 2 kg."}),
+            _call(
+                "answer_customer",
+                {"topic": "products", "text": "Fresh tomato at $3,450 per kg; I proposed 2 kg."},
+            ),
         ],
     )
 
@@ -407,8 +477,12 @@ def test_the_assistant_cannot_quote_a_price_no_tool_returned(market: Market) -> 
         market,
         [
             _call("search_products", {"query": "tomato"}),
-            _call("answer_customer", {"text": "Tomato is $1,000 per kg today."}),
-            _call("answer_customer", {"text": "Tomato is $3,450 per kg today."}),
+            _call(
+                "answer_customer", {"topic": "products", "text": "Tomato is $1,000 per kg today."}
+            ),
+            _call(
+                "answer_customer", {"topic": "products", "text": "Tomato is $3,450 per kg today."}
+            ),
         ],
     )
 
@@ -436,3 +510,150 @@ def test_personal_recommendations_need_the_customers_consent(market: Market) -> 
 
     assert all("REPURCHASE_DUE" not in r["reasons"] for r in without)
     assert "REPURCHASE_DUE" in with_consent[0]["reasons"]
+
+
+# --- the assistant in the cart (D087) -----------------------------------------------------
+
+
+def _potato_listing(m: Market) -> int:
+    farmer_id = m.client.get("/auth/me", headers=m.farmer).json()["id"]
+    return _listed_and_received(m, lot_code=_harvested_lot(m.container, farmer_id, "potato"))
+
+
+def _bought_before(
+    m: Market, listing_id: int, crops: str, *days_ago: int, who: dict[str, str] | None = None
+) -> None:
+    """Past orders, `days_ago` each, of a customer who consents to personal scores;
+    `crops` is one crop or several, comma-separated, all bought together."""
+    who = who or m.customer
+    m.client.put("/store/profile", json={"consent_profiling": True}, headers=who)
+    customer = m.client.get("/auth/me", headers=who).json()["id"]
+    now = m.container.runtime.clock.now()
+    price = PriceBreakdown(300_000, 30_000, 15_000, 0, "COP")
+    with m.container.runtime.uow() as uow:
+        listing = uow.listings.get(listing_id)
+        for days in days_ago:
+            lines = tuple(OrderLine(listing_id, listing.lot_code, listing.farmer_id, crop, 1,
+                                    price) for crop in crops.split(","))  # fmt: skip
+            uow.orders.add(CustomerOrder(customer, OrderStatus.DELIVERED, 345_000, "COP",
+                                         f"MOCK-{days}", "Calle 80", now - timedelta(days=days),
+                                         lines))  # fmt: skip
+        uow.commit()
+
+
+def _suggestion(m: Market, query: str = "") -> Any:
+    response = m.client.get(f"/store/cart/suggestion{query}", headers=m.customer)
+    assert response.status_code == 200, response.json()
+    return response.json()
+
+
+def test_the_cart_suggests_what_is_due_and_the_button_adds_it(market: Market) -> None:
+    tomato = _listed_and_received(market)
+    potato = _potato_listing(market)
+    _bought_before(market, potato, "potato", 14, 7)
+    market.client.put(f"/store/cart/items/{tomato}", json={"quantity_kg": 2},
+                      headers=market.customer)  # fmt: skip
+
+    card = _suggestion(market)
+
+    assert card["message"] == (
+        "Hey, I saw you are planning to buy tomato. Would you like to add potato? "
+        "The last time you bought it was a week ago!"
+    )
+    assert card["recommendation"]["product"]["id"] == potato
+    add, better = card["actions"]
+    assert add == {"kind": "add_to_cart", "label": "Yes, add 1 kg of potato",
+                   "listing_id": potato, "quantity_kg": 1, "exclude": []}  # fmt: skip
+    assert (better["kind"], better["exclude"]) == ("better_deal", [potato])
+    no_deal = _suggestion(market, "?prefer=deal")  # nothing is discounted today
+    assert no_deal["message"] == "That is the best deal I can find for you today."
+
+    item = {"quantity_kg": add["quantity_kg"]}
+    market.client.put(f"/store/cart/items/{add['listing_id']}", json=item, headers=market.customer)
+    done = _suggestion(market)
+
+    assert done == {"message": "Your cart looks complete. I have nothing else to suggest "
+                    "right now.", "recommendation": None, "actions": []}  # fmt: skip
+
+
+def test_a_better_deal_is_a_discount_on_what_the_customer_likes(market: Market) -> None:
+    tomato = _listed_and_received(market)
+    potato = _potato_listing(market)
+    _days_later(market, 12)  # the tomato has 2 days left: 20 % clearance
+    _bought_before(market, tomato, "tomato", 20, 10)
+    market.client.put(f"/store/cart/items/{potato}", json={"quantity_kg": 1},
+                      headers=market.customer)  # fmt: skip
+
+    card = _suggestion(market, f"?prefer=deal&exclude={potato}")
+
+    assert card["recommendation"]["product"]["id"] == tomato
+    assert "DEAL_FOR_YOU" in card["recommendation"]["reasons"]
+    assert card["message"] == (
+        "Hey, I saw you are planning to buy potato. Tomato, which you usually buy, is 20 % off "
+        "right now. Would you like to add it? It is best eaten within 2 days."
+    )
+    again = _suggestion(market, f"?prefer=deal&exclude={potato},{tomato}")
+    assert again["message"] == "That is the best deal I can find for you today."
+    assert again["actions"] == []
+
+
+def test_the_cart_suggestion_needs_a_customer_and_clean_exclusions(market: Market) -> None:
+    assert market.client.get("/store/cart/suggestion").status_code == 401
+    bad = market.client.get("/store/cart/suggestion?exclude=1,a", headers=market.customer)
+    assert bad.status_code == 422
+
+
+def test_what_goes_with_the_cart_is_suggested_without_consent(market: Market) -> None:
+    tomato = _listed_and_received(market)
+    potato = _potato_listing(market)
+    _bought_before(market, tomato, "tomato,potato", 9, 5, who=market.other_customer)
+    market.client.put(f"/store/cart/items/{tomato}", json={"quantity_kg": 1},
+                      headers=market.customer)  # fmt: skip
+
+    card = _suggestion(market)
+
+    assert card["recommendation"]["product"]["id"] == potato
+    assert card["recommendation"]["reasons"][0] == "BOUGHT_TOGETHER"
+    assert card["message"].endswith("It goes well with what you are buying.")
+
+
+def test_the_assistant_only_talks_about_the_store(market: Market) -> None:
+    """D088: off topic, the model's text and any proposed cart are dropped."""
+    listing_id = _listed_and_received(market)
+    _assistant(
+        market,
+        [
+            _call(
+                "propose_cart",
+                {"items": [{"listing_id": listing_id, "quantity_kg": 1}], "note": "A gift."},
+            ),
+            _call("answer_customer", {"topic": "out_of_scope", "text": "Python is a language."}),
+        ],
+    )
+
+    response = market.client.post(
+        "/store/assistant", json={"question": "Teach me Python"}, headers=market.customer
+    )
+
+    body = response.json()
+    assert (body["topic"], body["proposal"]) == ("out_of_scope", None)
+    assert body["answer"].startswith("I can only help with the FieldPilot store")
+
+
+def test_an_answer_in_scope_cannot_be_empty(market: Market) -> None:
+    _assistant(
+        market,
+        [
+            _call("answer_customer", {"topic": "products"}),
+            _call("answer_customer", {"topic": "products", "text": "We have fresh tomato."}),
+        ],
+    )
+
+    response = market.client.post(
+        "/store/assistant", json={"question": "Any tomato?"}, headers=market.customer
+    )
+
+    assert (response.json()["answer"], response.json()["topic"]) == (
+        "We have fresh tomato.",
+        "products",
+    )

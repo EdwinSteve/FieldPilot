@@ -3,7 +3,7 @@
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 
 from app.autonomy.messages import MessageCatalog
 from app.domain.errors import NotFoundError
@@ -12,11 +12,14 @@ from app.identity.errors import ForbiddenError
 from app.identity.models import Principal, Role
 from app.market.config import MarketConfig
 from app.market.errors import EmptyCartError, OutOfStockError, PaymentDeclinedError
+from app.market.freshness import ClearancePolicy
 from app.market.listings import COLOMBIA_UTC_OFFSET, GRAMS_PER_KG
 from app.market.models import (
     CartProposal,
     CustomerOrder,
     CustomerProfile,
+    Discount,
+    DiscountSource,
     Listing,
     ListingStatus,
     Offer,
@@ -42,11 +45,12 @@ class ProductView:
 
     listing: Listing
     crop_name: str
-    price: PriceBreakdown  # per kg, with today's best offer
-    offer: Offer | None
+    price: PriceBreakdown  # per kg, with today's deepest discount
+    offer: Discount | None  # the farmer's offer or the clearance markdown (D086)
     available_g: int
     harvested_on: date
     best_before: date
+    days_left: int
     producer: str
     municipality: str
     department: str
@@ -56,15 +60,20 @@ class ProductView:
     def listing_id(self) -> int:
         return _stored(self.listing.id)
 
+    @property
+    def expired(self) -> bool:
+        return self.days_left < 0
+
 
 @dataclass(frozen=True)
 class CartLine:
     listing_id: int
+    crop: str
     crop_name: str
     quantity_kg: int
     price: PriceBreakdown | None  # None when the listing is no longer sold
     available_g: int
-    problem: str | None  # out_of_stock | not_available
+    problem: str | None  # out_of_stock | not_available | expired
 
     @property
     def line_total_minor(self) -> int:
@@ -100,18 +109,21 @@ class StoreService:
         config: MarketConfig,
         messages: MessageCatalog,
         payments: PaymentGateway,
+        clearance: ClearancePolicy,
     ) -> None:
         self._uow = uow
         self._clock = clock
         self._config = config
         self._messages = messages
         self._payments = payments
+        self._clearance = clearance
 
     def today(self) -> date:
         return (self._clock.now() + COLOMBIA_UTC_OFFSET).date()
 
     def catalogue(self, query: str | None = None) -> Sequence[ProductView]:
-        """Active listings with stock; `query` matches the crop's id or name."""
+        """Active listings with stock, before their best-before day; `query` matches the
+        crop's id or name."""
         with self._uow() as uow:
             products = [
                 self._product(uow, listing)
@@ -122,18 +134,17 @@ class StoreService:
             p
             for p in products
             if p.available_g >= GRAMS_PER_KG
+            and not p.expired
             and (not wanted or wanted in p.listing.crop or wanted in p.crop_name.lower())
         ]
 
     def product(self, listing_id: int) -> ProductView:
         with self._uow() as uow:
-            listing = uow.listings.get(listing_id)
-            if listing.status is not ListingStatus.ACTIVE:
-                raise NotFoundError("Product", listing_id)
-            return self._product(uow, listing)
+            return self._sellable(uow, listing_id)
 
     def offers_today(self) -> Sequence[ProductView]:
-        """Validated on read: today, an active listing with stock, the farmer's share kept."""
+        """Validated on read: today, an active listing with stock, the farmer's share kept;
+        a clearance markdown counts as an offer (D086)."""
         return [p for p in self.catalogue() if p.offer is not None]
 
     def profile(self, principal: Principal) -> CustomerProfile:
@@ -170,8 +181,7 @@ class StoreService:
             )
         with self._uow() as uow:
             if quantity_kg > 0:
-                product = self._product(uow, self._sellable(uow, listing_id))
-                self._check_stock(product, quantity_kg)
+                self._check_stock(self._sellable(uow, listing_id), quantity_kg)
             uow.customers.set_cart_item(customer, listing_id, quantity_kg)
             uow.commit()
             return self._cart(uow, customer)
@@ -185,8 +195,7 @@ class StoreService:
                 raise NotFoundError("CartProposal", proposal_id)
             for item in proposal.items:
                 listing_id, kg = int(str(item["listing_id"])), int(str(item["quantity_kg"]))
-                product = self._product(uow, self._sellable(uow, listing_id))
-                self._check_stock(product, kg)
+                self._check_stock(self._sellable(uow, listing_id), kg)
                 uow.customers.set_cart_item(customer, listing_id, kg)
             uow.customers.set_proposal_status(proposal_id, ProposalStatus.ACCEPTED)
             uow.commit()
@@ -254,13 +263,17 @@ class StoreService:
             listing = uow.listings.get(item.listing_id)
             name = self._messages.crop_name(listing.crop)
             if listing.status is not ListingStatus.ACTIVE:
-                lines.append(CartLine(item.listing_id, name, item.quantity_kg, None, 0,
-                                      "not_available"))  # fmt: skip
+                lines.append(CartLine(item.listing_id, listing.crop, name, item.quantity_kg,
+                                      None, 0, "not_available"))  # fmt: skip
                 continue
             product = self._product(uow, listing)
+            if product.expired:
+                lines.append(CartLine(item.listing_id, listing.crop, name, item.quantity_kg,
+                                      None, 0, "expired"))  # fmt: skip
+                continue
             short = product.available_g < item.quantity_kg * GRAMS_PER_KG
             lines.append(
-                CartLine(item.listing_id, name, item.quantity_kg, product.price,
+                CartLine(item.listing_id, listing.crop, name, item.quantity_kg, product.price,
                          product.available_g, "out_of_stock" if short else None)
             )  # fmt: skip
         return CartView(tuple(lines), self._config.currency)
@@ -269,7 +282,9 @@ class StoreService:
         listing_id = _stored(listing.id)
         lot = uow.lots.get(listing.lot_code)
         plot = uow.plots.get(lot.plot_id)
-        offer = self._best_offer(uow.listings.offers(listing_id), listing)
+        fresh = self._clearance.freshness(listing.crop, lot.harvested_on, self.today())
+        offer = self._deepest(self._best_offer(uow.listings.offers(listing_id), listing),
+                              self._clearance.markdown(listing, fresh))  # fmt: skip
         discount = 0 if offer is None else offer.discount_pct
         place = ", ".join(p for p in (plot.municipality, plot.department) if p)
         producer = (
@@ -277,7 +292,6 @@ class StoreService:
             if place
             else self._messages.label("producer_unknown")
         )
-        shelf_days = self._config.shelf_life_days.get(listing.crop, 0)
         return ProductView(
             listing=listing,
             crop_name=self._messages.crop_name(listing.crop),
@@ -287,14 +301,21 @@ class StoreService:
             offer=offer,
             available_g=uow.listings.stock_g(listing_id),
             harvested_on=lot.harvested_on,
-            best_before=lot.harvested_on + timedelta(days=shelf_days),
+            best_before=fresh.best_before,
+            days_left=fresh.days_left,
             producer=producer,
             municipality=plot.municipality,
             department=plot.department,
             warehouse=uow.warehouses.get(listing.warehouse_id).name,
         )
 
-    def _best_offer(self, offers: Sequence[Offer], listing: Listing) -> Offer | None:
+    @staticmethod
+    def _deepest(*discounts: Discount | None) -> Discount | None:
+        """One discount, never stacked: the deepest; the farmer's offer on a tie."""
+        given = [d for d in discounts if d is not None]
+        return max(given, key=lambda d: d.discount_pct, default=None)
+
+    def _best_offer(self, offers: Sequence[Offer], listing: Listing) -> Discount | None:
         """Today's valid offers that still keep the farmer's share; the deepest wins."""
         today = self.today()
         valid = [
@@ -307,14 +328,19 @@ class StoreService:
                 self._config.fees,
             )
         ]  # fmt: skip
-        return max(valid, key=lambda o: o.discount_pct, default=None)
+        best = max(valid, key=lambda o: o.discount_pct, default=None)
+        return None if best is None else Discount(DiscountSource.OFFER, best.discount_pct,
+                                                  best.ends_on)  # fmt: skip
 
-    @staticmethod
-    def _sellable(uow: UnitOfWork, listing_id: int) -> Listing:
+    def _sellable(self, uow: UnitOfWork, listing_id: int) -> ProductView:
+        """An active listing before its best-before day, or 404."""
         listing = uow.listings.get(listing_id)
         if listing.status is not ListingStatus.ACTIVE:
             raise NotFoundError("Product", listing_id)
-        return listing
+        product = self._product(uow, listing)
+        if product.expired:
+            raise NotFoundError("Product", listing_id)
+        return product
 
     @staticmethod
     def _check_stock(product: ProductView, quantity_kg: int) -> None:

@@ -63,6 +63,12 @@ def create_offer(
                     starts_on=offer.starts_on, ends_on=offer.ends_on)  # fmt: skip
 
 
+@router.post("/listings/expire")
+def expire(principal: PrincipalDep, container: ContainerDep) -> list[ListingOut]:
+    """The operator writes off what passed its best-before day (D086)."""
+    return [_listing_out(container, listing.id) for listing in container.listings.expire(principal)]
+
+
 @router.post("/shipments/{shipment_id}/receive")
 def receive(
     shipment_id: int, body: ReceiptIn, principal: PrincipalDep, container: ContainerDep

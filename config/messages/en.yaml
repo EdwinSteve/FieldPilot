@@ -53,6 +53,33 @@ labels:
   # D083: the public passport never names a person.
   producer_of: "Producer from {place}"
   producer_unknown: "FieldPilot producer"
+  demo_zone: "Zone {n}"  # D089: the zones of a demo plot
+  # D088: the fixed answer to a question outside an assistant's subject.
+  out_of_scope_farmer: "I can only help with your crop and your field: its stage, water, soil moisture, the weather and pending tasks. What would you like to know about your crop?"
+  out_of_scope_customer: "I can only help with the FieldPilot store: products, prices and offers, your cart and orders, what to buy for a meal, and where a product comes from. What are you looking for today?"
+  # D087: the assistant in the cart. {crop} is in lower case mid-sentence,
+  # {Crop} starts a sentence.
+  cart_intro: "Hey, I saw you are planning to buy {cart}."
+  cart_intro_empty: "Hey!"
+  suggest_repurchase_due: "Would you like to add {crop}? The last time you bought it was {ago}!"
+  suggest_bought_together: "Would you like to add {crop}? It goes well with what you are buying."
+  suggest_deal_you_buy_it: "{Crop}, which you usually buy, is {pct} % off right now. Would you like to add it?"
+  suggest_deal_goes_with: "{Crop} goes well with your cart and is {pct} % off right now. Would you like to add it?"
+  suggest_clearance_note: "It is best eaten within {days} days."
+  suggest_on_offer: "{Crop} is {pct} % off right now. Would you like to add it?"
+  suggest_fresh_harvest: "Would you like to add {crop}? It was harvested {ago}."
+  suggest_popular: "Would you like to add {crop}? It is one of the most bought products this month."
+  suggest_add: "Yes, add {kg} kg of {crop}"
+  suggest_better_deal: "Search for me a better deal"
+  suggest_none: "Your cart looks complete. I have nothing else to suggest right now."
+  suggest_no_better_deal: "That is the best deal I can find for you today."
+  ago_today: "today"
+  ago_yesterday: "yesterday"
+  ago_days: "{n} days ago"
+  ago_week: "a week ago"
+  ago_weeks: "{n} weeks ago"
+  ago_month: "a month ago"
+  ago_months: "{n} months ago"
 
 # Agent pipeline texts (D051, D052), addressed in code as "cycle.<key>" and
 # "report.<key>".

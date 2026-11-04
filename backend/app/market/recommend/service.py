@@ -1,6 +1,6 @@
 """Recommendations for one customer, from the catalogue and the orders (§4.16)."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from app.identity.models import Principal
 from app.market.config import MarketConfig
@@ -14,7 +14,7 @@ from app.market.recommend.scorers import (
     purchase_profile,
     recommend,
 )
-from app.market.store import StoreService, require_customer
+from app.market.store import ProductView, StoreService, require_customer
 from app.persistence.ports import UnitOfWork
 
 UowFactory = Callable[[], UnitOfWork]
@@ -31,6 +31,7 @@ class RecommendationService:
             fresh_harvest=config.weights["fresh_harvest"],
             on_offer=config.weights["on_offer"],
             popular=config.weights["popular"],
+            deal_for_you=config.weights["deal_for_you"],
             due_ratio=config.due_ratio,
             fresh_days=config.fresh_days,
             max_discount_pct=config.max_discount_pct,
@@ -39,8 +40,17 @@ class RecommendationService:
 
     def for_customer(self, principal: Principal, k: int = 5) -> tuple[Recommendation, ...]:
         """Personal scores only with the customer's consent (Ley 1581 de 2012)."""
-        customer = require_customer(principal)
         k = max(1, min(k, MAX_K))
+        return self.rank(principal, self._store.catalogue())[:k]
+
+    def rank(
+        self,
+        principal: Principal,
+        products: Sequence[ProductView],
+        basket: frozenset[str] | None = None,
+    ) -> tuple[Recommendation, ...]:
+        """Every product of `products` worth showing, best first; `basket` is the cart."""
+        customer = require_customer(principal)
         with self._uow() as uow:
             consent = uow.customers.profile(customer).consent_profiling_at is not None
             mine = uow.orders.list(customer) if consent else []
@@ -48,11 +58,12 @@ class RecommendationService:
         today = self._store.today()
         profile = purchase_profile(mine, self._day_of) if consent else None
         return recommend(
-            self._store.catalogue(),
+            products,
             profile,
             co_purchase(every),
             popularity(every, self._day_of, today),
             today,
             self._weights,
-            k,
+            len(products),
+            basket,
         )

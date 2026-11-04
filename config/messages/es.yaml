@@ -53,6 +53,32 @@ labels:
   # D083: the public passport never names a person.
   producer_of: "Productor de {place}"
   producer_unknown: "Productor de FieldPilot"
+  demo_zone: "Zona {n}"  # D089: las zonas de un lote del demo
+  # D088: la respuesta fija a una pregunta fuera del tema de un asistente.
+  out_of_scope_farmer: "Solo puedo ayudarte con tu cultivo y tu campo: su etapa, el agua, la humedad del suelo, el clima y las tareas pendientes. ¿Qué quieres saber de tu cultivo?"
+  out_of_scope_customer: "Solo puedo ayudarte con la tienda de FieldPilot: productos, precios y ofertas, tu carrito y tus pedidos, qué comprar para una comida y de dónde viene un producto. ¿Qué buscas hoy?"
+  # D087: el asistente del carrito.
+  cart_intro: "¡Hola! Vi que piensas comprar {cart}."
+  cart_intro_empty: "¡Hola!"
+  suggest_repurchase_due: "¿Quieres agregar {crop}? ¡La última vez que lo compraste fue {ago}!"
+  suggest_bought_together: "¿Quieres agregar {crop}? Va muy bien con lo que estás comprando."
+  suggest_deal_you_buy_it: "{Crop}, que sueles comprar, tiene {pct} % de descuento ahora. ¿Quieres agregarlo?"
+  suggest_deal_goes_with: "{Crop} va muy bien con tu carrito y tiene {pct} % de descuento ahora. ¿Quieres agregarlo?"
+  suggest_clearance_note: "Es mejor consumirlo en los próximos {days} días."
+  suggest_on_offer: "{Crop} tiene {pct} % de descuento ahora. ¿Quieres agregarlo?"
+  suggest_fresh_harvest: "¿Quieres agregar {crop}? Se cosechó {ago}."
+  suggest_popular: "¿Quieres agregar {crop}? Es de lo más comprado este mes."
+  suggest_add: "Sí, agrega {kg} kg de {crop}"
+  suggest_better_deal: "Búscame una mejor oferta"
+  suggest_none: "Tu carrito se ve completo. Por ahora no tengo nada más que sugerirte."
+  suggest_no_better_deal: "Esa es la mejor oferta que encuentro para ti hoy."
+  ago_today: "hoy"
+  ago_yesterday: "ayer"
+  ago_days: "hace {n} días"
+  ago_week: "hace una semana"
+  ago_weeks: "hace {n} semanas"
+  ago_month: "hace un mes"
+  ago_months: "hace {n} meses"
 
 # Agent pipeline texts (D051, D052), addressed in code as "cycle.<key>" and
 # "report.<key>".

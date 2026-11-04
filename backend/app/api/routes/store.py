@@ -1,7 +1,7 @@
 """The store: catalogue and offers (public), and the customer's profile, cart, orders,
 recommendations and shopping assistant (D085, docs/api.md §9)."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 
@@ -13,6 +13,7 @@ from app.api.market_schemas import (
     AssistantOut,
     CartItemIn,
     CartOut,
+    CartSuggestionOut,
     CheckoutIn,
     OrderOut,
     ProductOut,
@@ -107,6 +108,19 @@ def recommendations(
     return [RecommendationOut.of(r) for r in container.recommendations.for_customer(principal, k)]
 
 
+@router.get("/store/cart/suggestion")
+def cart_suggestion(
+    principal: PrincipalDep,
+    container: ContainerDep,
+    prefer: Annotated[Literal["deal"] | None, Query()] = None,
+    exclude: Annotated[str, Query(pattern=r"^\d+(,\d+)*$", max_length=500)] | None = None,
+) -> CartSuggestionOut:
+    """The assistant in the cart: one templated suggestion and its buttons (D087)."""
+    shown = [int(i) for i in exclude.split(",")] if exclude else []
+    suggestion = container.cart_suggestions.suggest(principal, prefer == "deal", shown)
+    return CartSuggestionOut.of(suggestion)
+
+
 @router.post("/store/assistant")
 def assistant(body: AssistantIn, principal: PrincipalDep, container: ContainerDep) -> AssistantOut:
     """The shopping assistant proposes; the customer accepts. 503 under MOCK_LLM=1."""
@@ -118,6 +132,7 @@ def assistant(body: AssistantIn, principal: PrincipalDep, container: ContainerDe
         status=str(answer.status),
         answer=answer.answer,
         proposal=None if answer.proposal is None else ProposalOut.of(answer.proposal),
+        topic=answer.topic,
     )
 
 

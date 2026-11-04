@@ -12,6 +12,7 @@ from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.agent.scope import StoreTopic
 from app.agent.tools.registry import Tool, ToolRefusedError
 from app.domain.models import JsonObject, JsonValue
 
@@ -85,7 +86,13 @@ class ProposeInput(_Strict):
 
 
 class AnswerInput(_Strict):
-    text: str = Field(min_length=1, description="The answer, in the customer's language.")
+    topic: StoreTopic = Field(
+        description="What the question is about; out_of_scope for anything that is not the "
+        "store's products, prices, cart, meals or origin (D088)."
+    )
+    text: str = Field(
+        default="", description="The answer, in the customer's language; empty when out_of_scope."
+    )
 
 
 def shopper_tools(session: ShopperSession) -> list[Tool[Any]]:
@@ -129,7 +136,8 @@ def shopper_tools(session: ShopperSession) -> list[Tool[Any]]:
         ),
         Tool(
             "answer_customer",
-            "Answer the customer. Closes the turn. Every price must come from a tool result.",
+            "Answer the customer. Closes the turn. Every price must come from a tool result. "
+            "Off-topic questions: topic out_of_scope.",
             AnswerInput,
             _answer(session),
             closes_run=True,
@@ -161,6 +169,11 @@ def _propose(session: ShopperSession) -> Callable[[ProposeInput], JsonObject]:
 
 def _answer(session: ShopperSession) -> Callable[[AnswerInput], JsonObject]:
     def handler(args: AnswerInput) -> JsonObject:
+        if args.topic is StoreTopic.OUT_OF_SCOPE:
+            session.proposal_id = None  # no cart rides on a declined question
+            return {"answer": None, "topic": args.topic.value, "proposal_id": None}
+        if not args.text.strip():
+            raise ToolRefusedError("Answer refused: the answer is empty.")
         unknown = [
             written
             for written, value in _amounts(args.text)
@@ -171,7 +184,7 @@ def _answer(session: ShopperSession) -> Callable[[AnswerInput], JsonObject]:
                 f"Answer refused: prices not returned by any tool: {unknown}. "
                 "Use only the prices the tools gave you."
             )
-        return {"answer": args.text, "proposal_id": session.proposal_id}
+        return {"answer": args.text, "topic": args.topic.value, "proposal_id": session.proposal_id}
 
     return handler
 
