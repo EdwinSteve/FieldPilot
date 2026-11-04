@@ -1322,6 +1322,7 @@ class ListingStatus(StrEnum):
     ACTIVE = "active"                         # received: customers can buy it
     SOLD_OUT = "sold_out"
     WITHDRAWN = "withdrawn"                   # by the farmer, before delivery
+    EXPIRED = "expired"                       # past its best-before day (D086)
 
 @dataclass(frozen=True)
 class Listing:
@@ -1393,6 +1394,13 @@ class PaymentGateway(Protocol):   # MockPaymentGateway: always approves, idempot
    each line gets a `release` movement, and the order becomes `cancelled`.
 10. **Privacy.** Orders, carts and the assistant's turns live in market
     tables, never in the farm's event log (market.md §7.4).
+11. **Clearance** (D086, `app/market/freshness.py`). A product's
+    best-before day is its harvest day plus the crop's `shelf_life_days`.
+    `ClearancePolicy` marks it down from the share of shelf life left
+    (`clearance.steps`), on every read; the deeper of that and the
+    farmer's offer applies, reduced if needed to keep rule 2. After the
+    best-before day nothing sells it; `ListingService.expire_due` writes
+    the stock off as `spoilage` and the listing becomes `expired`.
 
 ### 4.16 Recommendations and the shopping assistant (`app/market/recommend`, `shopper`) (D085)
 
