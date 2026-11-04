@@ -725,12 +725,22 @@ the customer buys or that goes with their basket. Its evidence adds `link`
 ```http
 POST /store/assistant
 { "question": "I'm cooking for six on Sunday, what do I need?" }
+{ "question": "Yes, add them", "conversation_id": "9f2c…" }      ← a follow-up (D092)
 ```
 ```json
 { "answer": "…", "proposal": { "id": 3, "items": [ { "listing_id": 4, "quantity_kg": 2 } ],
                                "note": "…", "status": "open" },
-  "run_id": "…" }
+  "topic": "products", "conversation_id": "9f2c…", "run_id": "…" }
 ```
+
+**The conversation (D092).**
+- **The first question** goes without `conversation_id`; the answer brings
+  one.
+- **Every follow-up sends that `conversation_id` back,** so the assistant
+  remembers the last 6 turns: "what about now?", "yes, add them", "the
+  second one".
+- **"New chat"** means omitting it.
+- **Another customer's `conversation_id`** is a 404.
 
 **How it works.**
 - **What the assistant does.** It reads the customer's history,

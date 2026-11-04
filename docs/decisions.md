@@ -3012,3 +3012,49 @@ read, irrigates the dry zone and declines an off-topic question.
 - Before a demo, one command shows whether the model and the prompts still
   work together, and how often the checks had to correct it.
 - A live failure can be the model's: read the report card before the code.
+
+## D092 — The shopping assistant remembers the conversation and talks plainly
+
+- **Date:** 2026-11-04
+- **Status:** Accepted (2026-11-04). Edwin reported answers that made no
+  sense in the store's chat.
+
+**Context.** With the real model, the store's chat showed two faults:
+- **Follow-ups lost their context.** "What about now?" got the same list
+  as the first question. Each `POST /store/assistant` ran the model on that
+  question alone, so a follow-up such as "what about now", "yes" or "the
+  second one" had nothing to refer to. The answer's own question, "Want a
+  basket with these?", could not be answered.
+- **The model recited the reason labels.** The prompt listed the reason
+  names ("a deal on what you like, just harvested, offer of the day,
+  popular") for the model to use. It copied them as tags, several per
+  product, some redundant: "A deal on what you like, popular, and offer of
+  the day".
+
+**Decision.**
+- **A conversation.** `POST /store/assistant` takes an optional
+  `conversation_id` and always returns one. Without it, a new conversation
+  starts.
+  - **Storage.** Each answered turn is kept in `shopper_turn`: the
+    question, the answer shown, the topic and the proposal id. The table is
+    private to the customer and stays out of the farm's event log (D085).
+  - **What the model sees.** The last 6 turns go before the new question,
+    as a short transcript in the task. Only what the customer saw is
+    included, never tool results.
+  - **Ownership.** Another customer's `conversation_id` is a 404.
+- **A prompt for conversation, not for tags.**
+  - Each product gets one short reason, in plain words, from its evidence,
+    for example "you usually buy it every week" or "it's 20 % off because
+    it should be eaten within 4 days".
+  - Never list the reason names, never give two reasons that say the same
+    thing, and never repeat a product already offered unless asked.
+  - A follow-up continues the conversation. "Yes" to a basket means
+    `propose_cart` with what was offered.
+
+**Consequences.**
+- The frontend sends back the `conversation_id` it received. A "New chat"
+  button simply omits it.
+- The checks are unchanged: prices from tools, scope (D088) and proposals
+  only.
+- Whether the model now talks well is checked with the model:
+  `make e2e-live` (D091), or a live run.
