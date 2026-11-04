@@ -53,6 +53,7 @@ labels:
   # D083: the public passport never names a person.
   producer_of: "Productor de {place}"
   producer_unknown: "Productor de FieldPilot"
+  demo_zone: "Zona {n}"  # D089: las zonas de un lote del demo
   # D088: la respuesta fija a una pregunta fuera del tema de un asistente.
   out_of_scope_farmer: "Solo puedo ayudarte con tu cultivo y tu campo: su etapa, el agua, la humedad del suelo, el clima y las tareas pendientes. ¿Qué quieres saber de tu cultivo?"
   out_of_scope_customer: "Solo puedo ayudarte con la tienda de FieldPilot: productos, precios y ofertas, tu carrito y tus pedidos, qué comprar para una comida y de dónde viene un producto. ¿Qué buscas hoy?"

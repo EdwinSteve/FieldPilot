@@ -35,14 +35,7 @@ def test_imagery_per_zone_with_low_vigour(client: TestClient, farm: Farm) -> Non
     ]
 
 
-def test_a_plot_without_a_scene_has_none(client: TestClient, container: Container) -> None:
-    with container.runtime.uow() as u:
-        far = u.plots.add(Plot("Bogotá", 4.6, -74.1, 1.0, START, utc_offset_hours=-5.0))
-        u.commit()
-
-    body = client.get(f"/plots/{far.id}/imagery").json()
-
-    assert body == {"scene": None, "zones": [], "boxes": []}
+def test_an_unknown_plot_has_no_imagery(client: TestClient) -> None:
     assert client.get("/plots/99/imagery").status_code == 404
 
 
@@ -55,12 +48,17 @@ def test_the_scene_image_is_the_png(client: TestClient, farm: Farm) -> None:
     assert len(response.content) > 100_000  # the 512x256 demo scene
 
 
-def test_the_scene_image_is_404_without_a_scene(client: TestClient, container: Container) -> None:
+def test_in_the_demo_a_far_plot_gets_the_synthetic_scene(
+    client: TestClient, container: Container
+) -> None:
+    """D089: no plot of the demo goes without imagery; outside it, test_scenes covers none."""
     with container.runtime.uow() as u:
         far = u.plots.add(Plot("Bogotá", 4.6, -74.1, 1.0, START, utc_offset_hours=-5.0))
         u.commit()
 
-    assert client.get(f"/plots/{far.id}/imagery/image").status_code == 404
+    response = client.get(f"/plots/{far.id}/imagery/image")
+
+    assert response.status_code == 200 and response.content[:4] == b"\x89PNG"
     assert client.get("/plots/99/imagery/image").status_code == 404
 
 

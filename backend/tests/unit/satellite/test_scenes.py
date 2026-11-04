@@ -67,6 +67,20 @@ def test_no_scene_before_the_day_or_near_the_plot(tmp_path: Path) -> None:
     assert loader.latest(2.95, -74.1, DAY) is None  # far in longitude only
 
 
+def test_in_the_demo_a_synthetic_scene_stands_in_for_a_far_plot(tmp_path: Path) -> None:
+    """D089: only a synthetic scene stands in, and only when none is near."""
+    _scene(tmp_path, "synthetic")
+    _scene(tmp_path, "real", {"synthetic": False, "acquired_on": "2026-10-25"})
+    loader = ImageryLoader.from_directory(tmp_path, synthetic_stand_in=True)
+
+    far = loader.latest(5.53, -73.36, DAY)
+
+    assert far is not None and (far.scene_id, far.synthetic) == ("synthetic", True)
+    near = loader.latest(*DEMO_FARM, DAY)
+    assert near is not None and near.scene_id == "real"  # a near scene still wins
+    assert loader.latest(5.53, -73.36, date(2026, 10, 1)) is None  # never from the future
+
+
 def test_a_missing_directory_means_no_scenes(tmp_path: Path) -> None:
     assert ImageryLoader.from_directory(tmp_path / "none").latest(*DEMO_FARM, DAY) is None
 

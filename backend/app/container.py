@@ -64,6 +64,7 @@ from app.services.queries import FarmQueries
 from app.services.rain_forecast import PlotRainForecast
 from app.services.revert import RevertService
 from app.services.scenarios import ScenarioService
+from app.services.sensor_kit import SensorKitInstaller
 from app.services.shopper import ShopperService, StoreShopperPort
 from app.services.ticker import SimulationTicker
 from app.services.voice_chat import VoiceChatService
@@ -114,8 +115,12 @@ def build_container(
     settings: Settings, config: RuntimeConfig, runtime: Runtime, auth: AuthSetting
 ) -> Container:
     uow, clock = runtime.uow, runtime.clock
+    demo = settings.app_profile == "demo"  # stand-ins for a plot away from the fixtures (D089)
     forecast = PlotRainForecast(
-        uow, FixtureForecast.from_directory(settings.data_dir / "fixtures" / "open_meteo")
+        uow,
+        FixtureForecast.from_directory(
+            settings.data_dir / "fixtures" / "open_meteo", nearest_anywhere=demo
+        ),
     )
     gate = AutonomyGate(config.policy, config.limits)
     context = StoredGateContextProvider(uow, forecast, config.crops)
@@ -128,7 +133,7 @@ def build_container(
     revert = RevertService(uow, clock, runtime.actuator)
     imagery = StoredImageryReader(  # one reader, so each scene is segmented once
         uow,
-        ImageryLoader.from_directory(settings.data_dir / "satellite"),
+        ImageryLoader.from_directory(settings.data_dir / "satellite", synthetic_stand_in=demo),
         _segmentation(settings),
         config.imaging,
         config.crops,
@@ -211,7 +216,7 @@ def build_container(
         auth=_auth_service(runtime, config, auth),
         access=access,
         planning=planning,
-        plots=PlotService(uow, clock, sites, site_jobs, config.messages),
+        plots=PlotService(uow, clock, sites, site_jobs, config.messages, _sensor_kit(demo, config)),
         cycles=CycleService(uow, clock, planning, config.crops, crop_names),
         passports=passports,
         listings=listings,
@@ -259,6 +264,15 @@ def _shopper(
         lambda: uuid.uuid4().hex,
         store.proposal,
         config.messages.label("out_of_scope_customer"),
+    )
+
+
+def _sensor_kit(demo: bool, config: RuntimeConfig) -> SensorKitInstaller | None:
+    """Only a demo plot gets simulated sensors; a real one waits for its hardware (D089)."""
+    if not demo:
+        return None
+    return SensorKitInstaller(
+        config.demo_field, lambda n: config.messages.label("demo_zone", n=str(n))
     )
 
 
