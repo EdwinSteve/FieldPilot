@@ -39,8 +39,9 @@ class Subagent:
     system_prompt: str
     tool_names: frozenset[str]
     closing_tool: str | None  # None is valid here; the real catalogue always sets one (D053)
-    may_write: bool = False  # only irrigation may hold writing tools (D054)
+    may_write: bool = False  # irrigation and the agronomist, through the gate (D054, D093)
     prompt_sha256: str = ""  # of config/agents/<name>.md; set by the catalogue (D055)
+    max_turns: int | None = None  # None: the loop's limit; the agronomist needs more (D093)
 
 
 @dataclass(frozen=True)
@@ -123,7 +124,8 @@ class AgentLoop:
     def _drive(self, progress: _Progress) -> AgentRun:
         agent = progress.agent
         tools = self._tools[agent.name]
-        while progress.turns < self._max_turns:
+        limit = max(agent.max_turns or self._max_turns, MIN_TURNS)
+        while progress.turns < limit:
             turn = progress.turns + 1
             started = self._timer()
             try:
@@ -149,7 +151,7 @@ class AgentLoop:
             progress.turns = turn
             if self._take_turn(progress, tools, response, started):
                 return progress.snapshot(RunStatus.COMPLETED)
-            if turn == self._max_turns - 1:
+            if turn == limit - 1:
                 progress.transcript.append(UserMessage(_nudge(agent)))
         progress.output = None
         return progress.snapshot(RunStatus.TURN_LIMIT)

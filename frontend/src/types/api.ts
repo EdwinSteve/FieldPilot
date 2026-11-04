@@ -7,7 +7,8 @@ export type TaskStatus =
   | "executed"
   | "reverted"
   | "rejected"
-  | "failed";
+  | "failed"
+  | "cancelled";
 
 export type AutonomyLevel = "autonomous" | "notify" | "approval";
 

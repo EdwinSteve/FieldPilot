@@ -9,13 +9,15 @@ from dataclasses import dataclass
 from datetime import date
 
 from app.agent.brief import BriefDraft, ObservationLedger
-from app.agent.field import ActionProposer, FarmerOutbox, FieldReader, ImageryReader
+from app.agent.field import ActionProposer, Agronomy, FarmerOutbox, FieldReader, ImageryReader
 from app.agent.llm.ports import LLMClient
-from app.agent.loop import AgentLoop, AgentRun, Subagent
+from app.agent.loop import AgentLoop, AgentRun, RunStatus, Subagent
 from app.agent.toolbox import cycle_registry
 from app.agent.tools.field_tools import ReadContext
 from app.agent.trace import TraceSink
 from app.simulator.clock import Clock
+
+CONSULT_RESUMES = 2
 
 
 @dataclass(frozen=True)
@@ -32,6 +34,7 @@ class AgentDeps:
     subagents: Sequence[Subagent]
     max_turns: int
     new_id: Callable[[], str]  # uuid4 hex in production; a counter in tests
+    agronomy: Agronomy | None = None  # D093; None: the agronomy tools refuse
 
 
 class AgentSession:
@@ -40,12 +43,30 @@ class AgentSession:
         self.ledger = ObservationLedger()
         self.draft = BriefDraft(plot_id, day)
         read = ReadContext(plot_id, deps.reader, self.ledger, deps.clock.now)
-        registry = cycle_registry(read, self.draft, deps.proposer, deps.outbox, self, deps.imagery)
+        registry = cycle_registry(
+            read, self.draft, deps.proposer, deps.outbox, self, deps.imagery, deps.agronomy
+        )
+        self.runs: list[AgentRun] = []  # every run of the session, nested ones first (D093)
         self.loop = AgentLoop(deps.llm, registry, deps.trace, deps.subagents, deps.max_turns)
 
     def consult(self, subagent: str, task: str) -> AgentRun:
-        """Run a subagent in this session (the orchestrator's consult tools)."""
-        return self.run(subagent, task)
+        """Run a subagent in this session (the consult tools), resuming a pause (D046, D093).
+
+        A consult is one step of the agronomist's run: a dropped model call is
+        retried from the specialist's transcript, at most CONSULT_RESUMES times,
+        instead of leaving the agronomist without that specialist.
+        """
+        run = self.run(subagent, task)
+        for _ in range(CONSULT_RESUMES):
+            if run.status is not RunStatus.PAUSED:
+                break
+            run = self.loop.resume(run)
+            self.runs[-1] = run
+        return run
 
     def run(self, subagent: str, task: str) -> AgentRun:
-        return self.loop.run(subagent, task, f"{self.session_id}-{subagent}")
+        count = sum(1 for r in self.runs if r.subagent == subagent)
+        suffix = "" if count == 0 else f"-{count + 1}"  # a specialist consulted twice
+        run = self.loop.run(subagent, task, f"{self.session_id}-{subagent}{suffix}")
+        self.runs.append(run)
+        return run

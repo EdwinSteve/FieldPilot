@@ -27,6 +27,7 @@ from app.phenology.catalog import CropSpec
 from app.planning.models import PlantingPlan, SiteState, SiteStatus
 from app.services.daily_cycle import DailyCycleResult
 from app.services.queries import CycleView, SensorReadings, TaskView
+from app.services.rain_forecast import PlotWeather
 from app.services.scenarios import ScenarioStatus
 from app.services.ticker import TickResult
 from app.simulator.scenarios import DroughtScenario, HeavyRainScenario
@@ -721,4 +722,33 @@ class PassportOut(BaseModel):
             plan=dict(passport.plan),
             integrity=IntegrityOut(**asdict(passport.integrity)),
             journey=[JourneyStepOut(**asdict(step)) for step in passport.journey],
+        )
+
+
+class RainHourOut(BaseModel):
+    hour_ending: datetime
+    rain_mm: float | None
+
+
+class WeatherOut(BaseModel):
+    """GET /plots/{id}/weather (D095): the forecast the gate reads, labeled with its source."""
+
+    plot_id: int
+    source: str
+    latitude: float | None
+    longitude: float | None
+    as_of: datetime
+    rain_next_24h_mm: float | None
+    hours: list[RainHourOut]
+
+    @classmethod
+    def of(cls, weather: PlotWeather) -> "WeatherOut":
+        return cls(
+            plot_id=weather.plot_id,
+            source=weather.source,
+            latitude=weather.latitude,
+            longitude=weather.longitude,
+            as_of=weather.as_of,
+            rain_next_24h_mm=weather.rain_next_24h_mm,
+            hours=[RainHourOut(hour_ending=end, rain_mm=mm) for end, mm in weather.hours],
         )

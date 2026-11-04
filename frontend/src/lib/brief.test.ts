@@ -34,6 +34,15 @@ const FULL: Record<string, Json> = {
   ],
 };
 
+const EMPTY_BRIEF = {
+  zones: [],
+  sceneId: null,
+  imaging: [],
+  proposals: [],
+  health: [],
+  nutrition: [],
+};
+
 describe("parseBrief", () => {
   it("reads zones, imaging and proposals", () => {
     expect(parseBrief(FULL)).toEqual({
@@ -50,11 +59,13 @@ describe("parseBrief", () => {
           status: "executed",
         },
       ],
+      health: [],
+      nutrition: [],
     });
   });
 
   it("reads an empty brief as empty", () => {
-    expect(parseBrief({})).toEqual({ zones: [], sceneId: null, imaging: [], proposals: [] });
+    expect(parseBrief({})).toEqual(EMPTY_BRIEF);
   });
 
   it("skips entries with the wrong shape instead of breaking", () => {
@@ -64,7 +75,7 @@ describe("parseBrief", () => {
         imaging: { zones: "none" },
         proposals: [{ task_id: 1 }],
       }),
-    ).toEqual({ zones: [], sceneId: null, imaging: [], proposals: [] });
+    ).toEqual(EMPTY_BRIEF);
   });
 
   it("keeps nulls for unknown measurements", () => {
@@ -77,5 +88,17 @@ describe("parseBrief", () => {
     });
     expect(brief.zones).toEqual([{ zoneId: 2, status: "ok", moisturePct: null }]);
     expect(brief.imaging).toEqual([{ zoneId: 2, ndviMean: null, bareSoilPct: null, lowVigor: false }]);
+  });
+});
+
+describe("the agronomist's specialists in the brief (D093)", () => {
+  it("reads crop health and soil nutrition per zone", () => {
+    const parsed = parseBrief({
+      assessment: { zones: [] },
+      health: [{ zone_id: 1, risk: "moderate", threats: ["fungal_disease"], note: "", cited: [] }],
+      nutrition: [{ zone_id: 1, status: "low", deficits: ["nitrogen", "ph_low"], note: "", cited: [] }],
+    });
+    expect(parsed.health).toEqual([{ zoneId: 1, level: "moderate", items: ["fungal_disease"] }]);
+    expect(parsed.nutrition).toEqual([{ zoneId: 1, level: "low", items: ["nitrogen", "ph_low"] }]);
   });
 });

@@ -10,6 +10,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.agent.brief import BriefDraft
 from app.agent.citations import cited_facts, unsupported_numbers
 from app.agent.field import FarmerOutbox
 from app.agent.tools.field_tools import ReadContext
@@ -38,7 +39,9 @@ class ReportInput(BaseModel):
     actions: list[DeclaredAction] = Field(description="Every task the text talks about.")
 
 
-def reporting_tools(read: ReadContext, outbox: FarmerOutbox) -> list[Tool[Any]]:
+def reporting_tools(
+    read: ReadContext, outbox: FarmerOutbox, draft: BriefDraft | None = None
+) -> list[Tool[Any]]:
     return [
         Tool(
             "submit_report",
@@ -46,13 +49,15 @@ def reporting_tools(read: ReadContext, outbox: FarmerOutbox) -> list[Tool[Any]]:
             "must come from a cited observation; every task you mention goes in actions with "
             "its stored status.",
             ReportInput,
-            _submit(read, outbox),
+            _submit(read, outbox, draft),
             closes_run=True,
         )
     ]
 
 
-def _submit(read: ReadContext, outbox: FarmerOutbox) -> Callable[[ReportInput], JsonObject]:
+def _submit(
+    read: ReadContext, outbox: FarmerOutbox, draft: BriefDraft | None
+) -> Callable[[ReportInput], JsonObject]:
     refusals = 0
 
     def handler(args: ReportInput) -> JsonObject:
@@ -60,6 +65,8 @@ def _submit(read: ReadContext, outbox: FarmerOutbox) -> Callable[[ReportInput], 
         problems = report_problems(read, args)
         if not problems:
             report_id = outbox.save_report(read.plot_id, args.text_es)
+            if draft is not None:
+                draft.report_id = report_id  # the agronomist may close the day (D093)
             return {"saved": True, "report_id": report_id}
         refusals += 1
         if refusals >= MAX_REFUSALS:

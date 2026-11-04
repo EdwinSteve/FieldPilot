@@ -29,7 +29,7 @@ const FULL = cycle([
 
 describe("stepStates", () => {
   it("is idle before the first cycle", () => {
-    expect(stepStates(null)).toEqual({
+    expect(stepStates(null)).toMatchObject({
       monitoring: "idle",
       imaging: "idle",
       irrigation: "idle",
@@ -38,7 +38,7 @@ describe("stepStates", () => {
   });
 
   it("marks every step done after a full cycle", () => {
-    expect(stepStates(FULL)).toEqual({
+    expect(stepStates(FULL)).toMatchObject({
       monitoring: "done",
       imaging: "done",
       irrigation: "done",
@@ -55,7 +55,7 @@ describe("stepStates", () => {
       ],
       "irrigation",
     );
-    expect(stepStates(result)).toEqual({
+    expect(stepStates(result)).toMatchObject({
       monitoring: "done",
       imaging: "done",
       irrigation: "stopped",
@@ -69,9 +69,34 @@ describe("stepStates", () => {
   });
 });
 
+describe("the agronomist's cycle (D093)", () => {
+  const LED = cycle([
+    ["monitoring", "completed", 6],
+    ["imaging", "completed", 3],
+    ["crop_health", "completed", 5],
+    ["soil_nutrition", "completed", 4],
+    ["irrigation", "completed", 8],
+    ["reporting", "completed", 4],
+    ["agronomist", "completed", 14],
+  ]);
+
+  it("shows the lead and its specialists done", () => {
+    expect(Object.values(stepStates(LED))).toEqual(Array(7).fill("done"));
+    expect(stepTurns(LED).agronomist).toBe(14);
+  });
+
+  it("passes the gate once the agronomist closed the day, even without irrigation", () => {
+    const noWater = cycle([
+      ["monitoring", "completed", 6],
+      ["agronomist", "completed", 9],
+    ]);
+    expect(contextStates(noWater)).toEqual({ sources: "done", gate: "done" });
+  });
+});
+
 describe("stepTurns", () => {
   it("reads each step's turns, null when it never ran", () => {
-    expect(stepTurns(FULL)).toEqual({ monitoring: 6, imaging: 3, irrigation: 8, reporting: 4 });
+    expect(stepTurns(FULL)).toMatchObject({ monitoring: 6, imaging: 3, irrigation: 8, reporting: 4 });
     expect(stepTurns(null).monitoring).toBeNull();
   });
 });

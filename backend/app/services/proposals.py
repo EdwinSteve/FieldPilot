@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Protocol
 
+from app.actuation.simulated import SUPPORTED_ACTIONS
 from app.autonomy.gate import AutonomyGate
 from app.autonomy.messages import MessageCatalog
 from app.domain.enums import EventKind, GateOutcome, TaskStatus
@@ -78,7 +79,9 @@ class ProposalService:
             if verdict.outcome is GateOutcome.EXECUTE_AND_NOTIFY:
                 self._notify(u, task, now)
             u.commit()
-        if authorization.permit is not None and task.scheduled_for <= now:
+        # A type with no actuator command stays scheduled as the farmer's manual task (D093).
+        manual = task.action_type not in SUPPORTED_ACTIONS
+        if authorization.permit is not None and task.scheduled_for <= now and not manual:
             task = self._executor.execute(task, authorization.permit)
         return ProposalResult(task, verdict, already_decided_at=None)
 

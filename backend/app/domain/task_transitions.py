@@ -12,14 +12,17 @@ INITIAL_STATUSES: frozenset[TaskStatus] = frozenset(
 
 ALLOWED_TRANSITIONS: Mapping[TaskStatus, frozenset[TaskStatus]] = {
     TaskStatus.PENDING_APPROVAL: frozenset(
-        {TaskStatus.SCHEDULED, TaskStatus.REJECTED, TaskStatus.FAILED}
+        {TaskStatus.SCHEDULED, TaskStatus.REJECTED, TaskStatus.FAILED, TaskStatus.CANCELLED}
     ),
-    TaskStatus.SCHEDULED: frozenset({TaskStatus.EXECUTED, TaskStatus.REVERTED, TaskStatus.FAILED}),
+    TaskStatus.SCHEDULED: frozenset(
+        {TaskStatus.EXECUTED, TaskStatus.REVERTED, TaskStatus.FAILED, TaskStatus.CANCELLED}
+    ),
     # A running irrigation or a calendar shift can still be reverted (D007).
     TaskStatus.EXECUTED: frozenset({TaskStatus.REVERTED}),
     TaskStatus.REVERTED: frozenset(),
     TaskStatus.REJECTED: frozenset(),
     TaskStatus.FAILED: frozenset(),
+    TaskStatus.CANCELLED: frozenset(),  # D093
 }
 
 

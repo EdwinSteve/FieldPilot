@@ -9,6 +9,21 @@ from app.agent.loop import Subagent
 from app.domain.errors import ConfigError
 
 READ_TOOLS = frozenset({"list_zones", "read_zone", "read_forecast", "read_crop_stage"})
+CHAT_CONSULTS = frozenset(
+    {"consult_monitoring", "consult_imaging", "consult_crop_health", "consult_soil_nutrition"}
+)
+AGRONOMIST_TOOLS = READ_TOOLS | {
+    "read_tasks",
+    "consult_monitoring",
+    "consult_imaging",
+    "consult_crop_health",
+    "consult_soil_nutrition",
+    "consult_irrigation",
+    "consult_reporting",
+    "propose_task",
+    "cancel_task",
+    "close_day",
+}
 
 
 @dataclass(frozen=True)
@@ -17,6 +32,7 @@ class SubagentSpec:
     tool_names: frozenset[str]
     closing_tool: str | None
     may_write: bool = False
+    max_turns: int | None = None  # None: AGENT_MAX_TURNS
 
 
 SUBAGENTS: tuple[SubagentSpec, ...] = (
@@ -26,10 +42,25 @@ SUBAGENTS: tuple[SubagentSpec, ...] = (
     ),
     SubagentSpec("irrigation", READ_TOOLS | {"propose_action", "finish"}, "finish", may_write=True),
     SubagentSpec("reporting", READ_TOOLS | {"submit_report"}, "submit_report"),
-    # The chat is read-only for now (D057).
+    # D093: the specialists the agronomist consults, read-only.
     SubagentSpec(
-        "orchestrator", READ_TOOLS | {"consult_monitoring", "answer_farmer"}, "answer_farmer"
+        "crop_health",
+        frozenset(
+            {"list_zones", "read_crop_stage", "read_forecast", "read_microclimate", "submit_health"}
+        ),
+        "submit_health",
     ),
+    SubagentSpec(
+        "soil_nutrition",
+        frozenset({"list_zones", "read_crop_stage", "read_soil", "submit_nutrition"}),
+        "submit_nutrition",
+    ),
+    # D093: the orchestrator of the daily cycle. It writes only through the gate.
+    # Its run holds a turn per consult and per task, so it gets more than a specialist.
+    SubagentSpec("agronomist", AGRONOMIST_TOOLS, "close_day", may_write=True, max_turns=28),
+    # The chat is read-only for now (D057).
+    # It may consult the read-only specialists (D093), never irrigation or a task tool.
+    SubagentSpec("orchestrator", READ_TOOLS | CHAT_CONSULTS | {"answer_farmer"}, "answer_farmer"),
 )
 
 # The customer's shopping assistant (D085): its own catalogue, never the farm's tools.
@@ -82,5 +113,6 @@ def _subagent(spec: SubagentSpec, prompt_file: Path) -> Subagent:
         tool_names=spec.tool_names,
         closing_tool=spec.closing_tool,
         may_write=spec.may_write,
+        max_turns=spec.max_turns,
         prompt_sha256=hashlib.sha256(raw).hexdigest(),
     )

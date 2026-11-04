@@ -25,6 +25,7 @@ export const STATUS_LABELS: Record<string, string> = {
   reverted: "Reverted",
   rejected: "Rejected",
   failed: "Failed",
+  cancelled: "Cancelled",
 };
 
 export const LEVEL_LABELS: Record<string, string> = {
