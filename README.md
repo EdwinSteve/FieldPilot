@@ -456,7 +456,7 @@ Module contracts and the data model are in [`docs/architecture.md`](docs/archite
 ## Team
 
 - Edwin Suarez: software architecture, agent orchestration
-- Nicholas Putra Halim: frontend developer
+- Nicholas Putra Halim: frontend developer, farmer app and marketplace design (UI/UX)
 
 ## License
 
