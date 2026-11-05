@@ -123,6 +123,8 @@ export interface ChatAnswer {
   status: string;
   answer: string | null;
   turns: number;
+  /** What the question was about; "out_of_scope" when the chat declined it (D088). */
+  topic?: string | null;
 }
 
 export interface VoiceAnswer extends ChatAnswer {

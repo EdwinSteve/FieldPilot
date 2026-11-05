@@ -20,7 +20,8 @@ from `GET /health` ([D094](docs/decisions.md)).
 |---|---|---|
 | Setup | `cp .env.example .env`, set `MOCK_LLM=0` and `MUSE_API_KEY=…` | `cp .env.example .env` (keeps `MOCK_LLM=1`) |
 | Check | `make preflight` confirms the key can use every configured model | — |
-| Run | `make install`, `make seed`, `make dev` | the same |
+| Run | `make demo` (installs, seeds the demo farm if there is none, starts both) | the same |
+| Open | <http://localhost:5173> the farmer app · `/market` the store · `/dashboard` the agents' timeline and the LIVE/REPLAY badge | the same |
 | What you see | Every agent turn is a live Muse Spark call: the agronomist and its specialists, the farmer's chat, the store's assistant | The daily cycle replays a real recorded Muse Spark run (`data/fixtures/llm/demo-en/`); the chat and the store's assistant need the live model |
 
 The key stays in `.env`, which git ignores; CI fails if a secret is tracked.
@@ -315,6 +316,17 @@ mandatory approval, are planned after the hackathon.
 
 **Prerequisites:** [uv](https://docs.astral.sh/uv/) (manages Python 3.12, see
 [D002](docs/decisions.md)), Node.js 24 (`frontend/.nvmrc`), `make`.
+
+**Fastest start:** `make demo`, then open <http://localhost:5173>. It copies
+`.env.example` to `.env` if there is none (mock mode), installs the locked
+dependencies, builds the demo farm only if no database exists yet, and starts
+the backend and the frontend.
+
+| Address | What it is |
+|---|---|
+| <http://localhost:5173> | The farmer app |
+| <http://localhost:5173/market> | The marketplace |
+| <http://localhost:5173/dashboard> | The operator dashboard |
 
 ```bash
 cp .env.example .env        # add your Meta Model API key, or keep MOCK_LLM=1

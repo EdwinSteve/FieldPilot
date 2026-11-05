@@ -1,0 +1,267 @@
+@import "tailwindcss";
+
+@theme {
+  --color-*: initial;
+  --text-*: initial;
+
+  --color-ground: #f3f5f0;
+  --color-ground-welcome: #f8f6ef;
+  --color-surface: #ffffff;
+  --color-border: #dce2da;
+  --color-divider: #e6ebe4;
+  --color-ink: #152728;
+  --color-ink-2: #33403a;
+  --color-ink-3: #47534c;
+  --color-primary: #3c5c29;
+  --color-primary-hover: #2c4520;
+  --color-field: #5e8530;
+  --color-leaf: #8cb052;
+  --color-tint: #eaf0df;
+  --color-leaf-dry: #c9b26a;
+  --color-earth: #a97a3b;
+  --color-ring: #f2b25c;
+  --color-needs: #a8661a;
+  --color-needs-icon: #8a5212;
+  --color-needs-text: #6b4210;
+  --color-needs-tint: #f6e7cc;
+  --color-soil: #c98a3a;
+  --color-undo: #2f79b0;
+  --color-undo-icon: #24618f;
+  --color-undo-text: #1e4e73;
+  --color-undo-tint: #e1eef7;
+  --color-stop: #b42318;
+  --color-stop-tint: #fde7e4;
+  /* The bad level shares Stop's hue, but solid red stays Stop's alone. */
+  --color-bad: #b42318;
+  --color-bad-text: #8f1c13;
+  --color-bad-tint: #fde7e4;
+  --color-overlay: rgb(21 39 40 / 0.45);
+  --color-photo-label: rgb(21 39 40 / 0.72);
+
+  --text-caption: 15px;
+  --text-caption--font-weight: 500;
+  --text-small: 16px;
+  --text-body: 17px;
+  --text-lead: 18px;
+  --text-row: 19px;
+  --text-key: 20px;
+  --text-key-lg: 22px;
+  --text-head: 24px;
+  --text-title-sm: 26px;
+  --text-title-md: 28px;
+  --text-title: 30px;
+  --text-hero: 40px;
+
+  --radius-chip: 14px;
+  --radius-tile: 16px;
+  --radius-control: 18px;
+  --radius-button: 20px;
+  --radius-start: 22px;
+  --radius-card: 24px;
+  --radius-card-lg: 26px;
+  --radius-sheet: 28px;
+  --radius-pill: 999px;
+
+  --shadow-needs: 0 4px 14px rgb(168 102 26 / 0.18);
+  --shadow-bubble: 0 2px 6px rgb(21 39 40 / 0.18);
+  --shadow-bubble-soft: 0 2px 6px rgb(21 39 40 / 0.08);
+  --shadow-avatar: 0 1px 4px rgb(21 39 40 / 0.2);
+
+  --tracking-title: -0.02em;
+  --tracking-key: -0.01em;
+
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+
+  /* Motion answers "did my tap work?", "where did this come from?" or "what changed?".
+     `backwards` leaves no transform behind, so nothing stays a containing block. */
+  --ease-calm: cubic-bezier(0.2, 0, 0, 1);
+  --animate-screen-in: screen-in 180ms var(--ease-calm) backwards;
+  --animate-card-in: card-in 220ms var(--ease-calm) backwards;
+  --animate-notice-in: notice-in 180ms var(--ease-calm) backwards;
+  --animate-sheet-up: sheet-up 220ms var(--ease-calm) backwards;
+  --animate-fade-in: fade-in 180ms var(--ease-calm) backwards;
+  --animate-pop-in: pop-in 240ms var(--ease-calm) backwards;
+  /* Onboarding: slower, so a first visit feels calm. Delays stagger the parts (WelcomeScreen). */
+  --animate-logo-in: logo-in 700ms var(--ease-calm) backwards;
+  --animate-rise: rise 600ms var(--ease-calm) backwards;
+  --animate-step-forward: step-forward 280ms var(--ease-calm) backwards;
+  --animate-step-back: step-back 280ms var(--ease-calm) backwards;
+
+  @keyframes screen-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  @keyframes card-in {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+  }
+
+  @keyframes notice-in {
+    from {
+      opacity: 0;
+      transform: translateY(-100%);
+    }
+  }
+
+  @keyframes sheet-up {
+    from {
+      transform: translateY(100%);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes logo-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.94);
+    }
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+  }
+
+  /* Next brings the step in from the right, Back from the left: the way the farmer moved. */
+  @keyframes step-forward {
+    from {
+      opacity: 0;
+      transform: translateX(28px);
+    }
+  }
+
+  @keyframes step-back {
+    from {
+      opacity: 0;
+      transform: translateX(-28px);
+    }
+  }
+
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+  }
+}
+
+/* Dark, chosen in Settings or left to the phone (hooks/useLook sets the attribute).
+   Each colour keeps its meaning; `surface` stays the text on a solid colour, so the
+   solid colours turn light and their text dark. Every text pair is 4.5:1 or more. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-ground: #0f1512;
+  --color-ground-welcome: #121912;
+  --color-surface: #1a2320;
+  --color-border: #33413a;
+  --color-divider: #26302b;
+  --color-ink: #e9efea;
+  --color-ink-2: #cdd6cf;
+  --color-ink-3: #a8b4ac;
+  --color-primary: #8fc46a;
+  --color-primary-hover: #a9d68a;
+  --color-field: #74a043;
+  --color-tint: #213019;
+  --color-earth: #b98a4b;
+  --color-needs: #e0a24f;
+  --color-needs-icon: #eab066;
+  --color-needs-text: #f2c98c;
+  --color-needs-tint: #3b2c15;
+  --color-undo: #6aafe3;
+  --color-undo-icon: #82bdea;
+  --color-undo-text: #a7d1f1;
+  --color-undo-tint: #15283a;
+  --color-stop: #f0675e;
+  --color-stop-tint: #3e1916;
+  --color-bad: #f0675e;
+  --color-bad-text: #f6a29b;
+  --color-bad-tint: #3e1916;
+  --color-overlay: rgb(0 0 0 / 0.6);
+  --color-photo-label: rgb(9 14 12 / 0.78);
+}
+
+/* Large text, chosen in Settings: every size about 15 % bigger. */
+:root[data-text="large"] {
+  --text-caption: 17px;
+  --text-small: 18px;
+  --text-body: 20px;
+  --text-lead: 21px;
+  --text-row: 22px;
+  --text-key: 23px;
+  --text-key-lg: 25px;
+  --text-head: 27px;
+  --text-title-sm: 29px;
+  --text-title-md: 31px;
+  --text-title: 34px;
+  --text-hero: 44px;
+}
+
+/* A new look fades across the whole page in a quarter second. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 250ms;
+  animation-timing-function: var(--ease-calm);
+}
+
+/* Anything tappable dips under the finger, so the farmer sees the tap land. */
+@utility press {
+  transition: transform 100ms ease-out;
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+}
+
+@layer base {
+  html,
+  body,
+  #farmer-root {
+    height: 100%;
+  }
+
+  body {
+    background: var(--color-ground);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
+  }
+
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-undo);
+    outline-offset: 2px;
+  }
+
+  /* A heading takes focus only so a screen reader announces the new screen: no ring. */
+  h1[tabindex="-1"]:focus {
+    outline: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after,
+    *::backdrop,
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+}

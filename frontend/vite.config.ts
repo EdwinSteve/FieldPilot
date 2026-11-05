@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 // The backend serves routes at the root (/plots, /tasks...). The dev server
 // exposes them under /api so frontend routes never collide with API routes.
@@ -8,7 +9,14 @@ import react from "@vitejs/plugin-react";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, ".", "FIELDPILOT_");
   return {
-    plugins: [react()],
+    plugins: [react(), tailwindcss()],
+    build: {
+      // The farmer app is the root page; Steve's dashboard is /dashboard; /farmer redirects to the root.
+      rolldownOptions: {
+        // `main` stays the dashboard's name, so its bundle keeps the file names it had.
+        input: { main: "dashboard.html", farmer: "index.html", market: "market.html", legacy: "farmer.html" },
+      },
+    },
     server: {
       port: 5173,
       proxy: {
