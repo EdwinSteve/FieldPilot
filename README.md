@@ -20,7 +20,8 @@ from `GET /health` ([D094](docs/decisions.md)).
 |---|---|---|
 | Setup | `cp .env.example .env`, set `MOCK_LLM=0` and `MUSE_API_KEY=…` | `cp .env.example .env` (keeps `MOCK_LLM=1`) |
 | Check | `make preflight` confirms the key can use every configured model | — |
-| Run | `make install`, `make seed`, `make dev` | the same |
+| Run | `make demo` (installs, seeds the demo farm if there is none, starts both) | the same |
+| Open | <http://localhost:5173> the farmer app · `/market` the store · `/dashboard` the agents' timeline and the LIVE/REPLAY badge | the same |
 | What you see | Every agent turn is a live Muse Spark call: the agronomist and its specialists, the farmer's chat, the store's assistant | The daily cycle replays a real recorded Muse Spark run (`data/fixtures/llm/demo-en/`); the chat and the store's assistant need the live model |
 
 The key stays in `.env`, which git ignores; CI fails if a secret is tracked.
