@@ -1,10 +1,10 @@
 {
   "responses": [
     {
-      "text": "I'll review Plot 1 for today, starting with its crop stage and water status.",
+      "text": "I'll review your plot for today, starting with crop stage and field checks.",
       "usage": {
         "input_tokens": 2959,
-        "output_tokens": 94
+        "output_tokens": 118
       },
       "tool_call": {
         "name": "read_crop_stage",
@@ -12,23 +12,23 @@
       }
     },
     {
-      "text": "Crop is maize at sowing — now I'll check water status.",
+      "text": "Crop is maize at sowing — now I'll check water status across zones.",
       "usage": {
-        "input_tokens": 3212,
-        "output_tokens": 135
+        "input_tokens": 3210,
+        "output_tokens": 109
       },
       "tool_call": {
         "name": "consult_monitoring",
         "arguments": {
-          "question": "Assess water status of every zone for plot 1 for 2026-11-02"
+          "question": "Assess water status of every zone for 2026-11-02"
         }
       }
     },
     {
-      "text": "Monitoring water status for plot 1 — surveying every zone.",
+      "text": "I'll assess water status for each zone, starting by mapping the plot layout.",
       "usage": {
-        "input_tokens": 1402,
-        "output_tokens": 225
+        "input_tokens": 1398,
+        "output_tokens": 67
       },
       "tool_call": {
         "name": "list_zones",
@@ -36,10 +36,10 @@
       }
     },
     {
-      "text": "Found 1 zone — now reading its status.",
+      "text": "Single zone plot; I'll pull its moisture, forecast and crop details.",
       "usage": {
-        "input_tokens": 1496,
-        "output_tokens": 152
+        "input_tokens": 1495,
+        "output_tokens": 141
       },
       "tool_call": {
         "name": "read_zone",
@@ -49,10 +49,10 @@
       }
     },
     {
-      "text": "Zone reading complete — now checking forecast and crop stage.",
+      "text": "Zone reading complete — now fetching forecast.",
       "usage": {
-        "input_tokens": 1692,
-        "output_tokens": 86
+        "input_tokens": 1695,
+        "output_tokens": 79
       },
       "tool_call": {
         "name": "read_forecast",
@@ -60,10 +60,10 @@
       }
     },
     {
-      "text": "Forecast shows 12.0 mm rain — now checking crop stage to finalize the assessment.",
+      "text": "Forecast shows 12.0 mm expected — now checking crop stage to complete context.",
       "usage": {
         "input_tokens": 1836,
-        "output_tokens": 70
+        "output_tokens": 69
       },
       "tool_call": {
         "name": "read_crop_stage",
@@ -71,15 +71,15 @@
       }
     },
     {
-      "text": "Assessment ready — submitting the zone classification.",
+      "text": "Soil is well below field capacity. I'll submit the water status assessment.",
       "usage": {
-        "input_tokens": 2090,
-        "output_tokens": 1455
+        "input_tokens": 2089,
+        "output_tokens": 1254
       },
       "tool_call": {
         "name": "submit_assessment",
         "arguments": {
-          "summary": "Zone 1 is dry: soil moisture 20.0% well below field capacity 32.0% for maize at sowing stage, with 12.0 mm rain expected in next 24h, root depth 300.0 mm and accumulated 0.0 GDD.",
+          "summary": "Zone 1 is dry: soil moisture 20.0% well below field capacity 32.0%. Forecast rain 12.0 mm. Crop maize at sowing stage with 0.0 GDD and root depth 300.0 mm.",
           "zones": [
             {
               "cited": [
@@ -101,23 +101,23 @@
       }
     },
     {
-      "text": "Monitoring shows Zone 1 is dry, so I'll gather imaging, health, and nutrition data.",
+      "text": "Zone 1 is dry — I'll check satellite vigor and nutrition next.",
       "usage": {
-        "input_tokens": 3549,
-        "output_tokens": 202
+        "input_tokens": 3538,
+        "output_tokens": 207
       },
       "tool_call": {
         "name": "consult_imaging",
         "arguments": {
-          "focus": "Zone 1 looks dry, maize at sowing"
+          "focus": "Zone 1 looks dry at sowing, check vigor and bare soil"
         }
       }
     },
     {
-      "text": "I'll read the latest satellite scene for your zones.",
+      "text": "I'll retrieve the latest satellite imagery to check vigor and bare soil.",
       "usage": {
-        "input_tokens": 1435,
-        "output_tokens": 67
+        "input_tokens": 1432,
+        "output_tokens": 89
       },
       "tool_call": {
         "name": "read_imagery",
@@ -125,10 +125,10 @@
       }
     },
     {
-      "text": "Scene shows low vigor in Zone 1 — I'll submit the observed values.",
+      "text": "Scene shows low vigor — I'll submit the observed values.",
       "usage": {
         "input_tokens": 1706,
-        "output_tokens": 447
+        "output_tokens": 335
       },
       "tool_call": {
         "name": "submit_imaging",
@@ -151,23 +151,23 @@
       }
     },
     {
-      "text": "Dry sowing zone with low vigor — I'll check crop health and nutrition next.",
+      "text": "Low vigor noted — I'll assess disease and nutrient needs.",
       "usage": {
-        "input_tokens": 4019,
-        "output_tokens": 181
+        "input_tokens": 4000,
+        "output_tokens": 116
       },
       "tool_call": {
         "name": "consult_crop_health",
         "arguments": {
-          "focus": "Zone 1 dry, maize at sowing, low vigor NDVI 0.38 with 25.3% bare soil"
+          "focus": "Zone 1 dry with low vigor NDVI 0.378, bare soil, maize at sowing"
         }
       }
     },
     {
-      "text": "I'll assess Zone 1's health, starting with the zone survey.",
+      "text": "Crop health check starting — I’ll assess every zone for disease and stress.",
       "usage": {
-        "input_tokens": 1879,
-        "output_tokens": 452
+        "input_tokens": 1867,
+        "output_tokens": 174
       },
       "tool_call": {
         "name": "list_zones",
@@ -175,10 +175,10 @@
       }
     },
     {
-      "text": "Zone 1 listed. Now I'll check the crop stage.",
+      "text": "Found one zone to inspect — now checking crop stage and forecast.",
       "usage": {
-        "input_tokens": 1975,
-        "output_tokens": 96
+        "input_tokens": 1964,
+        "output_tokens": 155
       },
       "tool_call": {
         "name": "read_crop_stage",
@@ -186,10 +186,10 @@
       }
     },
     {
-      "text": "Crop is maize at sowing. I'll check the forecast and microclimate next.",
+      "text": "Crop is maize at sowing — gathering rain outlook and leaf wetness.",
       "usage": {
-        "input_tokens": 2223,
-        "output_tokens": 389
+        "input_tokens": 2213,
+        "output_tokens": 78
       },
       "tool_call": {
         "name": "read_forecast",
@@ -197,10 +197,10 @@
       }
     },
     {
-      "text": "Forecast shows 12 mm expected. I'll read Zone 1's leaf wetness microclimate.",
+      "text": "Rain outlook noted — now checking leaf wetness for disease risk.",
       "usage": {
-        "input_tokens": 2372,
-        "output_tokens": 190
+        "input_tokens": 2361,
+        "output_tokens": 94
       },
       "tool_call": {
         "name": "read_microclimate",
@@ -210,10 +210,10 @@
       }
     },
     {
-      "text": "No humid-leaf data for this dry, low-vigor zone — I'll submit a moderate water-stress assessment.",
+      "text": "Leaf wetness is high and vigor is low — I’ll finalize the health assessment.",
       "usage": {
-        "input_tokens": 2500,
-        "output_tokens": 3060
+        "input_tokens": 2779,
+        "output_tokens": 4422
       },
       "tool_call": {
         "name": "submit_health",
@@ -221,17 +221,19 @@
           "zones": [
             {
               "cited": [
+                "air-humid-leaf-hours-z1-20261102T1100",
+                "ndvi-neiva-2026-10-28-zone-1",
+                "low-ndvi-neiva-2026-10-28-zone-1",
+                "bare-soil-neiva-2026-10-28-zone-1",
                 "reading-1",
                 "zone-1-field-capacity",
                 "crop-cycle-1",
-                "stage-cycle-1",
-                "ndvi-neiva-2026-10-28-zone-1",
-                "low-ndvi-neiva-2026-10-28-zone-1",
-                "bare-soil-neiva-2026-10-28-zone-1"
+                "stage-cycle-1"
               ],
-              "note": "Zone 1 is dry for maize at sowing with no humid-leaf readings, so water stress explains low vigor.",
-              "risk": "moderate",
+              "note": "Sowing maize shows 8.0 h of humid leaves with low vigor NDVI 0.378, bare soil and dry soil.",
+              "risk": "high",
               "threats": [
+                "fungal_disease",
                 "water_stress"
               ],
               "zone_id": 1
@@ -241,23 +243,23 @@
       }
     },
     {
-      "text": "Water stress explains the low vigor — I'll check nutrition before deciding on water.",
+      "text": "High disease and water stress flags — checking soil nutrients and irrigation options.",
       "usage": {
-        "input_tokens": 4640,
-        "output_tokens": 111
+        "input_tokens": 4630,
+        "output_tokens": 307
       },
       "tool_call": {
         "name": "consult_soil_nutrition",
         "arguments": {
-          "focus": "Zone 1 dry for maize at sowing, moderate water stress risk"
+          "focus": "Zone 1 maize at sowing, dry with low vigor, check NPK and pH"
         }
       }
     },
     {
-      "text": "I'll assess Zone 1 soil nutrition, starting by mapping the plot zones.",
+      "text": "I'll assess Zone 1 nutrition, starting with the plot layout.",
       "usage": {
-        "input_tokens": 1869,
-        "output_tokens": 129
+        "input_tokens": 1893,
+        "output_tokens": 172
       },
       "tool_call": {
         "name": "list_zones",
@@ -265,10 +267,10 @@
       }
     },
     {
-      "text": "Zone map shows a single area to assess — now I'll check the crop stage.",
+      "text": "Zone 1 listed. I'll check the crop stage next.",
       "usage": {
-        "input_tokens": 1966,
-        "output_tokens": 218
+        "input_tokens": 1988,
+        "output_tokens": 108
       },
       "tool_call": {
         "name": "read_crop_stage",
@@ -276,10 +278,10 @@
       }
     },
     {
-      "text": "Crop is maize at sowing — now I'll read the soil nutrients for Zone 1.",
+      "text": "Maize at sowing confirmed. I'll read the soil NPK and pH.",
       "usage": {
-        "input_tokens": 2218,
-        "output_tokens": 116
+        "input_tokens": 2236,
+        "output_tokens": 112
       },
       "tool_call": {
         "name": "read_soil",
@@ -289,10 +291,10 @@
       }
     },
     {
-      "text": "Soil is short on nitrogen and pH — I'll submit the assessment.",
+      "text": "Soil shows N and pH below target — I'll submit the nutrition assessment.",
       "usage": {
-        "input_tokens": 2604,
-        "output_tokens": 1282
+        "input_tokens": 2621,
+        "output_tokens": 2031
       },
       "tool_call": {
         "name": "submit_nutrition",
@@ -309,7 +311,7 @@
                 "nitrogen",
                 "ph_low"
               ],
-              "note": "Nitrogen 21.0 ppm is below target 25.0 ppm and pH 5.4 is below 5.5.",
+              "note": "Nitrogen 21.0 ppm is below target low 25.0 and pH 5.4 is below low 5.5.",
               "status": "low",
               "zone_id": 1
             }
@@ -318,52 +320,23 @@
       }
     },
     {
-      "text": "That detail wasn't accepted — I'll fix the wording and resubmit.",
+      "text": "Water, vigor, health and nutrition all point to stress in Zone 1 — now I'll sort irrigation and check open tasks.",
       "usage": {
-        "input_tokens": 2827,
-        "output_tokens": 1052
-      },
-      "tool_call": {
-        "name": "submit_nutrition",
-        "arguments": {
-          "zones": [
-            {
-              "cited": [
-                "soil-ph-z1-20261102",
-                "soil-nitrogen-z1-20261102",
-                "soil-phosphorus-z1-20261102",
-                "soil-potassium-z1-20261102"
-              ],
-              "deficits": [
-                "nitrogen",
-                "ph_low"
-              ],
-              "note": "Nitrogen 21.0 ppm is low and pH 5.4 is below range.",
-              "status": "low",
-              "zone_id": 1
-            }
-          ]
-        }
-      }
-    },
-    {
-      "text": "Nitrogen is low and pH is acidic, but at sowing stage I'll focus on water first — asking irrigation to decide.",
-      "usage": {
-        "input_tokens": 5364,
-        "output_tokens": 346
+        "input_tokens": 5387,
+        "output_tokens": 560
       },
       "tool_call": {
         "name": "consult_irrigation",
         "arguments": {
-          "focus": "Zone 1 dry 20% vs 32% field capacity, maize at sowing, 12 mm rain expected, moderate water stress"
+          "focus": "Zone 1 dry 20% vs 32% field capacity, maize at sowing, forecast 12 mm rain"
         }
       }
     },
     {
-      "text": "Dry Zone 1 noted — I'll check its crop needs and plan today's watering.",
+      "text": "Your dry Zone 1 brief is in — I'll calculate the precise dose to bring it back toward field capacity.",
       "usage": {
-        "input_tokens": 2519,
-        "output_tokens": 548
+        "input_tokens": 2544,
+        "output_tokens": 1624
       },
       "tool_call": {
         "name": "read_crop_stage",
@@ -371,10 +344,10 @@
       }
     },
     {
-      "text": "Crop is maize at sowing — now I'll pull the soil data to size the dose.",
+      "text": "I've confirmed maize with 300 mm roots — now I'll check the zone moisture to size the irrigation.",
       "usage": {
-        "input_tokens": 2771,
-        "output_tokens": 250
+        "input_tokens": 2802,
+        "output_tokens": 1490
       },
       "tool_call": {
         "name": "read_zone",
@@ -384,21 +357,10 @@
       }
     },
     {
-      "text": "I've got the soil moisture deficit — now I'll check the rain forecast to fine-tune the amount.",
+      "text": "Zone 1 is dry at 20.0% versus 32.0% field capacity — I'll propose today's irrigation.",
       "usage": {
-        "input_tokens": 2975,
-        "output_tokens": 2156
-      },
-      "tool_call": {
-        "name": "read_forecast",
-        "arguments": {}
-      }
-    },
-    {
-      "text": "Soil is well below field capacity — I'll propose today's dose.",
-      "usage": {
-        "input_tokens": 3128,
-        "output_tokens": 4321
+        "input_tokens": 3008,
+        "output_tokens": 5715
       },
       "tool_call": {
         "name": "propose_action",
@@ -408,13 +370,13 @@
             "reading-1",
             "zone-1-field-capacity",
             "root-depth-cycle-1",
-            "forecast-plot-1-2026-11-02T11:00Z",
             "crop-cycle-1",
             "stage-cycle-1",
+            "ndvi-neiva-2026-10-28-zone-1",
             "low-ndvi-neiva-2026-10-28-zone-1",
             "bare-soil-neiva-2026-10-28-zone-1"
           ],
-          "rationale": "Zone 2 is dry at 20.0 % below field capacity 32.0 % for maize at sowing with root depth 300.0 mm. With 12.0 mm rain expected, 20 mm now brings soil back toward field capacity without going over it. Imaging also shows low vigor and bare soil consistent with water stress.",
+          "rationale": "Zone 2 soil is at 20.0 % below field capacity 32.0 % for maize at sowing with root depth 300.0 mm. Imaging also shows low vigor and bare soil in Zone 2. Proposing 20 mm now to move back toward field capacity.",
           "scheduled_for": "now",
           "volume_mm": 20.0,
           "zone_id": 1
@@ -422,23 +384,23 @@
       }
     },
     {
-      "text": "First watering is awaiting farmer approval due to forecast rain — I'll wrap up without scheduling the follow-up.",
+      "text": "Today's irrigation is awaiting the farmer due to forecast rain — I'll wrap up without scheduling extra water.",
       "usage": {
-        "input_tokens": 3515,
-        "output_tokens": 550
+        "input_tokens": 3394,
+        "output_tokens": 658
       },
       "tool_call": {
         "name": "finish",
         "arguments": {
-          "summary": "Proposed 20 mm irrigation now for Zone 2 (dry at 20.0% vs 32.0% field capacity, maize at sowing, 12.0 mm rain expected, low vigor noted). Gate held it pending farmer approval due to forecast rain, so no extra irrigation was scheduled. Farmer decides first."
+          "summary": "Proposed 20 mm irrigation now for Zone 2 (20.0% vs 32.0% field capacity, maize at sowing, 300.0 mm roots, with low vigor imaging). Gate held it for farmer approval due to 12 mm forecast rain. Did not schedule extra irrigation since today's irrigation was held."
         }
       }
     },
     {
-      "text": "Water assessment is complete — now I'll review open tasks to avoid duplicates before proposing anything.",
+      "text": "Irrigation is awaiting approval — I'll verify what else needs attention today.",
       "usage": {
-        "input_tokens": 6262,
-        "output_tokens": 1020
+        "input_tokens": 6309,
+        "output_tokens": 959
       },
       "tool_call": {
         "name": "read_tasks",
@@ -446,10 +408,10 @@
       }
     },
     {
-      "text": "I’ve reviewed water, vigor, health, and nutrition — now I’ll verify zone details.",
+      "text": "Field checks show dry soil, low vigor, and disease pressure — I'll confirm details before deciding treatments.",
       "usage": {
-        "input_tokens": 6505,
-        "output_tokens": 3443
+        "input_tokens": 6539,
+        "output_tokens": 2977
       },
       "tool_call": {
         "name": "list_zones",
@@ -457,10 +419,10 @@
       }
     },
     {
-      "text": "Water, vigor, and nutrition reviewed — I'll confirm the rain forecast to time any field work.",
+      "text": "I've confirmed irrigation is pending — gathering final details to plan nutrients and field checks.",
       "usage": {
-        "input_tokens": 6606,
-        "output_tokens": 2536
+        "input_tokens": 6641,
+        "output_tokens": 1653
       },
       "tool_call": {
         "name": "read_forecast",
@@ -468,44 +430,66 @@
       }
     },
     {
-      "text": "Water stress explains the pale satellite signal, with nitrogen also low — I'll flag the dry stress that irrigation couldn't fix today.",
+      "text": "Field data shows dry soil, low nitrogen, and high disease pressure — I'll line up fertilizer and a field check.",
       "usage": {
-        "input_tokens": 6758,
-        "output_tokens": 2540
+        "input_tokens": 6790,
+        "output_tokens": 2104
       },
       "tool_call": {
         "name": "propose_task",
         "arguments": {
-          "action_type": "stress_alert",
+          "action_type": "fertilizer",
           "cited": [
-            "reading-1",
-            "zone-1-field-capacity",
+            "soil-nitrogen-z1-20261102",
             "forecast-plot-1-2026-11-02T11:00Z"
           ],
-          "rationale": "Zone 2 is still dry at 20% below 32% field capacity at sowing and irrigation is waiting approval, so emerging plants face water stress.",
+          "dose_kg_ha": 50.0,
+          "product": "urea",
+          "rationale": "Zone 2 shows low nitrogen at 21 ppm at sowing, so a starter dose of 50 kg/ha after the expected 12 mm rain will help establishment.",
+          "scheduled_for": "2026-11-06T11:00:00+00:00",
+          "zone_id": 1
+        }
+      }
+    },
+    {
+      "text": "Fertilizer is lined up for after the rain — now I'll arrange a field check for the disease risk.",
+      "usage": {
+        "input_tokens": 7116,
+        "output_tokens": 1244
+      },
+      "tool_call": {
+        "name": "propose_task",
+        "arguments": {
+          "action_type": "scouting_visit",
+          "cited": [
+            "air-humid-leaf-hours-z1-20261102T1100",
+            "ndvi-neiva-2026-10-28-zone-1",
+            "low-ndvi-neiva-2026-10-28-zone-1"
+          ],
+          "rationale": "Zone 2 shows high fungal risk after 8 h of humid leaves with low vigor, so please check the seedlings and bare patches soon.",
           "scheduled_for": "now",
           "zone_id": 1
         }
       }
     },
     {
-      "text": "Field check raised a stress flag for the dry sowing zone — now I'll compile your daily report.",
+      "text": "Field checks are set — I'll compile today's report for you.",
       "usage": {
-        "input_tokens": 7021,
-        "output_tokens": 1061
+        "input_tokens": 7393,
+        "output_tokens": 443
       },
       "tool_call": {
         "name": "consult_reporting",
         "arguments": {
-          "focus": "Zone 2 dry at sowing 20% vs 32% FC with 12 mm rain expected, moderate water stress, low vigor NDVI 0.38, nitrogen low 21 ppm and pH 5.4 low, irrigation awaiting approval and stress alert scheduled"
+          "focus": "Zone 2 maize at sowing: dry, low nitrogen, low pH, high fungal risk, irrigation pending, fertilizer and scouting proposed"
         }
       }
     },
     {
-      "text": "Your day’s brief is in — I’ll pull the field details to draft the report.",
+      "text": "Your brief is in — I'll pull the zone names to draft the farmer's report.",
       "usage": {
-        "input_tokens": 2296,
-        "output_tokens": 504
+        "input_tokens": 2345,
+        "output_tokens": 2316
       },
       "tool_call": {
         "name": "list_zones",
@@ -513,10 +497,23 @@
       }
     },
     {
-      "text": "Zone 2 looks dry — I'll finalize your daily report.",
+      "text": "I've identified your Zone 2 — now I'll gather the latest readings to complete the report.",
       "usage": {
-        "input_tokens": 2396,
-        "output_tokens": 4215
+        "input_tokens": 2444,
+        "output_tokens": 2194
+      },
+      "tool_call": {
+        "name": "read_zone",
+        "arguments": {
+          "zone_id": 1
+        }
+      }
+    },
+    {
+      "text": "Zone 2 is dry — I'm compiling the final report for approval.",
+      "usage": {
+        "input_tokens": 2715,
+        "output_tokens": 4258
       },
       "tool_call": {
         "name": "submit_report",
@@ -527,34 +524,47 @@
               "task_id": 1
             },
             {
-              "status": "scheduled",
+              "status": "pending_approval",
               "task_id": 2
+            },
+            {
+              "status": "scheduled",
+              "task_id": 3
             }
           ],
           "cited": [
             "reading-1",
             "zone-1-field-capacity",
             "forecast-plot-1-2026-11-02T11:00Z",
+            "crop-cycle-1",
+            "root-depth-cycle-1",
+            "stage-cycle-1",
+            "gdd-cycle-1",
+            "kc-cycle-1",
+            "air-humid-leaf-hours-z1-20261102T1100",
             "ndvi-neiva-2026-10-28-zone-1",
             "low-ndvi-neiva-2026-10-28-zone-1",
             "bare-soil-neiva-2026-10-28-zone-1",
+            "soil-ph-z1-20261102",
             "soil-nitrogen-z1-20261102",
-            "soil-ph-z1-20261102"
+            "soil-phosphorus-z1-20261102",
+            "soil-potassium-z1-20261102",
+            "task-1"
           ],
-          "text_es": "Zone 2 is dry for maize at sowing, with soil moisture at 20.0 % well below field capacity of 32.0 % and 12.0 mm of rain expected. Imaging shows low vigour in Zone 2 with mean NDVI 0.4 and aproximadamente 25.3 % bare soil. Zone 2 is at moderate risk from water stress, with a stress alert scheduled. Zone 2 is short on nitrogen at 21.0 ppm with low pH at 5.4. Irrigation for Zone 2 awaits your approval, while the stress alert remains scheduled."
+          "text_es": "Zone 2 is dry at 20.0 % soil moisture, below field capacity of 32.0 %, with 12.0 mm of rain forecast. The maize is at sowing with 0.0 GDD and 300.0 mm root depth. Zone 2 shows low vigour with NDVI 0.378 and aproximadamente 25.3 % bare soil, including 21.2 % low-vigour area. There is high fungal and water-stress risk after 8.0 h of humid leaves, low vigour and dry soil, with the scouting visit scheduled. Nitrogen is low at 21.0 ppm and pH is low at 5.4, with the fertilizer application awaiting approval. A 20.0 mm irrigation for Zone 2 awaits the farmer's approval, and the scouting visit is scheduled."
         }
       }
     },
     {
-      "text": "Report saved — I'll close out today's review.",
+      "text": "All checks and proposals are done — closing out today's review.",
       "usage": {
-        "input_tokens": 7863,
-        "output_tokens": 328
+        "input_tokens": 8277,
+        "output_tokens": 559
       },
       "tool_call": {
         "name": "close_day",
         "arguments": {
-          "summary": "Zone 2 (maize at sowing) is dry at 20% vs 32% field capacity with moderate water stress explaining low vigor NDVI 0.38. Irrigation 20 mm is awaiting farmer approval with 12 mm rain expected, so a stress alert was scheduled. Low nitrogen 21 ppm and pH 5.4 noted for report; no fertilizer at sowing and no agrochemical for water-driven risk."
+          "summary": "Zone 2 maize at sowing is dry with low nitrogen and low vigor plus high fungal risk. Irrigation 20 mm awaits approval, urea 50 kg/ha proposed after the 12 mm rain, and a scouting visit scheduled to check seedlings. Low pH 5.4 noted in report for season liming decision."
         }
       }
     }
