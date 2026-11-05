@@ -3,12 +3,13 @@ import { daysSinceSowing } from "../../lib/stages";
 import { en } from "../i18n/en";
 import {
   daysFromToday,
+  formatClock,
   formatDateLine,
   localHour,
   plusDays,
+  relativeDay,
   shortWeekday,
 } from "../lib/farmTime";
-import { forecastOfDay } from "../lib/forecast";
 import { harvestTiming } from "../lib/harvestTime";
 import { activeRun } from "../lib/irrigationRun";
 import { cropLabel, farmLabel, zoneLabel } from "../lib/names";
@@ -19,19 +20,26 @@ import { plantsLevel, worstLevel, type Level } from "../lib/statusLevel";
 import type { TodayHarvest } from "./types";
 import {
   fieldCapacity,
+  doseOf,
+  fieldWorkTitle,
   harvestInfo,
+  isFieldWork,
   isWatering,
+  modeBadge,
   pendingTasks,
   plotOffset,
   questionOf,
+  rainNext24h,
+  rainOnDay,
   soilAt,
   soilLevelOf,
   soilStatusLabel,
   soilTileLabel,
   zoneName,
+  zoneNameOf,
   type FarmSnapshot,
 } from "./snapshot";
-import type { DecisionLink, OtherZone, TodayView, UpdateItem, WeekDay } from "./types";
+import type { DecisionLink, FieldWorkItem, OtherZone, TodayView, UpdateItem, WeekDay } from "./types";
 import { updatesView } from "./updates";
 
 const MONDAY_INDEX = 1;
@@ -42,7 +50,7 @@ const RECENT_UPDATES = 2;
 export function firstDecision(snapshot: FarmSnapshot): DecisionLink | null {
   const task = pendingTasks(snapshot)[0];
   if (task === undefined) return null;
-  return { taskId: task.id, question: questionOf(task, zoneName(snapshot)) };
+  return { taskId: task.id, question: questionOf(task, zoneNameOf(snapshot, task.zone_id)) };
 }
 
 function greeting(snapshot: FarmSnapshot): string {
@@ -120,7 +128,8 @@ function week(snapshot: FarmSnapshot, rainMm: number | null): WeekDay[] {
       day: shortWeekday(dayIso, offset),
       today,
       water,
-      rain: today && (rainMm ?? 0) > 0,
+      // The forecast covers today and tomorrow (D095); without it, today's 24 h figure only.
+      rain: (rainOnDay(snapshot, dayIso) ?? (today ? rainMm : 0) ?? 0) > 0,
       saidNo,
     };
   });
@@ -199,11 +208,29 @@ function otherZones(snapshot: FarmSnapshot): OtherZone[] {
     });
 }
 
+/** Approved field work not done yet, soonest first. */
+function fieldWork(snapshot: FarmSnapshot): FieldWorkItem[] {
+  const offset = plotOffset(snapshot);
+  return snapshot.tasks
+    .filter((task) => isFieldWork(task) && task.status === "scheduled")
+    .toSorted((a, b) => Date.parse(a.scheduled_for) - Date.parse(b.scheduled_for))
+    .map((task) => ({
+      taskId: task.id,
+      title: fieldWorkTitle(task, zoneNameOf(snapshot, task.zone_id)),
+      detail: [
+        doseOf(task),
+        `${relativeDay(task.scheduled_for, snapshot.clock.now, offset)} · ${formatClock(task.scheduled_for, offset)}`,
+      ]
+        .filter((part) => part !== null)
+        .join(" · "),
+    }));
+}
+
 export function todayView(snapshot: FarmSnapshot): TodayView {
   const offset = plotOffset(snapshot);
   const zone = zoneName(snapshot);
   const soil = soilAt(snapshot);
-  const rainMm = forecastOfDay(snapshot.verdicts, snapshot.clock.now, offset);
+  const rainMm = rainNext24h(snapshot);
   const imaging = snapshot.imagery.zones[0];
   const statusLabel = soil === null ? null : soilStatusLabel(soil);
   const soilTileLevel = soil === null ? "neutral" : soilLevelOf(soil);
@@ -214,6 +241,8 @@ export function todayView(snapshot: FarmSnapshot): TodayView {
     dateLine: formatDateLine(snapshot.clock.now, offset),
     greeting: greeting(snapshot),
     farmLine: farmLine(snapshot),
+    fieldWork: fieldWork(snapshot),
+    mode: modeBadge(snapshot),
     decision: firstDecision(snapshot),
     stoppedBanner: stoppedBanner(snapshot),
     zoneId: snapshot.zone?.id ?? 0,

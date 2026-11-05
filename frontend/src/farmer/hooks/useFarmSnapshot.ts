@@ -65,6 +65,7 @@ async function loadFarm(plotId: number): Promise<FarmSnapshot | null> {
     refusals,
     notices,
     reverts,
+    weather,
   ] = await Promise.all([
     fetchHealth(),
     api.clock(),
@@ -83,6 +84,8 @@ async function loadFarm(plotId: number): Promise<FarmSnapshot | null> {
     events("revert_refused"),
     events("notification"),
     events("revert"),
+    // The forecast the gate reads (D095); an older backend without it falls back to the verdicts.
+    api.weather(plot.id).catch(() => null),
   ]);
   // Tasks, cycles, reports and the log are still one list for the whole deployment
   // (D082): keep this plot's, so a farmer never sees another farm's work.
@@ -103,6 +106,8 @@ async function loadFarm(plotId: number): Promise<FarmSnapshot | null> {
   const lead = neediestZone(perZone);
   return {
     chatLive: !health.mock_llm,
+    health,
+    weather,
     plot,
     clock,
     zone: lead?.zone ?? null,

@@ -18,7 +18,7 @@ import { WeekStrip } from "../components/WeekStrip";
 import { Wordmark } from "../components/Wordmark";
 import { en } from "../i18n/en";
 import { hrefOf } from "../lib/route";
-import type { PlantedNote, TodayHarvest, TodayView } from "../view-models/types";
+import type { FieldWorkItem, PlantedNote, TodayHarvest, TodayView } from "../view-models/types";
 
 /** The app's own bar: whose app this is on the left, the two ways out of the day on the right. */
 function TopBar() {
@@ -53,6 +53,11 @@ function Header({ view, age }: { view: TodayView; age: string | null }) {
         <span className="text-caption text-ink-3">{view.farmLine}</span>
         {age === null ? null : (
           <span className="text-caption text-ink-3">{en.freshness.updated(age)}</span>
+        )}
+        {view.mode === null ? null : (
+          <span className="mt-1.5 self-start" title={view.mode.title}>
+            <Chip tone={view.mode.live ? "good" : "undo"}>{view.mode.text}</Chip>
+          </span>
         )}
       </div>
     </header>
@@ -221,6 +226,40 @@ function PlantedCard({ note, onOk }: { note: PlantedNote; onOk: () => void }) {
   );
 }
 
+/** The agronomist's field work, approved and waiting for the farmer's hands (D093). */
+function FieldWorkCard({
+  items,
+  busy,
+  onDone,
+}: {
+  items: readonly FieldWorkItem[];
+  busy: boolean;
+  onDone: (taskId: number) => void;
+}) {
+  return (
+    <section className="flex animate-card-in flex-col gap-3 rounded-card bg-surface p-4.5">
+      <div className="flex flex-col gap-0.5">
+        <h2 className="text-lead font-extrabold">{en.fieldWork.forYou}</h2>
+        <p className="text-small text-ink-2">{en.fieldWork.forYouDetail}</p>
+      </div>
+      <ul className="flex flex-col gap-2.5">
+        {items.map((item) => (
+          <li key={item.taskId} className="flex items-center gap-3">
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="text-body font-extrabold">{item.title}</span>
+              <span className="text-small text-ink-2">{item.detail}</span>
+            </span>
+            <BigButton variant="outline" size="compact" disabled={busy} onClick={() => onDone(item.taskId)}>
+              <Icon name="check" strokeWidth={2.6} />
+              {en.fieldWork.done}
+            </BigButton>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** A decision answered without signal: no question to ask again, only that it waits. */
 function SavedAnswerCard() {
   return (
@@ -282,9 +321,22 @@ interface TodayScreenProps {
   savedAnswers: readonly number[];
   onHarvested: (note: HarvestNote) => void;
   plotId: number;
+  /** The farmer did a field task by hand (D093). */
+  onFieldWorkDone: (taskId: number) => void;
+  busy: boolean;
 }
 
-export function TodayScreen({ view, age, planted, onPlantedSeen, savedAnswers, onHarvested, plotId }: TodayScreenProps) {
+export function TodayScreen({
+  view,
+  age,
+  planted,
+  onPlantedSeen,
+  savedAnswers,
+  onHarvested,
+  plotId,
+  onFieldWorkDone,
+  busy,
+}: TodayScreenProps) {
   const [wordsOpen, setWordsOpen] = useState(false);
   const [harvesting, setHarvesting] = useState(false);
   const sales = useSales(plotId);
@@ -299,6 +351,9 @@ export function TodayScreen({ view, age, planted, onPlantedSeen, savedAnswers, o
       {harvest !== null && harvest.kind !== "record" ? (
         <HarvestCard harvest={harvest} onOpen={() => setHarvesting(true)} />
       ) : null}
+      {view.fieldWork.length === 0 ? null : (
+        <FieldWorkCard items={view.fieldWork} busy={busy} onDone={onFieldWorkDone} />
+      )}
       <StatusCard view={view} />
       <WeekStrip week={view.week} />
       {/* A harvest waiting to be sold is a job for the farmer: above the updates. */}

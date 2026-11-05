@@ -122,6 +122,8 @@ export interface AssistantAnswer {
   run_id: string;
   /** "out_of_scope" when the question was off the store's subject (D088): the answer is then a fixed text. */
   topic?: string | null;
+  /** Send it back with the next question so the assistant remembers the talk (D092). */
+  conversation_id?: string;
 }
 
 export type JourneyStep = "commissioning" | "shipping" | "receiving" | "retail_selling";
@@ -218,7 +220,13 @@ export const store = {
       ),
     ),
   recommendations: (k = 6) => signed(() => getJson<Recommendation[]>(`/store/recommendations?k=${k}`)),
-  ask: (question: string) => signed(() => postJson<AssistantAnswer>("/store/assistant", { question })),
+  ask: (question: string, conversationId?: string) =>
+    signed(() =>
+      postJson<AssistantAnswer>(
+        "/store/assistant",
+        conversationId ? { question, conversation_id: conversationId } : { question },
+      ),
+    ),
   accept: (proposalId: number) => signed(() => postJson<Cart>(`/store/cart-proposals/${proposalId}/accept`)),
   passport: (code: string) => getJson<Passport>(`/trace/${encodeURIComponent(code)}`),
   // The warehouse (operator or admin).

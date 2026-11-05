@@ -23,8 +23,11 @@ import { hrefOf } from "../lib/route";
 import { undoRemaining } from "../lib/undoProgress";
 import {
   eventOfTask,
+  fieldWorkTitle,
+  isFieldWork,
   isWatering,
   plotOffset,
+  zoneNameOf,
   volumeOf,
   zoneName,
   type FarmSnapshot,
@@ -179,7 +182,33 @@ function plannedRow(snapshot: FarmSnapshot, task: Task): Dated | null {
   };
 }
 
+/** The agronomist's field work (D093): planned for the farmer, done, or withdrawn. */
+function fieldWorkRow(snapshot: FarmSnapshot, task: Task): Dated | null {
+  const title = fieldWorkTitle(task, zoneNameOf(snapshot, task.zone_id));
+  const words: Partial<Record<Task["status"], string>> = {
+    scheduled: en.fieldWork.planned(title),
+    executed: en.fieldWork.doneTitle(title),
+    cancelled: en.fieldWork.withdrawn(title),
+  };
+  const text = words[task.status];
+  if (text === undefined) return null;
+  const offset = plotOffset(snapshot);
+  const at = task.status === "scheduled" ? task.created_at : task.updated_at;
+  return {
+    at: Date.parse(at),
+    item: {
+      id: `work-${task.id}`,
+      kind: task.status === "cancelled" ? "said_no" : "work",
+      title: text,
+      ...stamp(snapshot, at, at, formatClock(at, offset)),
+      href: hrefOf({ screen: "today" }),
+      unread: isUnread(snapshot, task.id),
+    },
+  };
+}
+
 function taskRow(snapshot: FarmSnapshot, task: Task): Dated | null {
+  if (isFieldWork(task)) return fieldWorkRow(snapshot, task);
   if (task.status === "failed") return failedRow(snapshot, task);
   if (!isWatering(task)) return null;
   if (task.status === "executed") return wateredRow(snapshot, task);

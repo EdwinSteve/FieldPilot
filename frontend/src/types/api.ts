@@ -82,6 +82,17 @@ export interface Task {
   reason_es: string | null;
 }
 
+/** GET /plots/{id}/weather (D095): the forecast the gate reads, with its source. */
+export interface Weather {
+  plot_id: number;
+  source: string;
+  latitude: number | null;
+  longitude: number | null;
+  as_of: string;
+  rain_next_24h_mm: number | null;
+  hours: { hour_ending: string; rain_mm: number | null }[];
+}
+
 export interface RevertResult {
   task: Task;
   requested_mm: number;

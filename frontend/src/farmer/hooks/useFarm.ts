@@ -219,6 +219,7 @@ export function useFarm(plotId: number, paused = false): FarmState {
       void Promise.all(ids.map((id) => api.markRead(id))).then(refresh, () => undefined);
     },
     setStopped: (stopped) => tried(() => api.setEmergencyStop(stopped)),
+    markDone: (taskId) => tried(() => api.done(taskId)),
     busy: action.busy,
     actionFailure: failure,
     talk: {
