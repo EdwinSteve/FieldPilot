@@ -51,6 +51,7 @@ function waterState(task: Task): TaskState {
     case "rejected":
       return "said_no";
     case "reverted":
+    case "cancelled": // withdrawn by the agronomist before it ran (D093)
       return "cancelled";
     case "failed":
       return "failed";
