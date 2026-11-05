@@ -1,0 +1,189 @@
+{
+ "health": {
+  "status": "ok",
+  "mock_llm": true
+ },
+ "plots": [
+  {
+   "id": 1,
+   "name": "Finca demo, Neiva",
+   "latitude": 2.93,
+   "longitude": -75.28,
+   "area_ha": 2.0,
+   "utc_offset_hours": -5.0
+  }
+ ],
+ "clock": {
+  "now": "2026-11-02T11:00:00Z",
+  "speed_factor": 1.0,
+  "paused": true
+ },
+ "zones": [
+  {
+   "id": 1,
+   "plot_id": 1,
+   "name": "Zona 2",
+   "area_ha": 0.5,
+   "field_capacity_pct": 32.0
+  }
+ ],
+ "readings": [
+  {
+   "sensor_id": 1,
+   "kind": "soil_moisture",
+   "unit": "%",
+   "readings": [
+    {
+     "value": 20.0,
+     "recorded_at": "2026-11-02T11:00:00Z"
+    }
+   ]
+  }
+ ],
+ "cycles": [
+  {
+   "id": 1,
+   "plot_id": 1,
+   "crop": "maize",
+   "sowing_date": "2026-10-01",
+   "status": "active",
+   "accumulated_gdd": 0.0,
+   "gdd_updated_through": null,
+   "stages": []
+  }
+ ],
+ "tasks": [
+  {
+   "id": 1,
+   "cycle_id": 1,
+   "zone_id": 1,
+   "action_type": "irrigation",
+   "params": {
+    "volume_mm": 20.0
+   },
+   "scheduled_for": "2026-11-02T11:00:00Z",
+   "status": "pending_approval",
+   "effective_level": "approval",
+   "rationale": "La Zona 2 está seca con humedad de 20,0 % por debajo de la capacidad de campo de 32,0 %. Propongo aplicar 20 mm ahora para acercarla hacia capacidad sin superarla. La imagen muestra vigor bajo en la zona.",
+   "created_at": "2026-11-02T11:00:00Z",
+   "updated_at": "2026-11-02T11:00:00Z",
+   "revert_deadline": null,
+   "revert_open": null,
+   "revert_remaining_seconds": null,
+   "reason_es": "Pendiente de aprobación por lluvia prevista (12 mm > 5 mm)"
+  }
+ ],
+ "notifications": [],
+ "reports": [
+  {
+   "id": 1,
+   "cycle_id": 1,
+   "language": "es",
+   "content": "Zona 2 está seca con humedad de 20,0 % muy por debajo de la capacidad de campo de 32,0 %, en etapa de siembra con 0,0 GDD acumulados y lluvia prevista de 12 mm. La imagen muestra vigor bajo en Zona 2 con 21,2 % de área de bajo NDVI y aproximadamente 25,3 % de suelo desnudo. El riego propuesto espera la aprobación del agricultor.",
+   "created_at": "2026-11-02T11:00:00Z"
+  }
+ ],
+ "stop": {
+  "active": false,
+  "changed_at": null,
+  "changed_by": null
+ },
+ "imagery": {
+  "scene": {
+   "scene_id": "neiva-2026-10-28",
+   "acquired_on": "2026-10-28",
+   "synthetic": true,
+   "low_ndvi_threshold": 0.4,
+   "segmentation_note": null
+  },
+  "zones": [
+   {
+    "zone_id": 1,
+    "ndvi_mean": 0.378,
+    "low_ndvi_pct": 21.2,
+    "bare_soil_pct": 25.3,
+    "low_vigor": true,
+    "area": {
+     "x1": 0.5,
+     "y1": 0.0,
+     "x2": 1.0,
+     "y2": 1.0
+    }
+   }
+  ],
+  "boxes": [
+   {
+    "x1": 0.734375,
+    "y1": 0.4921875,
+    "x2": 0.90625,
+    "y2": 0.8359375
+   },
+   {
+    "x1": 0.529296875,
+    "y1": 0.62890625,
+    "x2": 0.642578125,
+    "y2": 0.85546875
+   },
+   {
+    "x1": 0.572265625,
+    "y1": 0.12890625,
+    "x2": 0.716796875,
+    "y2": 0.41796875
+   }
+  ]
+ },
+ "events_gate_verdict": [
+  {
+   "id": 10,
+   "kind": "gate_verdict",
+   "actor": "system:autonomy_gate",
+   "reason": "irrigation requested at autonomous, set to approval because of: rain_forecast_above_limit.",
+   "occurred_at": "2026-11-02T11:00:00Z",
+   "task_id": 1,
+   "autonomy_level": "approval",
+   "rule": "rain_forecast_above_limit",
+   "inputs": {
+    "proposal": {
+     "action_type": "irrigation",
+     "plot_id": 1,
+     "zone_id": 1,
+     "scheduled_for": "2026-11-02T11:00:00+00:00",
+     "params": {
+      "volume_mm": 20.0
+     },
+     "rationale": "La Zona 2 está seca con humedad de 20,0 % por debajo de la capacidad de campo de 32,0 %. Propongo aplicar 20 mm ahora para acercarla hacia capacidad sin superarla. La imagen muestra vigor bajo en la zona.",
+     "proposed_by": "agent:irrigation"
+    },
+    "context": {
+     "emergency_stop_active": false,
+     "irrigated_mm_on_day": 0,
+     "last_irrigation_at": null,
+     "soil_moisture_vwc": 20.0,
+     "field_capacity_vwc": 32.0,
+     "rain_forecast_mm_24h": 12.0,
+     "stage_level": null
+    },
+    "verdict": {
+     "outcome": "await_approval",
+     "requested_level": "autonomous",
+     "effective_level": "approval",
+     "reason_code": "rain_forecast_above_limit",
+     "violations": [
+      {
+       "code": "rain_forecast_above_limit",
+       "params": {
+        "forecast_mm": 12.0,
+        "limit_mm": 5.0
+       }
+      }
+     ]
+    }
+   }
+  }
+ ],
+ "events_execution": [],
+ "events_execution_failed": [],
+ "events_rejection": [],
+ "events_revert": [],
+ "events_revert_refused": []
+}
