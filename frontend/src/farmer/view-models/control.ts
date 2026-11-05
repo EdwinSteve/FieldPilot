@@ -1,12 +1,11 @@
 // The Stop and Talk screens: small enough to share a file.
 import { en } from "../i18n/en";
 import { formatClock, relativeDay } from "../lib/farmTime";
-import { forecastOfDay } from "../lib/forecast";
 import { activeRun } from "../lib/irrigationRun";
 import { clipLength, type LookedAt } from "../lib/lookedAt";
 import { cropLabel } from "../lib/names";
 import { hrefOf } from "../lib/route";
-import { isWatering, pendingTasks, plotOffset, soilAt, type FarmSnapshot } from "./snapshot";
+import { isWatering, pendingTasks, plotOffset, rainNext24h, soilAt, type FarmSnapshot } from "./snapshot";
 import { firstDecision } from "./today";
 import type { ChatExchange, StopView, TalkChip, TalkExchange, TalkView } from "./types";
 
@@ -58,7 +57,7 @@ function chipOf(snapshot: FarmSnapshot, source: LookedAt): TalkChip | null {
     if (soil === null) return null;
     return { kind: source, text: en.talk.chipSoil(soil.value, soil.fieldCapacity) };
   }
-  const rainMm = forecastOfDay(snapshot.verdicts, snapshot.clock.now, plotOffset(snapshot));
+  const rainMm = rainNext24h(snapshot);
   return rainMm === null ? null : { kind: source, text: en.talk.chipRain(rainMm) };
 }
 

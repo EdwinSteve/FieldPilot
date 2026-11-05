@@ -12,6 +12,7 @@ const LOOK: Record<UpdateKind, { icon: IconName; level: Level; tone?: CircleTone
   satellite: { icon: "satellite", level: "watch" },
   report: { icon: "document", level: "neutral" },
   said_no: { icon: "close", level: "neutral" },
+  work: { icon: "field", level: "info" },
   problem: { icon: "warning", level: "bad" },
   alert: { icon: "warning", level: "bad" },
 };

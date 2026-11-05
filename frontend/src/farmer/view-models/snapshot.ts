@@ -10,8 +10,12 @@ import type {
   Reading,
   Report,
   Task,
+  Weather,
   Zone,
 } from "../../types/api";
+import type { HealthResponse } from "../../types/health";
+import { forecastOfDay } from "../lib/forecast";
+import { plotDay } from "../../lib/format";
 import type { PlanAtSowing } from "../api/lifecycle";
 import { en } from "../i18n/en";
 import { zoneLabel } from "../lib/names";
@@ -23,6 +27,10 @@ import type { HarvestInfo, SoilReading } from "./types";
 
 export interface FarmSnapshot {
   chatLive: boolean;
+  /** What answers: the live Muse Spark or a labeled replay (D094). Absent in older fixtures. */
+  health?: HealthResponse;
+  /** The forecast the gate reads (D095); null when the backend has none for the plot. */
+  weather?: Weather | null;
   plot: Plot;
   clock: Clock;
   /** The zone the screens lead with: the one that needs the farmer most (lib/zones). */
@@ -97,6 +105,52 @@ export function isWatering(task: Task): boolean {
   return task.action_type === "irrigation" || task.action_type === "extra_irrigation";
 }
 
+/** What the agronomist proposes besides water (D093): the farmer does it by hand. */
+const FIELD_WORK = new Set(["fertilizer", "agrochemical", "scouting_visit", "stress_alert"]);
+
+export function isFieldWork(task: Task): boolean {
+  return FIELD_WORK.has(task.action_type);
+}
+
+/** "Urea, 100 kg/ha" for an input; null for a visit or an alert. */
+export function doseOf(task: Task): string | null {
+  const product = task.params.product;
+  const dose = task.params.dose_kg_ha;
+  if (typeof product !== "string") return null;
+  return typeof dose === "number" ? en.fieldWork.dose(product, roundReading(dose)) : product;
+}
+
+/** The task as the farmer names it: "Fertilizer for Zone 2". */
+export function fieldWorkTitle(task: Task, zone: string): string {
+  const name = en.fieldWork.names[task.action_type] ?? en.fieldWork.other;
+  return en.fieldWork.title(name, zone);
+}
+
+/**
+ * Rain in the next 24 h: the forecast endpoint when there is one (D095), otherwise
+ * the newest gate verdict of today. Null: nothing says, which is not "no rain".
+ */
+export function rainNext24h(snapshot: FarmSnapshot): number | null {
+  const fromForecast = snapshot.weather?.rain_next_24h_mm;
+  if (fromForecast !== undefined && fromForecast !== null) return roundRain(fromForecast);
+  return forecastOfDay(snapshot.verdicts, snapshot.clock.now, plotOffset(snapshot));
+}
+
+/** The forecast's rain that falls on the plot-local day of `dayIso`; null when it does not cover it. */
+export function rainOnDay(snapshot: FarmSnapshot, dayIso: string): number | null {
+  const offset = plotOffset(snapshot);
+  const day = plotDay(dayIso, offset);
+  const hours = (snapshot.weather?.hours ?? []).filter(
+    (hour) => plotDay(hour.hour_ending, offset) === day && hour.rain_mm !== null,
+  );
+  if (hours.length === 0) return null;
+  return roundRain(hours.reduce((total, hour) => total + (hour.rain_mm ?? 0), 0));
+}
+
+function roundRain(mm: number): number {
+  return Math.round(mm * 10) / 10;
+}
+
 export function pendingTasks(snapshot: FarmSnapshot): Task[] {
   return snapshot.tasks.filter((task) => task.status === "pending_approval");
 }
@@ -108,7 +162,24 @@ export function eventOfTask(events: readonly LogEvent[], taskId: number): LogEve
 export function questionOf(task: Task, zone: string): string {
   if (task.action_type === "irrigation") return en.task.water(zone);
   if (task.action_type === "extra_irrigation") return en.task.extraWater(zone);
+  if (isFieldWork(task)) return en.fieldWork.question(fieldWorkTitle(task, zone));
   return en.task.other;
+}
+
+/** LIVE or REPLAY, as /health says it (D094); null for a backend that does not say. */
+export function modeBadge(snapshot: FarmSnapshot): { live: boolean; text: string; title: string } | null {
+  const health = snapshot.health;
+  if (health === undefined) return null;
+  const replay = health.llm_mode === "replay" || (health.llm_mode === undefined && health.mock_llm);
+  return replay
+    ? { live: false, text: en.mode.replay(health.replay?.recorded_on ?? null), title: en.mode.replayTitle }
+    : { live: true, text: en.mode.live(health.agent_model ?? null), title: en.mode.liveTitle };
+}
+
+/** The farmer's name of the zone a task is for; the lead zone's when it has none. */
+export function zoneNameOf(snapshot: FarmSnapshot, zoneId: number | null): string {
+  const found = snapshot.zones.find((entry) => entry.zone.id === zoneId);
+  return found === undefined ? zoneName(snapshot) : zoneLabel(found.zone.name);
 }
 
 export function plotOffset(snapshot: FarmSnapshot): number {

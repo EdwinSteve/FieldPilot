@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { BackLink } from "../components/BackHeader";
 import { BigButton, BigLink } from "../components/BigButton";
 import { Chip } from "../components/Chip";
-import { Icon } from "../components/Icon";
+import { Icon, PlantIcon } from "../components/Icon";
 import { IconCircle } from "../components/IconCircle";
 import { LEVEL_TEXT } from "../components/levelStyle";
 import { MoistureDrop } from "../components/MoistureDrop";
@@ -13,7 +13,7 @@ import type { ApprovalOutcome } from "../lib/approvalOutcome";
 import { hrefOf } from "../lib/route";
 import { soilStatus } from "../lib/soilStatus";
 import { soilLevel } from "../lib/statusLevel";
-import type { Approval, DecisionView } from "../view-models/types";
+import type { Approval, DecisionView, FieldWorkFacts } from "../view-models/types";
 
 type Step =
   | { name: "ask" }
@@ -35,10 +35,18 @@ function doneCopy(step: Extract<Step, { name: "done" }>, view: DecisionView) {
   }
   if (step.answer === "no") {
     return {
-      title: en.decide.noWater,
+      title: view.work === null ? en.decide.noWater : en.fieldWork.noTitle,
       detail: step.withReason ? en.decide.noWaterSaved : en.decide.noWaterSkipped,
       icon: "check" as const,
       tone: "neutral" as const,
+    };
+  }
+  if (view.work !== null) {
+    return {
+      title: en.fieldWork.yesTitle,
+      detail: en.fieldWork.yesDetail,
+      icon: "check" as const,
+      tone: "good" as const,
     };
   }
   switch (step.outcome) {
@@ -102,11 +110,18 @@ function Ask({
     <main className="flex min-h-0 flex-1 flex-col gap-4.5 overflow-y-auto px-4.5 pt-2 pb-5">
       <div className="flex flex-col items-center gap-3.5 pt-2">
         <IconCircle tone="undo" size="hero">
-          <Icon name="dropRipple" size={66} strokeWidth={1.6} />
+          {view.work === null ? (
+            <Icon name="dropRipple" size={66} strokeWidth={1.6} />
+          ) : (
+            <PlantIcon size={66} />
+          )}
         </IconCircle>
         <h1 className="text-center text-title font-extrabold tracking-title">{view.question}</h1>
         <span className="text-center text-lead leading-snug text-ink-2">{view.why}</span>
       </div>
+      {view.work !== null ? (
+        <FieldWorkFactsCard work={view.work} />
+      ) : (
       <div className="rounded-card bg-surface px-5 py-1.5">
         <FactRow
           icon={<MoistureDrop {...view.soil} size={34} />}
@@ -140,6 +155,7 @@ function Ask({
           }
         />
       </div>
+      )}
       {view.stopped ? (
         <p className="mt-auto text-center text-body font-bold text-stop">{en.decide.stoppedNote}</p>
       ) : null}
@@ -163,10 +179,34 @@ const REASON_NUMBER =
   "flex size-10 shrink-0 items-center justify-center rounded-full bg-ground text-lead font-extrabold text-primary";
 const MAX_REASON_CHARS = 500;
 
+/** The agronomist's task: what, when and why, in its own words (D093). */
+function FieldWorkFactsCard({ work }: { work: FieldWorkFacts }) {
+  return (
+    <div className="flex flex-col gap-3 rounded-card bg-surface px-5 py-4">
+      {work.dose === null ? null : (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-caption font-semibold text-ink-2">{en.fieldWork.what}</span>
+          <span className="text-row font-extrabold">{work.dose}</span>
+        </div>
+      )}
+      <div className="flex flex-col gap-0.5">
+        <span className="text-caption font-semibold text-ink-2">{en.fieldWork.when}</span>
+        <span className="text-lead font-bold">{work.when}</span>
+      </div>
+      <div className="flex flex-col gap-0.5">
+        <span className="text-caption font-semibold text-ink-2">{en.fieldWork.why}</span>
+        <p className="text-body leading-snug">{work.rationale}</p>
+      </div>
+    </div>
+  );
+}
+
 function Reason({
+  reasons,
   onPick,
   onOther,
 }: {
+  reasons: readonly string[];
   onPick: (reason?: string) => void;
   onOther: () => void;
 }) {
@@ -175,7 +215,7 @@ function Reason({
       <h1 className="mx-0.5 text-title-md font-extrabold tracking-title">{en.decide.whyNot}</h1>
       <span className="px-0.5 text-body text-ink-2">{en.decide.pickOne}</span>
       <div className="flex flex-col gap-2.5">
-        {en.decide.reasons.map((reason, index) => (
+        {reasons.map((reason, index) => (
           <button
             key={reason}
             type="button"
@@ -187,7 +227,7 @@ function Reason({
           </button>
         ))}
         <button type="button" onClick={onOther} className={REASON_BUTTON}>
-          <span className={REASON_NUMBER}>{en.decide.reasons.length + 1}</span>
+          <span className={REASON_NUMBER}>{reasons.length + 1}</span>
           {en.decide.anotherReason}
         </button>
       </div>
@@ -323,7 +363,11 @@ export function DecideScreen({ view, onApprove, onReject, saved }: DecideScreenP
         ) : null}
         {step.name === "ask" && !view.open ? <Closed /> : null}
         {step.name === "reason" ? (
-          <Reason onPick={reject} onOther={() => setStep({ name: "other" })} />
+          <Reason
+            reasons={view.work === null ? en.decide.reasons : en.fieldWork.noReasons}
+            onPick={reject}
+            onOther={() => setStep({ name: "other" })}
+          />
         ) : null}
         {step.name === "other" ? (
           <OtherReason onSave={reject} onBack={() => setStep({ name: "reason" })} />

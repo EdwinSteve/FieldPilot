@@ -8,6 +8,7 @@ import type {
   DailyCycleResult,
   EmergencyStop,
   Imagery,
+  Weather,
   LogEvent,
   Notification,
   Plot,
@@ -29,6 +30,7 @@ export const api = {
   plots: () => getJson<Plot[]>("/plots"),
   zones: (plotId: number) => getJson<Zone[]>(`/plots/${plotId}/zones`),
   imagery: (plotId: number) => getJson<Imagery>(`/plots/${plotId}/imagery`),
+  weather: (plotId: number) => getJson<Weather>(`/plots/${plotId}/weather`),
   imageryImageUrl: (plotId: number) => apiUrl(`/plots/${plotId}/imagery/image`),
   readings: (zoneId: number, limit = 200) =>
     getJson<SensorReadings[]>(`/readings?zone_id=${zoneId}&limit=${limit}`),

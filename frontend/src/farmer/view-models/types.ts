@@ -66,6 +66,16 @@ export interface TodayView {
   week: WeekDay[];
   /** Nearly or already harvest time, or a manual crop to record; null otherwise. */
   harvest: TodayHarvest | null;
+  /** The agronomist's tasks the farmer does by hand, waiting for Done (D093). */
+  fieldWork: FieldWorkItem[];
+  /** LIVE or REPLAY, from /health (D094); null when the backend does not say. */
+  mode: ModeBadge | null;
+}
+
+export interface ModeBadge {
+  live: boolean;
+  text: string;
+  title: string;
 }
 
 /** Said once on Today after "I've already planted it": what happens next. */
@@ -95,6 +105,23 @@ export interface DecisionView {
   open: boolean;
   /** True while the emergency stop forbids a yes (D004). */
   stopped: boolean;
+  /** The agronomist's field work (D093): its own facts replace soil, rain and water. */
+  work: FieldWorkFacts | null;
+}
+
+export interface FieldWorkFacts {
+  title: string;
+  /** "Urea, 100 kg/ha"; null for a visit or an alert. */
+  dose: string | null;
+  when: string;
+  rationale: string;
+}
+
+/** A task the agronomist planned that the farmer does by hand, waiting for Done. */
+export interface FieldWorkItem {
+  taskId: number;
+  title: string;
+  detail: string;
 }
 
 export type TalkStatus = "idle" | "starting" | "listening" | "thinking";
@@ -157,6 +184,7 @@ export type UpdateKind =
   | "satellite"
   | "report"
   | "said_no"
+  | "work"
   | "problem"
   | "alert";
 
@@ -381,6 +409,8 @@ export interface Farm {
   /** Marks these read without a word: no "Working…", no failure notice; the next read shows it. */
   markSeen: (ids: readonly number[]) => void;
   setStopped: (stopped: boolean) => Promise<boolean>;
+  /** The farmer did a field task by hand (POST /tasks/{id}/done, D093). */
+  markDone: (taskId: number) => Promise<boolean>;
   busy: boolean;
   /** Why the last action failed, while the notice is up. */
   actionFailure: ActionFailure | null;

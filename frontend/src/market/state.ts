@@ -68,9 +68,11 @@ export interface Chat {
   turns: readonly Turn[];
   accepted: ReadonlySet<number>;
   busy: boolean;
+  /** The backend's id of this talk (D092); null until the first answer. */
+  conversationId: string | null;
 }
 
-const NO_CHAT: Chat = { turns: [], accepted: new Set(), busy: false };
+const NO_CHAT: Chat = { turns: [], accepted: new Set(), busy: false, conversationId: null };
 let chat = NO_CHAT;
 /** Bumped when the shopper changes, so an answer to the last shopper never lands in the next one's talk. */
 let chatEra = 0;
@@ -96,13 +98,16 @@ export async function askAssistant(question: string): Promise<void> {
   const era = chatEra;
   setChat((current) => ({ ...current, busy: true, turns: [...current.turns, { question, answer: null, failed: null }] }));
   let turn: Turn;
+  let conversationId = chat.conversationId;
   try {
-    turn = { question, answer: await store.ask(question), failed: null };
+    const answer = await store.ask(question, conversationId ?? undefined);
+    conversationId = answer.conversation_id || conversationId;
+    turn = { question, answer, failed: null };
   } catch (caught) {
     turn = { question, answer: null, failed: caught instanceof ApiError && caught.status === 503 ? "unavailable" : "failed" };
   }
   if (era !== chatEra) return;
-  setChat((current) => ({ ...current, busy: false, turns: [...current.turns.slice(0, -1), turn] }));
+  setChat((current) => ({ ...current, busy: false, conversationId, turns: [...current.turns.slice(0, -1), turn] }));
 }
 
 /** Put the assistant's proposed cart into the real one. */

@@ -168,6 +168,7 @@ describe("decisionView", () => {
       waterMm: 20,
       open: true,
       stopped: false,
+      work: null,
     });
   });
 

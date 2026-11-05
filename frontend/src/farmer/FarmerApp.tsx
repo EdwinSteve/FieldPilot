@@ -51,6 +51,8 @@ function screenFor(route: Route, farm: Farm, age: string | null, shell: ShellAct
       savedAnswers={farm.savedAnswers}
       onHarvested={shell.onHarvested}
       plotId={shell.plotId}
+      onFieldWorkDone={(taskId) => void farm.markDone(taskId)}
+      busy={farm.busy}
     />
   );
   switch (route.screen) {
