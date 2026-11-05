@@ -9,7 +9,7 @@ and the gate holds the irrigation (D027).
 """
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -44,24 +44,51 @@ class HourlyRain:
     latitude: float
     longitude: float
     mm_by_hour_end: dict[datetime, float | None]
+    cyclic: bool = False  # the demo's (D095): past the last hour, the series starts over
+
+    def mm(self, hour_end: datetime) -> float | None:
+        """The rain of the hour ending at `hour_end`; None when the series does not cover it."""
+        if hour_end in self.mm_by_hour_end or not self.cyclic or not self.mm_by_hour_end:
+            return self.mm_by_hour_end.get(hour_end)
+        first, last = min(self.mm_by_hour_end), max(self.mm_by_hour_end)
+        period = last - first + HOUR
+        return self.mm_by_hour_end.get(first + (hour_end - first) % period)
+
+    def covers(self, hour_end: datetime) -> bool:
+        return bool(self.mm_by_hour_end) and min(self.mm_by_hour_end) <= hour_end <= max(
+            self.mm_by_hour_end
+        )
 
     def next_24h_mm(self, at: datetime) -> float | None:
         """Sum of the hours ending in (at, ceil(at + 24 h)]: 24 of them, or 25 off the hour."""
         values: list[float | None] = []
         end = _hour_floor(at) + HOUR
         while end - HOUR < at + WINDOW:
-            values.append(self.mm_by_hour_end.get(end))
+            values.append(self.mm(end))
             end += HOUR
         known = [value for value in values if value is not None]
         return round(sum(known), 3) if len(known) == len(values) else None
+
+
+@dataclass(frozen=True)
+class HourlyOutlook:
+    """What the UI shows: the hours ahead and the 24 h total the gate uses (D095)."""
+
+    latitude: float
+    longitude: float
+    hours: tuple[tuple[datetime, float | None], ...]  # (end of the hour, mm)
+    next_24h_mm: float | None
+    repeated: bool  # some hours come from the start of the series again (demo only)
 
 
 class FixtureForecast:
     """Implements `ForecastProvider` from every `*.json` in a directory."""
 
     def __init__(self, locations: Sequence[HourlyRain], nearest_anywhere: bool = False) -> None:
-        self._locations = tuple(locations)
-        self._anywhere = nearest_anywhere  # the demo's (D089): the nearest, however far
+        # The demo's stand-ins (D089, D095): the nearest location however far, and a
+        # series that starts over after its last hour, so a long demo keeps a forecast.
+        self._locations = tuple(replace(loc, cyclic=nearest_anywhere) for loc in locations)
+        self._anywhere = nearest_anywhere
 
     @classmethod
     def from_directory(cls, directory: Path, nearest_anywhere: bool = False) -> "FixtureForecast":
@@ -75,6 +102,22 @@ class FixtureForecast:
             raise ValueError("forecast time must be timezone-aware")
         location = self._nearest(lat, lon)
         return None if location is None else location.next_24h_mm(at.astimezone(UTC))
+
+    def hourly(self, lat: float, lon: float, at: datetime, hours: int) -> HourlyOutlook | None:
+        """The `hours` hours after `at`, as the gate reads them; None: no location covers it."""
+        location = self._nearest(lat, lon)
+        if location is None:
+            return None
+        start = _hour_floor(at.astimezone(UTC)) + HOUR
+        ends = [start + n * HOUR for n in range(hours)]
+        repeated = any(not location.covers(end) and location.mm(end) is not None for end in ends)
+        return HourlyOutlook(
+            location.latitude,
+            location.longitude,
+            tuple((end, location.mm(end)) for end in ends),
+            location.next_24h_mm(at.astimezone(UTC)),
+            repeated,
+        )
 
     def _nearest(self, lat: float, lon: float) -> HourlyRain | None:
         close = [

@@ -10,6 +10,44 @@ the economics or the land, and explains every decision in plain language.
 
 ---
 
+## For judges
+
+Two ways to see FieldPilot work. Every screen shows which one is running:
+**LIVE · Muse Spark** or **REPLAY · recorded on … with …**. The badge comes
+from `GET /health` ([D094](docs/decisions.md)).
+
+| | With your own Meta Model API key (live) | Without a key (labeled replay) |
+|---|---|---|
+| Setup | `cp .env.example .env`, set `MOCK_LLM=0` and `MUSE_API_KEY=…` | `cp .env.example .env` (keeps `MOCK_LLM=1`) |
+| Check | `make preflight` confirms the key can use every configured model | — |
+| Run | `make install`, `make seed`, `make dev` | the same |
+| What you see | Every agent turn is a live Muse Spark call: the agronomist and its specialists, the farmer's chat, the store's assistant | The daily cycle replays a real recorded Muse Spark run (`data/fixtures/llm/demo-en/`); the chat and the store's assistant need the live model |
+
+The key stays in `.env`, which git ignores; CI fails if a secret is tracked.
+
+**A 3-minute route** (details in [`docs/demo.md`](docs/demo.md)):
+1. **Plan** (stage 1). Register, then create a plot. The backend downloads
+   its weather history (NASA POWER), soil (SoilGrids) and El Niño index
+   (ONI), and the trained planner ranks what to sow and when.
+2. **Run the farm** (stage 2). Press "Run daily cycle". The **agronomist**,
+   the orchestrator, consults its specialists one by one:
+   - monitoring (water);
+   - imaging (satellite NDVI and SAM 3.1 segmentation);
+   - crop health (disease risk from the zone's air);
+   - soil nutrition (pH and N-P-K);
+   - irrigation.
+
+   It then proposes what crosses domains: a fertilizer that waits for your
+   approval, or a scouting visit. Reporting writes the day's report. The
+   timeline shows each agent's turns, tools and tokens. Every action passed
+   the autonomy gate, and every number in a report was checked against what
+   the agents read.
+3. **Sell** (stage 3). Harvest, take the lot to the warehouse, and buy it in
+   the store. The shopping assistant recommends from your history, and the
+   lot's public passport shows how it was grown.
+
+---
+
 ## What it does in one picture
 
 ```mermaid
@@ -53,6 +91,39 @@ flowchart TB
 | Crop catalog | Water and nutrient needs per stage | Deciding how much and when |
 
 ---
+
+## The agent team
+
+The daily cycle is led by an orchestrator, the **agronomist**
+([D093](docs/decisions.md)). It decides which specialists to consult and
+reasons across their findings. Each specialist reads its own data and
+returns a verified result. Only the agronomist and irrigation can propose
+actions, and every proposal goes through the autonomy gate.
+
+```mermaid
+flowchart TB
+    AG((🧑‍🌾 Agronomist<br/>orchestrator))
+    AG -- consult --> MO[💧 Monitoring<br/>soil moisture]
+    AG -- consult --> IM[🛰️ Imaging<br/>NDVI · SAM 3.1]
+    AG -- consult --> CH[🍃 Crop health<br/>humid-leaf hours · vigor]
+    AG -- consult --> SN[🧪 Soil nutrition<br/>pH · N-P-K]
+    AG -- consult --> IR[🚿 Irrigation<br/>proposes water]
+    AG -- consult --> RE[📝 Reporting<br/>the farmer's report]
+    AG -- "propose_task · cancel_task<br/>(fertilizer, agrochemical, scouting, alert)" --> G{🛡️ Autonomy gate}
+    IR -- propose_action --> G
+    G --> T[📅 Tasks: run, notify, or wait for the farmer]
+```
+
+| Agent | Reads | Decides |
+|---|---|---|
+| Agronomist | the brief of every specialist, open tasks | which specialists to consult; fertilizer, agrochemical, scouting visit, stress alert; edits or cancels its own tasks |
+| Monitoring | soil moisture, field capacity, forecast, crop stage | dry, ok or wet per zone |
+| Imaging | Sentinel-2 NDVI, SAM 3.1 boxes | low vigor and bare soil per zone |
+| Crop health | 48 h of temperature and humidity, imaging | disease, pest and stress risk per zone |
+| Soil nutrition | pH and organic carbon (SoilGrids), N-P-K probe (simulated) | deficits against the crop's targets |
+| Irrigation | moisture, forecast, root depth | irrigation volumes, through the gate |
+| Reporting | the brief, the tasks | the day's report, checked number by number |
+| Chat orchestrator | the same reads, read-only | answers the farmer's questions ([D057](docs/decisions.md)) |
 
 ## What the agent can do
 

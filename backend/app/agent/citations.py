@@ -16,7 +16,7 @@ from app.agent.brief import ObservationLedger
 
 TOLERANCE = 0.05
 _EPSILON = 1e-9  # float noise, so 0.05 itself passes
-UNITS = ("mm", "%", "°C", "GDD", "kg/ha")
+UNITS = ("mm", "%", "°C", "GDD", "kg/ha", "ppm")
 _NUMBER_WITH_UNIT = re.compile(
     r"(?<![\w.,])(\d+(?:[.,]\d+)?)\s*(" + "|".join(re.escape(u) for u in UNITS) + r")(?![\w/])"
 )

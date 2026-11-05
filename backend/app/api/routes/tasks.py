@@ -21,6 +21,13 @@ def approve(task_id: int, farmer: FarmerDep, container: ContainerDep) -> TaskOut
     return TaskOut.of(container.queries.task_view(task))
 
 
+@router.post("/{task_id}/done")
+def done(task_id: int, farmer: FarmerDep, container: ContainerDep) -> TaskOut:
+    """A manual task the farmer did: a fertilizer, a scouting visit (D093)."""
+    task = container.approvals.mark_done(task_id, farmer.actor)
+    return TaskOut.of(container.queries.task_view(task))
+
+
 @router.post("/{task_id}/reject")
 def reject(
     task_id: int, farmer: FarmerDep, container: ContainerDep, body: RejectIn | None = None

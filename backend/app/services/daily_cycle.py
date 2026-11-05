@@ -1,12 +1,16 @@
-"""The daily cycle: Monitoring -> Imaging -> Irrigation -> Reporting, fixed (D044, D051, D060).
+"""The daily cycle, led by the agronomist (D093), or in the fixed order of D044 and D060.
 
-It stops at the first subagent that does not complete. A turn limit is a
-failure and the farmer is told; a pause is not, so it is only written to the
-event log and the next run retries the cycle under new run ids (D048).
+`OrchestratedCycle` (the default) runs the agronomist, which consults the
+specialists itself. `DailyCycle` keeps the fixed order: Monitoring -> Imaging
+-> Irrigation -> Reporting, and stops at the first subagent that does not
+complete. A turn limit is a failure and the farmer is told; a pause is not, so
+it is only written to the event log and the next run retries the cycle under
+new run ids (D048).
 """
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Protocol
 
 from app.agent.brief import FieldBrief
 from app.agent.loop import AgentRun, RunStatus
@@ -20,6 +24,7 @@ from app.services.gate_context import local_day
 UowFactory = Callable[[], UnitOfWork]
 ACTOR = "system:daily_cycle"
 ORDER = ("monitoring", "imaging", "irrigation", "reporting")  # D044, D060
+LEAD = "agronomist"  # D093
 FAILED_TEXT = "cycle.failed_turn_limit"
 PAUSED_TEXT = "cycle.paused_retry_next_run"
 
@@ -31,6 +36,10 @@ class DailyCycleResult:
     runs: tuple[AgentRun, ...]
     stopped_at: str | None  # the subagent that did not complete
     brief: FieldBrief
+
+
+class Cycle(Protocol):
+    def run(self, plot_id: int) -> DailyCycleResult: ...
 
 
 class DailyCycle:
@@ -81,6 +90,27 @@ class DailyCycle:
                 )
             )
             u.commit()
+
+
+class OrchestratedCycle(DailyCycle):
+    """The agronomist leads the day; its consults run inside the same session (D093)."""
+
+    def run(self, plot_id: int) -> DailyCycleResult:
+        now = self._deps.clock.now()
+        with self._uow() as u:
+            day = local_day(now, u.plots.get(plot_id))
+        session = AgentSession(self._deps, plot_id, day)
+        lead = session.run(LEAD, f"Review plot {plot_id} for {day.isoformat()} and decide "
+                                 "what it needs today.")  # fmt: skip
+        runs = tuple(session.runs)  # the specialists' runs, then the agronomist's
+        if lead.status is not RunStatus.COMPLETED:
+            self._stopped(plot_id, session.session_id, lead)
+            return DailyCycleResult(
+                session.session_id, lead.status, runs, LEAD, session.draft.freeze()
+            )
+        return DailyCycleResult(
+            session.session_id, RunStatus.COMPLETED, runs, None, session.draft.freeze()
+        )
 
 
 def _task(subagent: str, plot_id: int, session: AgentSession) -> str:

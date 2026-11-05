@@ -15,6 +15,7 @@ from app.market.models import (
     OrderLine,
     OrderStatus,
     PriceBreakdown,
+    ShopperTurn,
 )
 from app.market.pricing import respects_share, shelf_price
 from app.market.recommend.cart import ago_key
@@ -27,6 +28,7 @@ from app.market.recommend.scorers import (
     recommend,
 )
 from app.market.store import ProductView
+from app.services.shopper import with_history
 
 FEES = MarketFees(logistics_per_kg=300, platform_pct=5, min_farmer_share_pct=80)
 WEIGHTS = Weights(1.0, 0.6, 0.5, 0.7, 0.3, 1.2, due_ratio=0.8, fresh_days=7, max_discount_pct=30)
@@ -164,3 +166,23 @@ def test_the_lead_reason_is_the_one_that_adds_most() -> None:
 )  # fmt: skip
 def test_how_long_ago_is_said_as_people_say_it(days: int, key: tuple[str, int]) -> None:
     assert ago_key(days) == key
+
+
+# --- the assistant's conversation (D092) ---------------------------------------------------
+
+
+def test_the_model_reads_the_conversation_before_the_new_question() -> None:
+    at = datetime(2026, 11, 4, 12, tzinfo=UTC)
+    turns = [ShopperTurn("c1", 9, "Any deals?", "Tomato is 20 % off.", "prices_offers", at, 3)]
+
+    task = with_history("Yes, add it", turns)
+
+    assert task.splitlines() == [
+        "Earlier in this conversation (oldest first):",
+        "Customer: Any deals?",
+        "You: Tomato is 20 % off.",
+        "(You proposed cart 3.)",
+        "",
+        "The customer now asks: Yes, add it",
+    ]
+    assert with_history("Hi", []) == "Hi"

@@ -5,6 +5,7 @@ No global mutable state (principle 8): `create_app()` keeps the container on
 decides here, and only here, which model clients are real (D063).
 """
 
+import json
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -15,7 +16,7 @@ from app.agent.llm.mock import MockLLMClient
 from app.agent.llm.muse import MuseClient
 from app.agent.llm.ports import LLMClient
 from app.autonomy.gate import AutonomyGate
-from app.bootstrap import AuthSetting, Runtime, RuntimeConfig
+from app.bootstrap import AuthSetting, Runtime, RuntimeConfig, UowFactory
 from app.identity.access import AccessPolicy
 from app.identity.models import Principal
 from app.identity.passwords import Argon2Hasher
@@ -45,12 +46,13 @@ from app.services.agent_outbox import StoredOutbox
 from app.services.agent_proposals import GateProposer
 from app.services.agent_session import AgentDeps
 from app.services.agent_trace import EventLogTraceSink
+from app.services.agronomy import StoredAgronomy
 from app.services.approvals import ApprovalService
 from app.services.chat import ChatService
 from app.services.clock import ClockService
 from app.services.control import EmergencyStopService
 from app.services.cycles import CycleService
-from app.services.daily_cycle import DailyCycle
+from app.services.daily_cycle import Cycle, DailyCycle, OrchestratedCycle
 from app.services.due_tasks import DueTaskRunner
 from app.services.execution import ExecutionService
 from app.services.field_reader import StoredFieldReader
@@ -61,11 +63,11 @@ from app.services.planning import PlanningService
 from app.services.plots import PlotService
 from app.services.proposals import ProposalService
 from app.services.queries import FarmQueries
-from app.services.rain_forecast import PlotRainForecast
+from app.services.rain_forecast import PlotRainForecast, PlotWeatherService
 from app.services.revert import RevertService
 from app.services.scenarios import ScenarioService
 from app.services.sensor_kit import SensorKitInstaller
-from app.services.shopper import ShopperService, StoreShopperPort
+from app.services.shopper import ShopperConversations, ShopperService, StoreShopperPort
 from app.services.ticker import SimulationTicker
 from app.services.voice_chat import VoiceChatService
 from app.settings import Settings
@@ -83,6 +85,10 @@ class Container:
     runtime: Runtime
     config: RuntimeConfig
     mock_llm: bool  # from settings; the dashboard shows the chat state up front (D072)
+    agent_model: str | None  # MUSE_AGENT_MODEL, for the live badge (D094)
+    replay: dict[str, str | None] | None  # the replayed recording's label; None live (D094)
+    daily_cycle_kind: str  # D093
+    weather: PlotWeatherService  # the forecast the gate reads, for the UI (D095)
     clock_service: ClockService
     emergency: EmergencyStopService
     proposals: ProposalService
@@ -93,7 +99,8 @@ class Container:
     ticker: SimulationTicker
     agent_deps: Callable[[LLMClient], AgentDeps]  # every agent service, around a given model
     cycle_llm: Callable[[date], LLMClient]  # the live client, or that day's replay (D063, D076)
-    daily_cycle: Callable[[int], DailyCycle]  # for a plot, on its current local day
+    daily_cycle: Callable[[int], Cycle]  # for a plot, on its current local day
+    cycle_with: Callable[[LLMClient], Cycle]  # the configured cycle around a given model
     chat: ChatService | None  # None under MOCK_LLM=1 (D063)
     voice: VoiceChatService | None
     auth_required: bool  # False only under APP_PROFILE=demo (D082)
@@ -116,12 +123,10 @@ def build_container(
 ) -> Container:
     uow, clock = runtime.uow, runtime.clock
     demo = settings.app_profile == "demo"  # stand-ins for a plot away from the fixtures (D089)
-    forecast = PlotRainForecast(
-        uow,
-        FixtureForecast.from_directory(
-            settings.data_dir / "fixtures" / "open_meteo", nearest_anywhere=demo
-        ),
+    fixture_forecast = FixtureForecast.from_directory(
+        settings.data_dir / "fixtures" / "open_meteo", nearest_anywhere=demo
     )
+    forecast = PlotRainForecast(uow, fixture_forecast)
     gate = AutonomyGate(config.policy, config.limits)
     context = StoredGateContextProvider(uow, forecast, config.crops)
     executor = ExecutionService(uow, clock, runtime.actuator, config.messages)
@@ -139,6 +144,9 @@ def build_container(
         config.crops,
     )
 
+    sites = FileSiteSource([settings.data_dir / "fixtures" / "planner", _sites_dir(settings)])
+    agronomy = StoredAgronomy(uow, clock, config.soil_probe, sites)
+
     def agent_deps(llm: LLMClient) -> AgentDeps:
         return AgentDeps(
             llm=llm,
@@ -151,6 +159,7 @@ def build_container(
             subagents=config.subagents,
             max_turns=settings.agent_max_turns,
             new_id=lambda: uuid.uuid4().hex,
+            agronomy=agronomy,
         )
 
     live = None if settings.mock_llm else agent_deps(MuseClient.from_settings(settings))
@@ -167,9 +176,12 @@ def build_container(
         recording = recordings / f"{day.isoformat()}.json"
         return MockLLMClient.from_fixture(recording) if recording.is_file() else MockLLMClient([])
 
-    def daily_cycle(plot_id: int) -> DailyCycle:
-        llm = cycle_llm(queries.local_day(plot_id))
-        return DailyCycle(uow, agent_deps(llm), config.messages)
+    def cycle_with(llm: LLMClient) -> Cycle:
+        kind = OrchestratedCycle if settings.daily_cycle == "orchestrated" else DailyCycle
+        return kind(uow, agent_deps(llm), config.messages)
+
+    def daily_cycle(plot_id: int) -> Cycle:
+        return cycle_with(cycle_llm(queries.local_day(plot_id)))
 
     off_topic = config.messages.label("out_of_scope_farmer")
     chat = None if live is None else ChatService(uow, live, off_topic)
@@ -181,7 +193,6 @@ def build_container(
         )
     )
     recommender = build_recommender(settings.planner_dir, settings.planner_bundle)
-    sites = FileSiteSource([settings.data_dir / "fixtures" / "planner", _sites_dir(settings)])
     crop_names = _crop_names(recommender, config)
     passports = PassportService(uow, config.messages, config.messages_es)
     access = AccessPolicy(uow)
@@ -199,6 +210,10 @@ def build_container(
         runtime=runtime,
         config=config,
         mock_llm=settings.mock_llm,
+        agent_model=settings.muse_agent_model,
+        replay=_replay_label(recordings) if settings.mock_llm else None,
+        daily_cycle_kind=settings.daily_cycle,
+        weather=PlotWeatherService(uow, fixture_forecast, clock),
         clock_service=ClockService(clock, uow),
         emergency=EmergencyStopService(uow, clock),
         proposals=proposals,
@@ -210,6 +225,7 @@ def build_container(
         agent_deps=agent_deps,
         cycle_llm=cycle_llm,
         daily_cycle=daily_cycle,
+        cycle_with=cycle_with,
         chat=chat,
         voice=voice,
         auth_required=auth.required,
@@ -224,7 +240,7 @@ def build_container(
         orders=orders,
         recommendations=recommendations,
         cart_suggestions=CartSuggestionService(recommendations, store, config.messages),
-        shopper=_shopper(live, config, store, orders, recommendations, passports, clock),
+        shopper=_shopper(live, config, store, orders, recommendations, passports, clock, uow),
     )
 
 
@@ -248,6 +264,7 @@ def _shopper(
     recommendations: RecommendationService,
     passports: PassportService,
     clock: SimClock,
+    uow: UowFactory,
 ) -> ShopperService | None:
     """The shopping assistant runs on the farm agent's model, or not at all in mock mode."""
     if live is None:
@@ -264,6 +281,7 @@ def _shopper(
         lambda: uuid.uuid4().hex,
         store.proposal,
         config.messages.label("out_of_scope_customer"),
+        ShopperConversations(uow, clock),
     )
 
 
@@ -274,6 +292,22 @@ def _sensor_kit(demo: bool, config: RuntimeConfig) -> SensorKitInstaller | None:
     return SensorKitInstaller(
         config.demo_field, lambda n: config.messages.label("demo_zone", n=str(n))
     )
+
+
+RECORDED_FILE = "RECORDED.json"  # written by make record-demo next to the days (D094)
+
+
+def _replay_label(recordings: Path) -> dict[str, str | None]:
+    """When and with which model the replay was recorded; unknown values stay None."""
+    try:
+        label = json.loads((recordings / RECORDED_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        label = {}
+    return {key: _text(label.get(key)) for key in ("recorded_on", "model")}
+
+
+def _text(value: object) -> str | None:
+    return value if isinstance(value, str) else None
 
 
 def _sites_dir(settings: Settings) -> Path:

@@ -3012,3 +3012,177 @@ read, irrigates the dry zone and declines an off-topic question.
 - Before a demo, one command shows whether the model and the prompts still
   work together, and how often the checks had to correct it.
 - A live failure can be the model's: read the report card before the code.
+
+## D092 — The shopping assistant remembers the conversation and talks plainly
+
+- **Date:** 2026-11-04
+- **Status:** Accepted (2026-11-04). Edwin reported answers that made no
+  sense in the store's chat.
+
+**Context.** With the real model, the store's chat showed two faults:
+- **Follow-ups lost their context.** "What about now?" got the same list
+  as the first question. Each `POST /store/assistant` ran the model on that
+  question alone, so a follow-up such as "what about now", "yes" or "the
+  second one" had nothing to refer to. The answer's own question, "Want a
+  basket with these?", could not be answered.
+- **The model recited the reason labels.** The prompt listed the reason
+  names ("a deal on what you like, just harvested, offer of the day,
+  popular") for the model to use. It copied them as tags, several per
+  product, some redundant: "A deal on what you like, popular, and offer of
+  the day".
+
+**Decision.**
+- **A conversation.** `POST /store/assistant` takes an optional
+  `conversation_id` and always returns one. Without it, a new conversation
+  starts.
+  - **Storage.** Each answered turn is kept in `shopper_turn`: the
+    question, the answer shown, the topic and the proposal id. The table is
+    private to the customer and stays out of the farm's event log (D085).
+  - **What the model sees.** The last 6 turns go before the new question,
+    as a short transcript in the task. Only what the customer saw is
+    included, never tool results.
+  - **Ownership.** Another customer's `conversation_id` is a 404.
+- **A prompt for conversation, not for tags.**
+  - Each product gets one short reason, in plain words, from its evidence,
+    for example "you usually buy it every week" or "it's 20 % off because
+    it should be eaten within 4 days".
+  - Never list the reason names, never give two reasons that say the same
+    thing, and never repeat a product already offered unless asked.
+  - A follow-up continues the conversation. "Yes" to a basket means
+    `propose_cart` with what was offered.
+
+**Consequences.**
+- The frontend sends back the `conversation_id` it received. A "New chat"
+  button simply omits it.
+- The checks are unchanged: prices from tools, scope (D088) and proposals
+  only.
+- Whether the model now talks well is checked with the model:
+  `make e2e-live` (D091), or a live run.
+
+## D093 — The daily cycle is led by an orchestrator that reasons as an agronomist
+
+- **Date:** 2026-11-04
+- **Status:** Accepted (2026-11-04). Supersedes the fixed order of D044 and
+  D060 as the default; D057 (the chat is read-only) stands.
+
+**Context.** The daily cycle ran four subagents in an order fixed in code:
+monitoring, imaging, irrigation, reporting. No agent decided anything about
+the day as a whole, and the only orchestrator lived in the farmer's chat.
+Seen from outside, FieldPilot looked like a chatbot with a scheduled job.
+A farm needs more than water: crop health and pests, soil pH and nutrients,
+and someone who weighs them together. For example, do not fertilize before
+heavy rain, and send a person to look when the imagery and the humidity
+point to disease.
+
+**Decision.**
+- **The agronomist leads the cycle.** `DAILY_CYCLE=orchestrated` (the
+  default) runs one subagent, `agronomist`, with the task "review plot N
+  today". It decides which specialists to consult, in which order, and what
+  to do with what they find.
+  - **Consult tools.** `consult_monitoring`, `consult_imaging`,
+    `consult_crop_health`, `consult_soil_nutrition`, `consult_irrigation`
+    and `consult_reporting`. Each runs the specialist in the same session,
+    so its readings become citable, and returns the specialist's verified
+    result and the brief.
+  - **Its own actions.** `propose_task` for what crosses domains:
+    `fertilizer`, `agrochemical`, `scouting_visit` and `stress_alert`.
+    Every task goes through the autonomy gate like any other proposal.
+    Fertilizer and agrochemicals always wait for the farmer (D005). A task
+    with no actuator command is a manual task for the farmer once approved.
+  - **Editing and cancelling.** `read_tasks` lists the plot's open tasks.
+    `cancel_task` cancels an agent's task that has not run, with a reason.
+    Editing is a replacement: `propose_task` with `replaces_task_id`
+    proposes the new task through the gate, then cancels the old one. A
+    task the gate already decided is never changed in place.
+  - **Closing.** `close_day` refuses until monitoring has assessed the
+    zones and reporting has saved the day's report.
+- **Two new specialists.**
+  - `crop_health` reads the microclimate of each zone: temperature and
+    relative humidity over the last 48 h, and the hours of humid leaves
+    (RH ≥ 90 % between 10 and 30 °C, the condition fungal diseases need).
+    It also reads the imaging in the brief. It closes with
+    `submit_health`: a risk level per zone, the likely threats and the
+    citations. It proposes nothing.
+  - `soil_nutrition` reads the soil of each zone with `read_soil`: pH and
+    organic carbon from SoilGrids when the plot has site data, otherwise
+    the demo probe. Available N, P and K come from the simulated probe:
+    a starting value per zone, minus the crop's uptake as degree-days
+    accumulate, plus the fertilizer tasks approved and due. Each value
+    comes with the crop's target range. It closes with `submit_nutrition`
+    and proposes nothing.
+  - Both are read-only. The agronomist turns their findings into tasks.
+- **A new task status, `cancelled`.** It is reached from
+  `pending_approval` or `scheduled`, by the agent (`cancel_task`) only, and
+  logged as a `task_cancelled` event with the reason. A cancelled task
+  counts for nothing: no water, no nutrient.
+- **The fixed order is kept as a fallback.** `DAILY_CYCLE=pipeline` runs
+  the D044 order. The safety tests that replay recorded fixtures use it.
+
+**Consequences.**
+- The timeline shows the agronomist's turns, with the specialists' turns
+  nested under its session. The run list of `POST /agent/daily-cycle`
+  includes every run, the agronomist's last.
+- The recorded demo (D076) is re-recorded with `make record-demo`.
+- The e2e journey (D090) gets doubles for the agronomist and the two
+  specialists, and checks that a fertilizer task waits for the farmer.
+- The simulated probe values are demo values (D038). Real probes would
+  replace `SoilProbe` behind the same port.
+
+## D094 — Every screen says whether the agents are live or a labeled replay
+
+- **Date:** 2026-11-04
+- **Status:** Accepted (2026-11-04).
+
+**Context.** The judges accept either path: a local run with their own key,
+or a clearly labeled replay of a real recorded run. They must also see live
+Meta model calls in the video. Until now `/health` said only `mock_llm`, and
+nothing on screen told a replay from a live run.
+
+**Decision.**
+- **`GET /health`** adds:
+  - `llm_mode`: `live` or `replay`;
+  - `agent_model`: the live model id, or null in replay;
+  - `replay`: the date and the model of the recording, or null live;
+  - `daily_cycle` (D093), and `agents`, the farm's team, the agronomist
+    first.
+- **The label comes from the recording.** `make record-demo` writes
+  `RECORDED.json` next to the recorded days, with the date, the model and
+  the cycle mode. A replay never claims a live model.
+- **The frontend shows a permanent badge** from `/health`: "LIVE · Muse
+  Spark (`muse-spark-1.3`)" or "REPLAY · recorded on <date> with <model>".
+  That change belongs to the frontend branch.
+- **The README opens with a "For judges" section** covering both paths
+  and the 3-minute route through the product.
+
+**Consequences.**
+- The chat and the store's assistant still answer 503 in replay (D063). A
+  recording cannot answer an arbitrary question. The badge explains why
+  ("needs the live model").
+
+## D095 — The farmer sees the rain the gate reads
+
+- **Date:** 2026-11-04
+- **Status:** Accepted (2026-11-04). Edwin reported that the rain did not
+  show in the UI.
+
+**Context.** The Today screen derived the rain only from gate verdicts. With
+no irrigation proposed that day, it said "not checked". The forecast fixture
+also ends on 2026-11-10, so a demo past that date had no forecast at all, and
+the gate held every irrigation (D027).
+
+**Decision.**
+- **`GET /plots/{id}/weather`** returns:
+  - the next 48 hours of rain;
+  - the 24-hour total exactly as the gate reads it;
+  - the forecast's grid point and its `source`.
+- **One forecast for both.** The screen shows the forecast the gate decides
+  with, never a second one that could disagree.
+- **Under `APP_PROFILE=demo`, the fixture starts over after its last hour.**
+  The source then reads `open_meteo_fixture_repeated`. Outside the demo the
+  series still ends, and an unknown forecast still holds the irrigation.
+
+**Consequences.**
+- The frontend's Today screen reads this endpoint instead of the verdicts.
+  That change belongs to the frontend branch.
+- The fixture values are synthetic (`data/fixtures/open_meteo/README.md`),
+  and the screen can say so from `source`.

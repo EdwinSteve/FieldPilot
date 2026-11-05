@@ -69,6 +69,9 @@ function asString(value: Json | undefined): string | null {
 
 /** The subagent's name for the farmer. */
 export const SUBAGENT_LABELS: Record<string, string> = {
+  agronomist: "Agronomist · orchestrator",
+  crop_health: "Crop health",
+  soil_nutrition: "Soil nutrition",
   monitoring: "Monitoring",
   imaging: "Imaging",
   irrigation: "Irrigation",

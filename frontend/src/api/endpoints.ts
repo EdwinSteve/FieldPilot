@@ -39,6 +39,7 @@ export const api = {
   approve: (taskId: number) => postJson<Task>(`/tasks/${taskId}/approve`),
   reject: (taskId: number, reason?: string) =>
     postJson<Task>(`/tasks/${taskId}/reject`, reason ? { reason } : undefined),
+  done: (taskId: number) => postJson<Task>(`/tasks/${taskId}/done`),
   revert: (taskId: number) => postJson<RevertResult>(`/tasks/${taskId}/revert`),
 
   events: (params: { kind?: string; taskId?: number; limit?: number } = {}) => {

@@ -23,7 +23,8 @@ Open <http://localhost:5173/dashboard>, full screen, and check that the clock re
 **The one rule of the recorded demo.** The replay reproduces the recorded
 run only on the same clicks: the tools read the database, so a different
 action makes a different farm. Until the day-2 cycle has run:
-- **reject** the held irrigation (do not approve it);
+- **reject** every held task: the irrigation, and anything else the
+  agronomist held for approval (do not approve them);
 - do not press "Resume", the speeds, "+1 h" or "Update simulation".
 
 After the day-2 cycle, anything goes.
@@ -32,11 +33,12 @@ After the day-2 cycle, anything goes.
 
 | Time | Click | What to say |
 |---|---|---|
-| 0:00 | Open **How FieldPilot works**, then point at **Autonomy: who decides** | "FieldPilot is an agent that runs a maize field. Four subagents read the sensors, the forecast and the satellite, and propose actions. The model never touches a valve: an autonomy gate decides every action, by level and by safety rule." |
-| 0:20 | **Run daily cycle** | "Day one. The agent monitors the field, reads the satellite image, decides on irrigation and writes a report." (the **Daily cycle** stepper runs through Monitoring → Imaging → Irrigation → Report) |
+| 0:00 | Open **How FieldPilot works**, then point at **Autonomy: who decides** | "FieldPilot runs a maize field with a team of Muse Spark agents. An agronomist leads them: it consults specialists for water, satellite imagery, crop health and soil nutrients, and decides what the field needs. The model never touches a valve: an autonomy gate decides every action, by level and by safety rule." |
+| 0:20 | **Run daily cycle** | "Day one. The agronomist consults monitoring, imaging, crop health and soil nutrition, hands the water to irrigation, and has reporting write the day." (the **Daily cycle** stepper shows the agronomist and each specialist it consulted; **Agent timeline** shows every turn) |
+| 0:30 | Point at **Crop health and soil** | "It did not stop at water. It read the soil's pH and nutrients against the crop's targets, and the zone's air for disease risk. What crosses domains, such as a fertilizer or a scouting visit, the agronomist proposes itself." |
 | 0:35 | Point at **Zones** and **Satellite view** | "Zone 2 is dry: 20 % moisture against 32 % field capacity. The satellite shows low vigour and about a quarter of bare soil; SAM 3.1 found the patches." |
 | 0:45 | Point at the card in **Awaiting approval** | "The agent proposed 20 mm, but 12 mm of rain is coming. The gate held it for the farmer, and says why in plain words." |
-| 0:55 | Type *I'll wait for the rain* in **Reason (optional)**, then **Reject** | "The farmer decides to wait for the rain. That 'no' is logged as clearly as a 'yes'." |
+| 0:55 | Type *I'll wait for the rain* in **Reason (optional)**, then **Reject**; do the same on any other held card | "The farmer decides to wait for the rain. A fertilizer always waits for the farmer too. That 'no' is logged as clearly as a 'yes'." |
 | 1:05 | **Inject drought (48 h)**, then **+1 day** | "The rain does not come: we inject a drought and move to the next morning." (the clock reads 3 Nov, 06:00) |
 | 1:15 | **Run daily cycle** | "Day two. The soil dropped to 16.7 % and no rain is forecast." |
 | 1:30 | Point at **Calendar** | "This time the gate let the 20 mm run on its own: it is within every limit. The agent also scheduled the rest of the deficit for tomorrow, with notice, because the safety rules allow at most 20 mm a day." |
@@ -77,5 +79,7 @@ proposals can differ from the recording; the gate still decides each one.
 **Reset:** stop `make dev`, then `make seed` and `make dev` again.
 
 **Re-record** after changing a prompt, the seed or these steps:
-`make record-demo` (real model, about 30 calls). It saves nothing unless day 1
-holds an irrigation for approval and day 2 leaves one to revert.
+`make record-demo` (real model, about 80 calls with the agronomist, D093).
+It saves nothing unless day 1 holds an irrigation for approval and day 2
+irrigates and leaves an extra irrigation to revert. It also writes
+`RECORDED.json`, the label the REPLAY badge shows (D094).

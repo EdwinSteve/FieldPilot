@@ -44,6 +44,26 @@ farm routes work without a token, acting as one demo farmer. That keeps the
 current dashboard running. Build every new screen with tokens: production
 never runs without them.
 
+**Live or replay (D094).** `GET /health` (public) says what answers. Show
+it as a badge that is always visible:
+
+```json
+{
+  "status": "ok",
+  "mock_llm": true,
+  "llm_mode": "replay",
+  "agent_model": null,
+  "replay": {"recorded_on": "2026-11-04", "model": "muse-spark-1.3"},
+  "daily_cycle": "orchestrated",
+  "agents": ["agronomist", "crop_health", "imaging", "irrigation", "monitoring",
+             "orchestrator", "reporting", "soil_nutrition"]
+}
+```
+
+- `live`: show "LIVE · Muse Spark (`agent_model`)".
+- `replay`: show "REPLAY · recorded on `replay.recorded_on` with
+  `replay.model`". The chat and the store's assistant answer 503 in replay.
+
 ---
 
 ## 2. Login and sessions
@@ -245,6 +265,43 @@ state. It answers 409 `SiteJobPendingError` while a build is running.
 `GET /plots` returns only the plots of the logged-in user; an admin sees
 all. The other plot routes (`/zones`, `/imagery`, …) answer 403 to a user
 who is not a member.
+
+### 3.4 The rain ahead (D095)
+
+`GET /plots/{id}/weather` returns the forecast the autonomy gate decides
+with. The Today screen should read it instead of deriving the rain from
+verdicts.
+
+```json
+{
+  "plot_id": 1,
+  "source": "open_meteo_fixture",
+  "latitude": 2.95, "longitude": -75.3,
+  "as_of": "2026-11-02T11:00:00Z",
+  "rain_next_24h_mm": 12.0,
+  "hours": [{"hour_ending": "2026-11-02T12:00:00Z", "rain_mm": 0.0}, "… 48 hours"]
+}
+```
+
+- `rain_next_24h_mm` is the gate's 24 h total. `null` means unknown, and
+  the gate then holds any irrigation for approval.
+- `source` is `open_meteo_fixture`, `open_meteo_fixture_repeated` (demo,
+  past the fixture's end) or `none` (no forecast near the plot).
+
+### 3.5 The agronomist's tasks (D093)
+
+The daily cycle is led by the agronomist. Besides irrigation, it proposes
+`fertilizer`, `agrochemical`, `scouting_visit` and `stress_alert` tasks
+through the gate (`GET /tasks`). Fertilizer and agrochemicals always wait
+for approval.
+
+- `POST /tasks/{id}/approve` and `/reject`, as for irrigation.
+- `POST /tasks/{id}/done`: the farmer did a manual task (a scheduled task
+  with no machine to run it). The task becomes `executed`, and an applied
+  fertilizer shows in the lot's passport. A machine's task or an unapproved
+  one is 409.
+- A task the agronomist withdrew or replaced is `cancelled`. The reason is in
+  the event log (`task_cancelled`).
 
 ---
 
@@ -725,12 +782,22 @@ the customer buys or that goes with their basket. Its evidence adds `link`
 ```http
 POST /store/assistant
 { "question": "I'm cooking for six on Sunday, what do I need?" }
+{ "question": "Yes, add them", "conversation_id": "9f2c…" }      ← a follow-up (D092)
 ```
 ```json
 { "answer": "…", "proposal": { "id": 3, "items": [ { "listing_id": 4, "quantity_kg": 2 } ],
                                "note": "…", "status": "open" },
-  "run_id": "…" }
+  "topic": "products", "conversation_id": "9f2c…", "run_id": "…" }
 ```
+
+**The conversation (D092).**
+- **The first question** goes without `conversation_id`; the answer brings
+  one.
+- **Every follow-up sends that `conversation_id` back,** so the assistant
+  remembers the last 6 turns: "what about now?", "yes, add them", "the
+  second one".
+- **"New chat"** means omitting it.
+- **Another customer's `conversation_id`** is a 404.
 
 **How it works.**
 - **What the assistant does.** It reads the customer's history,
@@ -841,6 +908,8 @@ Both are 422. Tell them apart by the key: `error` or `detail`.
 | `role` | `farmer`, `customer`, `operator`, `admin` |
 | Site `status` | `missing`, `pending`, `ready`, `failed` |
 | Cycle `status` | `active`, `completed` |
+| Task `status` | `pending_approval`, `scheduled`, `executed`, `reverted`, `rejected`, `failed`, `cancelled` (D093) |
+| Task `action_type` (agents) | `irrigation`, `extra_irrigation`, `stop_irrigation` (irrigation); `fertilizer`, `agrochemical`, `scouting_visit`, `stress_alert` (agronomist, D093) |
 | `grade` | `extra`, `first`, `second` |
 | Planner crops | `maize`, `common_bean`, `sorghum`, `soybean`, `groundnut`, `cotton`, `tomato`, `potato` |
 | Automated crops (stage 2) | `maize` (one YAML per crop in `config/crops/`) |

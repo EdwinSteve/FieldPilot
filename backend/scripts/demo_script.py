@@ -12,7 +12,7 @@ from app.agent.llm.ports import LLMClient
 from app.container import Container
 from app.domain.enums import TaskStatus
 from app.identity.models import Principal
-from app.services.daily_cycle import DailyCycle, DailyCycleResult
+from app.services.daily_cycle import DailyCycleResult
 from app.simulator.scenarios import DroughtScenario
 
 FARMER = Principal.demo_farmer().actor  # the demo runs as the dashboard did (D082)
@@ -31,8 +31,7 @@ class DayResult:
 def run_day(container: Container, plot_id: int, llm: LLMClient) -> DayResult:
     """ "Ejecutar ciclo diario" on the plot's current local day."""
     day = container.queries.local_day(plot_id)
-    cycle = DailyCycle(container.runtime.uow, container.agent_deps(llm), container.config.messages)
-    return DayResult(day, cycle.run(plot_id))
+    return DayResult(day, container.cycle_with(llm).run(plot_id))
 
 
 def reject_held(container: Container) -> list[int]:
