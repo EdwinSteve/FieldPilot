@@ -49,6 +49,105 @@ The key stays in `.env`, which git ignores; CI fails if a secret is tracked.
 
 ---
 
+## Where to find everything
+
+A map for evaluators: every screen, the request behind it, and the code
+that answers. With `make demo` running, the frontend is on
+<http://localhost:5173> and the API on <http://localhost:8000>. FastAPI
+serves an interactive reference of every request at
+<http://localhost:8000/docs>; [`docs/api.md`](docs/api.md) has examples.
+
+### Where to watch the Meta models work
+
+| What | Where |
+|---|---|
+| Live or replay, and which model | The badge on Today (farmer app) and on the dashboard's top bar · `GET /health` |
+| Every agent turn: agent, tool called, refusals, tokens, prompt hash | Dashboard → **Event log** (grouped by agent run) · `GET /events?kind=agent_tool_call` |
+| Who the agronomist consulted, and in which order | Dashboard → **Daily cycle** stepper · the `runs` of `POST /agent/daily-cycle` |
+| What each specialist found | Dashboard → **Daily cycle** brief (zones, imagery, crop health and soil, proposals) |
+| What the agents proposed, and what the gate decided | Dashboard → **Calendar** and **Awaiting approval** · farmer app → Today and Updates · `GET /tasks`, `GET /events?kind=gate_verdict` |
+| The day's report, every number checked | Farmer app → Updates → the report · dashboard → **Daily reports** · `GET /reports` |
+| A recorded Muse Spark run, response by response | [`data/fixtures/llm/demo-en/`](data/fixtures/llm/demo-en/) and its `RECORDED.json` |
+| The model's report card against the real API | `make e2e-live` (needs your key) |
+
+### The farmer app: <http://localhost:5173>
+
+| Screen | Address | What it shows | Requests |
+|---|---|---|---|
+| Welcome, sign up, log in | `#/`, `#/signup`, `#/login` | Phone and password accounts (D082) | `POST /auth/register`, `POST /auth/login` |
+| New plot | `#/setup` | Map pin, area; the site data starts building | `POST /plots`, then `GET /plots/{id}/site` until `ready` |
+| What to plant (stage 1) | `#/advice` | The planner's ranking of crops and sowing weeks for this plot | `GET /plots/{id}/planting-plan`, `POST /plots/{id}/cycles` |
+| Today | `#/today` | Status, soil, rain and plants; what needs you; **For you to do**; the LIVE/REPLAY badge | `GET /plots/{id}/zones`, `/readings`, `/plots/{id}/weather`, `/tasks`, `/health` |
+| A decision | `#/decide/{task}` | Yes or no on a held task: water with soil and rain, or a fertilizer with what, when and why | `POST /tasks/{id}/approve`, `POST /tasks/{id}/reject` |
+| Talk | `#/talk` | The chat orchestrator, by text or voice (live model only) | `POST /agent/chat`, `POST /agent/chat/voice` |
+| Updates | `#/updates` | What FieldPilot did: watered, held, planned, done, withdrawn, reports | `GET /tasks`, `/events`, `/reports`, `/notifications` |
+| Report | `#/report/{id}` | The day's report and the soil as it was then | `GET /reports` |
+| Field and zone | `#/field`, `#/zone/{id}` | The satellite image with SAM 3.1's bare patches; one zone's soil | `GET /plots/{id}/imagery`, `/imagery/image` |
+| Plan | `#/plan` | The watering calendar | `GET /tasks` |
+| Sales | `#/sales` | List a harvested lot, take it to the warehouse, follow its sales | `POST /lots/{code}/listings`, `POST /listings/{id}/dispatch` |
+| Emergency stop | `#/stop` | Stops anything that adds water | `POST /emergency-stop` |
+| Settings | `#/settings` | Account, look, sign out | `GET /auth/me`, `POST /auth/logout` |
+
+The agronomist's manual tasks are marked done from Today with
+`POST /tasks/{id}/done`. Undo on a notified watering is
+`POST /tasks/{id}/revert`.
+
+### The marketplace: <http://localhost:5173/market>
+
+| Screen | Address | What it shows | Requests |
+|---|---|---|---|
+| Shop | `#/` | Products, offers of the day, clearance | `GET /store/products`, `/store/offers/today`, `/store/recommendations` |
+| Product | `#/product/{id}` | Price split (the farmer keeps at least 80%), freshness, the lot | `GET /store/products/{id}` |
+| Cart | `#/cart` | The cart and the assistant's suggestion ("Add it", "Find me a better deal") | `GET /store/cart`, `PUT /store/cart/items/{id}`, `GET /store/cart/suggestion` |
+| Assistant | `#/assistant` | The Muse Spark shopping agent; it remembers the talk and proposes a cart | `POST /store/assistant`, `POST /store/cart-proposals/{id}/accept` |
+| Orders | `#/orders`, `#/order/{id}` | Checkout and the purchase record | `POST /store/checkout`, `GET /store/orders` |
+| Lot passport (public) | `#/lot/{code}` | How the lot was grown, sealed with a hash chain | `GET /trace/{code}` |
+| Warehouse (operator) | `#/warehouse` | Receive incoming lots and deliver orders | `GET /listings`, `POST /shipments/{id}/receive`, `POST /orders/{id}/deliver` |
+| Account | `#/account` | Customer profile | `GET /store/profile`, `PUT /store/profile` |
+
+An operator account has no public sign-up: create one with
+`make user PHONE=+573000000000 NAME="Warehouse" ROLE=operator`.
+
+### The operator dashboard: <http://localhost:5173/dashboard>
+
+The view for watching the agents. It runs the demo farm `make seed` builds.
+
+| Panel | What it shows | Requests |
+|---|---|---|
+| Top bar | Simulated clock, **Run daily cycle**, +1 h, +1 day, the LIVE/REPLAY badge | `POST /agent/daily-cycle`, `POST /clock`, `GET /health` |
+| How FieldPilot works · Autonomy: who decides | The flow and the autonomy level of every action type | `GET /autonomy/policy` |
+| Daily cycle | The agronomist and each specialist it consulted, with turns; the brief | the response of `POST /agent/daily-cycle` |
+| Zones · Satellite view | Soil moisture per zone; NDVI and SAM 3.1 boxes | `GET /plots/{id}/zones`, `/readings`, `/imagery` |
+| Awaiting approval · Calendar | Held tasks with the gate's rule; every task, with revert | `GET /tasks`, `POST /tasks/{id}/approve`, `/reject`, `/revert`, `/done` |
+| Event log | Every agent turn, verdict, execution and revert | `GET /events` |
+| Daily reports · Notices | The reports and the farmer's notices | `GET /reports`, `GET /notifications` |
+| Simulation | Inject a drought, tick the simulator | `POST /simulation/scenarios`, `POST /simulation/tick` |
+| Ask the agent | The chat, by text or voice (live model only) | `POST /agent/chat`, `POST /agent/chat/voice` |
+
+In replay mode, the recorded days fit the seeded farm and the steps of
+[`docs/demo.md`](docs/demo.md). A plot you create yourself needs the live
+model for its daily cycle.
+
+### Where the code is
+
+| Piece | Code | Prompt or config |
+|---|---|---|
+| The daily cycle, led by the agronomist | [`backend/app/services/daily_cycle.py`](backend/app/services/daily_cycle.py) | [`config/agents/en/agronomist.md`](config/agents/en/agronomist.md) |
+| The agronomist's tools: consult, propose, cancel, close | [`backend/app/agent/tools/agronomist.py`](backend/app/agent/tools/agronomist.py) | — |
+| Crop health and soil nutrition | [`backend/app/agent/tools/agronomy.py`](backend/app/agent/tools/agronomy.py), [`backend/app/services/agronomy.py`](backend/app/services/agronomy.py) | [`config/agents/crop_health.md`](config/agents/crop_health.md), [`soil_nutrition.md`](config/agents/soil_nutrition.md), [`config/soil_probe.yaml`](config/soil_probe.yaml) |
+| Monitoring, imaging, irrigation, reporting | [`backend/app/agent/tools/`](backend/app/agent/tools/) | [`config/agents/`](config/agents/) |
+| Which agent holds which tools | [`backend/app/agent/catalog.py`](backend/app/agent/catalog.py) | — |
+| The agent loop (one tool per turn, validated) | [`backend/app/agent/loop.py`](backend/app/agent/loop.py) | — |
+| The Muse Spark client (Responses API) | [`backend/app/agent/llm/muse.py`](backend/app/agent/llm/muse.py) | `.env`: `MUSE_AGENT_MODEL` |
+| The number check (every figure cites a reading) | [`backend/app/agent/citations.py`](backend/app/agent/citations.py) | — |
+| The autonomy gate and the safety rules | [`backend/app/autonomy/gate.py`](backend/app/autonomy/gate.py), [`backend/app/safety/rules.py`](backend/app/safety/rules.py) | [`config/autonomy.yaml`](config/autonomy.yaml), [`config/safety.yaml`](config/safety.yaml) |
+| The planner (stage 1) | [`planner/`](planner/), served by [`backend/app/planning/`](backend/app/planning/) | [`planner/README.md`](planner/README.md) |
+| The shopping agent and the recommender | [`backend/app/services/shopper.py`](backend/app/services/shopper.py), [`backend/app/market/recommend/`](backend/app/market/recommend/) | [`config/agents/en/shopper.md`](config/agents/en/shopper.md) |
+| The passport's hash chain | [`backend/app/market/trace/`](backend/app/market/trace/) | — |
+| Every design decision, with its reason | [`docs/decisions.md`](docs/decisions.md) (D001–D095) | — |
+
+---
+
 ## What it does in one picture
 
 ```mermaid
